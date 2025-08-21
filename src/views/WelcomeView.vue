@@ -1,0 +1,289 @@
+<script setup>
+import { ref, onMounted } from "vue";
+import { useWindows } from "@/composables/useWindows";
+
+const { closeWindow, sizerRef, sizerData, centerWindow, resizeWindowTo } =
+  useWindows();
+
+onMounted(async () => {
+  await resizeWindowTo("welcome", 450, 455);
+  await centerWindow("welcome");
+});
+
+const showTour = ref(false);
+
+const currentStep = ref(0);
+
+const steps = ref([
+  {
+    id: 1,
+    title: "Click on widget",
+    image:
+      window.electron.platform === "darwin"
+        ? "1-step-mac.png"
+        : "1-step-win.png",
+  },
+  {
+    id: 2,
+    title: "Click and drag to make a crop and select from any options",
+    image: "2-step.png",
+  },
+  {
+    id: 3,
+    title: "Right click widget for all the menu options",
+    image:
+      window.electron.platform === "darwin"
+        ? "3-step-mac.png"
+        : "3-step-win.png",
+  },
+]);
+
+const startTour = async () => {
+  showTour.value = true;
+  await centerWindow("welcome");
+  await resizeWindowTo("welcome", 420, 455);
+};
+
+const finishSetup = () => {
+  try {
+    window.electronStore?.set("welcomeCompleted", true);
+  } catch (error) {
+    console.error("Error saving welcome completion status:", error);
+  }
+  closeWindow("welcome");
+};
+
+const nextStep = async () => {
+  if (currentStep.value < steps.value.length - 1) {
+    const nextIndex = currentStep.value + 1;
+    currentStep.value = nextIndex;
+    if (currentStep.value === 2) {
+      await resizeWindowTo("welcome", 420, 1000);
+    }
+  } else {
+    finishSetup();
+  }
+};
+
+const goToStep = async (index) => {
+  if (currentStep.value === index) return;
+  currentStep.value = index;
+  if (currentStep.value === 2) {
+    await resizeWindowTo("welcome", 420, 1000);
+  }
+};
+
+const getImageUrl = (name) => {
+  return new URL(`../assets/images/${name}`, import.meta.url).href;
+};
+</script>
+
+<template>
+  <div class="welcome-window">
+    <transition name="slide-fade" mode="out-in">
+      <div
+        v-if="!showTour"
+        key="welcome"
+        class="welcome-screen relative flex flex-col items-center justify-center overflow-hidden bg-white dark:bg-dark-900 drag rounded-2xl size-[450px]"
+      >
+        <!-- Background shapes -->
+        <img
+          src="@/assets/images/welcome-shape.png"
+          alt="Welcome to Snaplark"
+          class="absolute top-0 left-0 w-full h-full z-0"
+        />
+
+        <img
+          src="@/assets/images/welcome-shape-2.png"
+          alt="Welcome to Snaplark"
+          class="absolute top-0 left-0 w-full h-full z-0"
+        />
+
+        <!-- Close button -->
+        <button
+          @click="closeWindow('welcome')"
+          class="absolute flex items-center justify-center rounded-full top-3 right-3 cursor-pointer hover:bg-gray-400/80 no-drag"
+        >
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 46 46"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              opacity="0.4"
+              d="M23.0002 42.1667C33.5856 42.1667 42.1668 33.5855 42.1668 23C42.1668 12.4146 33.5856 3.83334 23.0002 3.83334C12.4147 3.83334 3.8335 12.4146 3.8335 23C3.8335 33.5855 12.4147 42.1667 23.0002 42.1667Z"
+              fill="#6C82A3"
+            />
+            <path
+              d="M25.0316 23L29.4399 18.5917C29.9958 18.0358 29.9958 17.1158 29.4399 16.56C28.8841 16.0042 27.9641 16.0042 27.4083 16.56L22.9999 20.9683L18.5916 16.56C18.0358 16.0042 17.1158 16.0042 16.5599 16.56C16.0041 17.1158 16.0041 18.0358 16.5599 18.5917L20.9683 23L16.5599 27.4083C16.0041 27.9642 16.0041 28.8842 16.5599 29.44C16.8474 29.7275 17.2116 29.8617 17.5758 29.8617C17.9399 29.8617 18.3041 29.7275 18.5916 29.44L22.9999 25.0317L27.4083 29.44C27.6958 29.7275 28.0599 29.8617 28.4241 29.8617C28.7883 29.8617 29.1524 29.7275 29.4399 29.44C29.9958 28.8842 29.9958 27.9642 29.4399 27.4083L25.0316 23Z"
+              fill="#6C82A3"
+            />
+          </svg>
+        </button>
+
+        <!-- Content -->
+        <div class="z-10 flex flex-col items-center">
+          <div>
+            <img
+              class="w-80"
+              src="@/assets/images/welcome-logo.png"
+              alt="Welcome to Snaplark"
+            />
+            <p class="dark:text-white text-center">screen capture software</p>
+          </div>
+
+          <svg
+            class="mt-8"
+            width="160"
+            height="104"
+            viewBox="0 0 190 104"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20.1592 88.5575V20.1592H95.252V103.82H35.4213C26.9923 103.82 20.1592 96.9865 20.1592 88.5575Z"
+              fill="url(#paint0_linear_13_17683)"
+            />
+            <path
+              d="M94.748 103.82V20.1592H170.345V88.5575C170.345 96.9866 163.512 103.82 155.083 103.82H94.748Z"
+              fill="url(#paint1_linear_13_17683)"
+            />
+            <path
+              d="M74.1247 0H2.65766C1.67692 0 1.18576 1.18576 1.87925 1.87925L20.1592 20.1592H94.244L74.9129 0.332344C74.7057 0.11984 74.4215 0 74.1247 0Z"
+              fill="url(#paint2_linear_13_17683)"
+            />
+            <path
+              d="M115.859 0H187.389C188.363 0 188.857 1.17193 188.177 1.86934L170.345 20.1592H94.748L115.09 0.312879C115.296 0.112282 115.572 0 115.859 0Z"
+              fill="url(#paint3_linear_13_17683)"
+            />
+            <defs>
+              <linearGradient
+                id="paint0_linear_13_17683"
+                x1="37.2945"
+                y1="22.6791"
+                x2="88.7003"
+                y2="106.844"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#2178FF" />
+                <stop offset="1" stop-color="#5698FF" />
+              </linearGradient>
+              <linearGradient
+                id="paint1_linear_13_17683"
+                x1="92.2282"
+                y1="32.2547"
+                x2="166.817"
+                y2="101.804"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#4A91FC" />
+                <stop offset="1" stop-color="#3C87FB" />
+              </linearGradient>
+              <linearGradient
+                id="paint2_linear_13_17683"
+                x1="-2.51989"
+                y1="7.44628e-07"
+                x2="100.796"
+                y2="24.695"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#2178FF" />
+                <stop offset="1" stop-color="#68A3FF" />
+              </linearGradient>
+              <linearGradient
+                id="paint3_linear_13_17683"
+                x1="132.546"
+                y1="29.2308"
+                x2="178.408"
+                y2="-3.41525e-06"
+                gradientUnits="userSpaceOnUse"
+              >
+                <stop stop-color="#2179FF" />
+                <stop offset="1" stop-color="#3485FF" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          <button
+            @click="startTour"
+            class="mt-10 px-6 py-3 font-medium text-white bg-blue-500 rounded-full shadow-lg shadow-blue-500/30 hover:bg-blue-600 focus:outline-none transition-all duration-300 ease-in-out no-drag"
+          >
+            Let's get started
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-else
+        key="tour"
+        class="tour-screen flex flex-col items-center justify-center gap-4"
+      >
+        <div class="relative bg-white rounded-2xl drag px-5 py-6 w-[420px]">
+          <div
+            class="absolute top-4 left-0 text-white bg-primary-blue py-3.5 pl-8 pr-6 rounded-tr-2xl rounded-br-2xl"
+          >
+            <span class="text-lg font-bold">{{ steps[currentStep].id }}</span>
+          </div>
+          <transition name="slide-fade" mode="out-in">
+            <div :key="currentStep">
+              <h1 class="text-base font-medium text-gray-black ml-14 mt-2">
+                {{ steps[currentStep].title }}
+              </h1>
+              <img
+                :src="getImageUrl(steps[currentStep].image)"
+                alt="Welcome to Snaplark"
+                class="w-[400px] h-auto mx-auto mt-6"
+              />
+            </div>
+          </transition>
+
+          <div class="flex justify-between items-center mt-4">
+            <button
+              @click="finishSetup"
+              class="w-full py-2 text-lg font-medium text-gray-300 rounded-full transition-all duration-300 ease-in-out no-drag cursor-pointer"
+            >
+              Skip Tour
+            </button>
+
+            <button
+              @click="nextStep"
+              class="w-full py-2 text-lg font-medium text-white bg-blue-500 rounded-full shadow-lg shadow-blue-500/30 hover:bg-blue-600 focus:outline-none transition-all duration-300 ease-in-out no-drag"
+            >
+              {{ currentStep === steps.length - 1 ? "Finish" : "Next" }}
+            </button>
+          </div>
+        </div>
+
+        <div class="flex justify-center items-center gap-2">
+          <button
+            v-for="(step, index) in steps"
+            :key="index"
+            @click="goToStep(index)"
+            :class="[
+              'w-10 h-2.5 rounded-full focus:outline-none',
+              currentStep === index ? 'bg-white' : 'bg-gray-200/60',
+            ]"
+          ></button>
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<style scoped>
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateX(20px);
+  opacity: 0;
+}
+</style>
