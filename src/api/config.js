@@ -1,59 +1,85 @@
-// API Configuration
-export const API_CONFIG = {
-  // Base URL for your API - update this to your actual API endpoint
-  // BASE_URL:
-  //   process.env.NODE_ENV === "production"
-  //     ? "https://snaplark.com/api"
-  //     : "http://snaplark.test/api",
-  BASE_URL: "http://snaplark.test/api",
+import axios from 'axios'
 
-  // Request timeout in milliseconds
-  TIMEOUT: 30000,
+// Single API Configuration - everything in one place
+export const BASE_URL = 'https://snaplark.com'
+export const API_VERSION = 'v1'
+export const PROTOCOL = 'snaplark'
 
-  // Headers that should be included in all requests
-  DEFAULT_HEADERS: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
+// Token management utilities
+export class TokenManager {
+    static getToken() {
+        return window.electronStore?.get('auth_token') || null
+    }
 
-  // API version (if your API uses ver sioning)
-  API_VERSION: "v1",
+    static setToken(token) {
+        window.electronStore?.set('auth_token', token)
+    }
 
-  // Auth-related constants
-  AUTH: {
-    TOKEN_KEY: "auth_token",
-  },
+    static removeToken() {
+        window.electronStore?.set('auth_token', null)
+    }
+}
 
-  // Custom protocol for deep linking
-  PROTOCOL: "snaplark",
+// Create the main API client
+export const apiClient = axios.create({
+    baseURL: `${BASE_URL}/api/${API_VERSION}`,
+    timeout: 30000,
+    headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+    }
+})
 
-  // Endpoints
-  ENDPOINTS: {
-    AUTH: {
-      LOGIN: "/auth/login",
-      REGISTER: "/auth/register",
-      REFRESH: "/auth/refresh",
-      LOGOUT: "/auth/logout",
-      ME: "/user",
+// Request interceptor - automatically attach auth token
+apiClient.interceptors.request.use(
+    (config) => {
+        const token = TokenManager.getToken()
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+        }
+        return config
     },
-    BLOG: {
-      POSTS: "/blogs/latest",
-    },
-    MEDIA: {
-      UPLOAD: "/media/upload",
-      UPLOADS: "/media/uploads",
-    },
-  },
-};
+    (error) => {
+        console.error('[API Request Error]', error)
+        return Promise.reject(error)
+    }
+)
 
-// Custom protocol handler URLs
-export const WEB_URLS = {
-  // BASE_URL:
-  //   process.env.NODE_ENV === "production"
-  //     ? "https://snaplark.com"
-  //     : "http://snaplark.test",
-  BASE_URL: "http://snaplark.test",
-  HELP_CENTER: "/help-center",
-  CAPTURES: "/captures",
-  PROFILE: "/account/settings",
-};
+// Response interceptor - handle errors
+apiClient.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        // Handle 401 Unauthorized - Token expired or invalid
+        if (error.response?.status === 401) {
+            // Clear tokens and emit logout event
+            TokenManager.removeToken()
+
+            // Emit custom event for auth failure
+            window.dispatchEvent(
+                new CustomEvent('auth:logout', {
+                    detail: { reason: 'token_expired' }
+                })
+            )
+        }
+
+        // Handle network errors
+        if (!error.response) {
+            console.error('[Network Error]', error.message)
+            return Promise.reject({
+                ...error,
+                message: 'Network error. Please check your connection.',
+                isNetworkError: true
+            })
+        }
+
+        // Handle other HTTP errors
+        const errorResponse = {
+            status: error.response.status,
+            message: error.response.data?.message || error.message,
+            data: error.response.data,
+            isHttpError: true
+        }
+
+        return Promise.reject(errorResponse)
+    }
+)
