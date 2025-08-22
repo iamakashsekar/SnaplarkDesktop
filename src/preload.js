@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from "electron";
 
 const storeSend = (action, key, value) =>
   ipcRenderer.sendSync("store-send", { action, key, value });
-console.log("preload.js loaded", process);
 
 contextBridge.exposeInMainWorld("electron", {
   platform: process.platform,
@@ -57,16 +56,13 @@ contextBridge.exposeInMainWorld("electronStore", {
   set: (key, value) => storeSend("set", key, value),
 });
 
-// Handle authentication responses from main process
+// Handle authentication responses from the main process
 contextBridge.exposeInMainWorld("electronAuth", {
   onAuthResponse: (callback) => {
     ipcRenderer.on("auth-response", (event, authData) => {
       callback(authData);
     });
-  },
-  removeAuthResponseListener: () => {
-    ipcRenderer.removeAllListeners("auth-response");
-  },
+  }
 });
 
 // Handle system tray screenshot trigger

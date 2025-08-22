@@ -1,13 +1,13 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import {createRouter, createWebHashHistory} from 'vue-router'
 // Import views for different window types
-import MainView from '@/views/MainView.vue'
-import SettingsView from '@/views/SettingsView.vue'
-import WelcomeView from '@/views/WelcomeView.vue'
-import TourView from '@/views/TourView.vue'
-import LoginView from '@/views/LoginView.vue'
-import ScreenshotView from '@/views/ScreenshotView.vue'
-import DesignView from '@/views/DesignView.vue'
-import { useStore } from '@/store'
+import MainView from '../views/MainView.vue'
+import SettingsView from '../views/SettingsView.vue'
+import WelcomeView from '../views/WelcomeView.vue'
+import TourView from '../views/TourView.vue'
+import LoginView from '../views/LoginView.vue'
+import ScreenshotView from '../views/ScreenshotView.vue'
+import DesignView from '../views/DesignView.vue'
+import { useStore } from '../store'
 
 const routes = [
     {

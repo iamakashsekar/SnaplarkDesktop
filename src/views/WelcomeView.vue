@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted } from "vue";
-import { useWindows } from "@/composables/useWindows";
+import {onMounted, ref} from "vue";
+import {useWindows} from "../composables/useWindows";
 
 const { closeWindow, sizerRef, sizerData, centerWindow, resizeWindowTo } =
   useWindows();
@@ -55,8 +55,7 @@ const finishSetup = () => {
 
 const nextStep = async () => {
   if (currentStep.value < steps.value.length - 1) {
-    const nextIndex = currentStep.value + 1;
-    currentStep.value = nextIndex;
+    currentStep.value = currentStep.value + 1;
     if (currentStep.value === 2) {
       await resizeWindowTo("welcome", 420, 1000);
     }

@@ -1,18 +1,20 @@
 import { defineStore } from 'pinia'
-import { TokenManager, apiClient } from '@/api/config.js'
-import connectivityService from '@/services/connectivity.js'
-import router from '@/router'
+import { TokenManager, apiClient } from './api/config.js'
+import connectivityService from './services/connectivity.js'
+import router from './router'
 
 export const useStore = defineStore('main', {
     state: () => ({
         // UI State
         isDarkMode: false,
+        isLoading: false,
 
         // Auth State
+        authError: null,
         user: null,
         isAuthenticated: false,
-        isLoading: false,
-        authError: null,
+
+        welcomeCompleted: false,
 
         // Connectivity State (synced with global service)
         isOnline: connectivityService.isOnline
@@ -51,15 +53,14 @@ export const useStore = defineStore('main', {
         // Initialize auth state (call this on app startup)
         initializeAuth() {
             const token = TokenManager.getToken()
-
             if (token && this.user) {
                 this.isAuthenticated = true
             } else {
-                this.clearAuth()
+                this.logout()
             }
         },
 
-        // Handle successful authentication (called when token is received via deeplink)
+        // Handle successful authentication (called when a token is received via deeplink)
         async handleAuthSuccess(access_token) {
             this.isLoading = true
             this.authError = null
@@ -68,54 +69,45 @@ export const useStore = defineStore('main', {
                 // Store tokens
                 if (access_token) {
                     TokenManager.setToken(access_token)
+                    console.log("Token set: ", access_token)
                 }
-
                 try {
                     const response = await apiClient.get('/user')
                     if (response.data) {
                         this.user = response.data
                         this.isAuthenticated = true
-                        router.push('/')
+                        await router.push('/')
                         setTimeout(() => {
                             window.electronWindows.showWindow('main')
-                        }, 1000)
+                        }, 500)
                     }
+                    return true
                 } catch (error) {
-                    console.warn('Failed to fetch user profile:', error)
+                    console.error('Error fetching user data:', error)
+                    this.logout(error)
+                    return false
                 }
-
-                console.log('Authentication successful')
-                return true
             } catch (error) {
                 console.error('Error handling auth success:', error)
-                this.authError = error.message
-                return false
+                this.logout(error)
             } finally {
                 this.isLoading = false
             }
         },
 
-        // Clear authentication data
-        clearAuth() {
-            TokenManager.removeToken()
-            this.user = null
-            this.isAuthenticated = false
-            this.authError = null
+        handleAuthError(error) {
+           this.logout(error)
         },
 
         // Logout
-        async logout() {
-            this.isLoading = true
-            try {
-                this.clearAuth()
-                console.log('Logged out successfully')
-            } catch (error) {
-                console.error('Error during logout:', error)
-                this.clearAuth()
-            } finally {
-                this.isLoading = false
-            }
+        logout(error = null) {
+            TokenManager.removeToken()
+            this.user = null
+            this.isAuthenticated = false
+            this.authError = error
+            this.isLoading = false
         },
+
         openExternal(url) {
             window.electron?.openExternal?.(url) || window.open(url, '_blank')
         },

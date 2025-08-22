@@ -1,13 +1,13 @@
 <script setup>
-    import whatsNewBg from '@/assets/backgrounds/whats-new-bg.png'
-    import { useStore } from '@/store'
-    import { useConnectivity } from '@/services/connectivity.js'
+    import whatsNewBg from '../assets/backgrounds/whats-new-bg.png'
+    import { useStore } from '../store'
+    import { useConnectivity } from '../services/connectivity.js'
     import { onMounted, ref } from 'vue'
     import 'vue3-carousel/carousel.css'
     import { Carousel, Slide } from 'vue3-carousel'
-    import { apiClient, BASE_URL, PROTOCOL } from '@/api/config.js'
-    import { useWindows } from '@/composables/useWindows'
-    import router from '@/router'
+    import { apiClient, BASE_URL, PROTOCOL } from '../api/config.js'
+    import { useWindows } from '../composables/useWindows'
+    import router from "../router";
 
     const { hideWindow, resizeWindowTo } = useWindows()
 
@@ -27,7 +27,7 @@
             PROTOCOL
         }&action=login&device_name=${encodeURIComponent(deviceName)}`
         store.openExternal(loginUrl)
-        hideWindow('main')
+        await hideWindow('main')
     }
 
     // Handle register button click
@@ -37,7 +37,7 @@
             PROTOCOL
         }&action=register&device_name=${encodeURIComponent(deviceName)}`
         store.openExternal(registerUrl)
-        hideWindow('main')
+        await hideWindow('main')
     }
 
     // Handle guest mode (you can implement this as needed)
@@ -83,7 +83,7 @@
     onMounted(async () => {
         await resizeWindowTo('main', 400, 650)
         if (store.isLoggedIn) {
-            router.push('/')
+            await router.push('/')
         }
         // Try to fetch blog post if online
         await handleBlogPostFetch()

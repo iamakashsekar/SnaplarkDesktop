@@ -4,7 +4,7 @@ import { createPinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import App from "./App.vue";
 import router from "./router";
-import { useStore } from "@/store.js";
+import { useStore } from "./store.js";
 
 const pinia = createPinia();
 pinia.use(piniaPluginPersistedstate);
@@ -27,11 +27,11 @@ store.initializeConnectivity();
 //   store.clearAuth();
 // });
 
-// Listen for authentication responses from main process (deeplink handling)
+// Listen for authentication responses from the main process (deeplink handling)
 if (window.electronAuth) {
   window.electronAuth.onAuthResponse((authData) => {
     if (authData.error) {
-      store.setAuthError(authData.error);
+      store.handleAuthError(authData.error);
     } else if (authData.access_token) {
       store.handleAuthSuccess(authData.access_token);
     }
