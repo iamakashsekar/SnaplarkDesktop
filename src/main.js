@@ -161,11 +161,11 @@ app.whenReady().then(() => {
 
         // Use tray position if available, otherwise fall back to the cursor position
         let referencePoint = screen.getCursorScreenPoint();
-        if (mainWindow && mainWindow.trayPosition) {
-            referencePoint = mainWindow.trayPosition;
-            // Clear the tray position after using it
-            delete mainWindow.trayPosition;
-        }
+        // if (mainWindow && mainWindow.trayPosition) {
+        //     referencePoint = mainWindow.trayPosition;
+        //     // Clear the tray position after using it
+        //     delete mainWindow.trayPosition;
+        // }
 
         const currentDisplay = screen.getDisplayNearestPoint(referencePoint);
 
