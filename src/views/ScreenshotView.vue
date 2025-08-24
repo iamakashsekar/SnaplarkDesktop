@@ -2,6 +2,7 @@
     import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
     import { apiClient } from '@/api/config.js'
 
+    // Core selection state
     const startX = ref(0)
     const startY = ref(0)
     const endX = ref(0)
@@ -9,21 +10,17 @@
     const mouseX = ref(0)
     const mouseY = ref(0)
     const displayId = ref(null)
-
-    // Centralized state management
     const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming'
     const resizingHandle = ref(null)
 
-    // Magnifier refs
+    // Magnifier state
     const magnifierActive = ref(false)
-    const magnifierSize = 200 // pixels
+    const magnifierSize = 200
     const zoomFactor = 2
     const magnifierCanvas = ref(null)
     const fullScreenImage = ref(null)
-    const selectionDimensions = ref({ width: 0, height: 0 })
-    let hasInitialPositionBeenSet = false
 
-    // Upload notification state
+    // Upload notifications
     const uploadNotifications = ref([])
     const nextNotificationId = ref(1)
 
@@ -39,71 +36,42 @@
         const offset = 10
         let left = mouseX.value + offset
         let top = mouseY.value + offset
-        const screenWidth = window.innerWidth
-        const screenHeight = window.innerHeight
 
-        if (left + magnifierSize > screenWidth) {
+        // Keep magnifier on screen
+        if (left + magnifierSize > window.innerWidth) {
             left = mouseX.value - magnifierSize - offset
         }
-
-        if (top + magnifierSize > screenHeight) {
+        if (top + magnifierSize > window.innerHeight) {
             top = mouseY.value - magnifierSize - offset
         }
 
-        return {
-            left: `${left}px`,
-            top: `${top}px`
-        }
+        return { left: `${left}px`, top: `${top}px` }
     })
 
     const toolbarStyle = computed(() => {
         const { left, top, width, height } = selectionRect.value
-        const bottom = top + height
-        const screenHeight = window.innerHeight
-        const screenWidth = window.innerWidth
-        const toolbarHeight = 60 // Approximate height of the toolbar + margin
-        const toolbarWidth = 400 // Approximate width of the toolbar
-        const margin = 10 // Margin from screen edges
+        const toolbarWidth = 400
+        const margin = 10
 
-        const selectionCenterX = left + width / 2
-        let toolbarLeft = selectionCenterX - toolbarWidth / 2
+        // Center toolbar horizontally, keep on screen
+        let toolbarLeft = Math.max(
+            margin,
+            Math.min(left + width / 2 - toolbarWidth / 2, window.innerWidth - toolbarWidth - margin)
+        )
 
-        // Ensure toolbar doesn't go off-screen on the left
-        if (toolbarLeft < margin) {
-            toolbarLeft = margin
-        }
-        // Ensure toolbar doesn't go off-screen on the right
-        else if (toolbarLeft + toolbarWidth > screenWidth - margin) {
-            toolbarLeft = screenWidth - toolbarWidth - margin
-        }
+        // Position toolbar below selection, or inside if no space
+        const toolbarTop = top + height + 70 > window.innerHeight ? top + height - 60 : top + height + 10
 
-        const position = {
-            left: `${toolbarLeft}px`,
-            transform: 'translateX(0)' // Reset any existing transform
-        }
-
-        // If there's not enough space below, place it inside
-        if (bottom + toolbarHeight > screenHeight) {
-            position.top = `${bottom - toolbarHeight}px`
-        } else {
-            position.top = `${bottom + 10}px`
-        }
-
-        return position
+        return { left: `${toolbarLeft}px`, top: `${toolbarTop}px` }
     })
 
     const handleMouseDown = (e) => {
         if (mode.value === 'confirming') return
 
-        const x = e.clientX
-        const y = e.clientY
-
         mode.value = 'selecting'
         magnifierActive.value = true
-        startX.value = x
-        startY.value = y
-        endX.value = x
-        endY.value = y
+        startX.value = endX.value = e.clientX
+        startY.value = endY.value = e.clientY
     }
 
     const handleResizeHandleMouseDown = (e, handle) => {
@@ -113,50 +81,36 @@
     }
 
     const handleMouseMove = (e) => {
-        if (!hasInitialPositionBeenSet) return
-
-        const currentX = e.clientX
-        const currentY = e.clientY
-        mouseX.value = currentX
-        mouseY.value = currentY
+        mouseX.value = e.clientX
+        mouseY.value = e.clientY
 
         if (mode.value === 'selecting') {
-            endX.value = currentX
-            endY.value = currentY
+            endX.value = e.clientX
+            endY.value = e.clientY
         } else if (mode.value === 'resizing') {
             const handle = resizingHandle.value
-            if (handle.includes('left')) startX.value = currentX
-            if (handle.includes('right')) endX.value = currentX
-            if (handle.includes('top')) startY.value = currentY
-            if (handle.includes('bottom')) endY.value = currentY
-        }
-
-        selectionDimensions.value = {
-            width: Math.round(Math.abs(endX.value - startX.value)),
-            height: Math.round(Math.abs(endY.value - startY.value))
+            if (handle.includes('left')) startX.value = e.clientX
+            if (handle.includes('right')) endX.value = e.clientX
+            if (handle.includes('top')) startY.value = e.clientY
+            if (handle.includes('bottom')) endY.value = e.clientY
         }
 
         if (magnifierActive.value) {
-            updateMagnifier(currentX, currentY)
+            updateMagnifier(e.clientX, e.clientY)
         }
     }
 
     const handleMouseUp = () => {
         if (mode.value === 'selecting') {
             magnifierActive.value = false
+            const { width, height } = selectionRect.value
 
-            // Check for click vs. drag
-            const width = Math.abs(endX.value - startX.value)
-            const height = Math.abs(endY.value - startY.value)
-
+            // If it's a click (no drag), select full screen
             if (width < 10 && height < 10) {
-                // If it's a click, select the entire current display
-                startX.value = 0
-                startY.value = 0
+                startX.value = startY.value = 0
                 endX.value = window.innerWidth
                 endY.value = window.innerHeight
             }
-
             mode.value = 'confirming'
         } else if (mode.value === 'resizing') {
             mode.value = 'confirming'
@@ -164,115 +118,102 @@
         }
     }
 
-    const updateMagnifier = async (x, y) => {
-        if (
-            !magnifierCanvas.value ||
-            !fullScreenImage.value ||
-            !fullScreenImage.value.complete ||
-            fullScreenImage.value.naturalWidth === 0 ||
-            fullScreenImage.value.naturalHeight === 0
-        )
-            return
+    const updateMagnifier = (x, y) => {
+        if (!magnifierCanvas.value || !fullScreenImage.value) return
 
-        await nextTick()
+        // Wait for image to be loaded
+        if (!fullScreenImage.value.complete || fullScreenImage.value.naturalWidth === 0) {
+            fullScreenImage.value.onload = () => updateMagnifier(x, y)
+            return
+        }
 
         try {
-            const ctx = magnifierCanvas.value.getContext('2d')
-            const dpr = window.devicePixelRatio || 1
+            const canvas = magnifierCanvas.value
+            const ctx = canvas.getContext('2d', { alpha: false })
+            if (!ctx) return
+
+            // Clear and setup canvas
             ctx.imageSmoothingEnabled = false
             ctx.clearRect(0, 0, magnifierSize, magnifierSize)
 
-            const sourceRectSize = magnifierSize / zoomFactor
-            const sourceX = Math.max(0, x * dpr - sourceRectSize / 2)
-            const sourceY = Math.max(0, y * dpr - sourceRectSize / 2)
+            const dpr = window.devicePixelRatio || 1
+            const sourceSize = magnifierSize / zoomFactor
+            const sourceX = Math.max(
+                0,
+                Math.min(x * dpr - sourceSize / 2, fullScreenImage.value.naturalWidth - sourceSize)
+            )
+            const sourceY = Math.max(
+                0,
+                Math.min(y * dpr - sourceSize / 2, fullScreenImage.value.naturalHeight - sourceSize)
+            )
 
-            // Ensure we don't try to draw outside the image bounds
-            const maxSourceX = Math.max(0, fullScreenImage.value.naturalWidth - sourceRectSize)
-            const maxSourceY = Math.max(0, fullScreenImage.value.naturalHeight - sourceRectSize)
-
-            const clampedSourceX = Math.min(sourceX, maxSourceX)
-            const clampedSourceY = Math.min(sourceY, maxSourceY)
-
+            // Draw magnified image
             ctx.drawImage(
                 fullScreenImage.value,
-                clampedSourceX,
-                clampedSourceY,
-                sourceRectSize,
-                sourceRectSize,
+                sourceX,
+                sourceY,
+                sourceSize,
+                sourceSize,
                 0,
                 0,
                 magnifierSize,
                 magnifierSize
             )
 
-            // Draw grid
-            ctx.strokeStyle = 'rgba(100, 100, 100, 0.4)'
-            ctx.lineWidth = 0.5
-            for (let i = 0; i < magnifierSize; i += zoomFactor) {
-                ctx.beginPath()
-                ctx.moveTo(i, 0)
-                ctx.lineTo(i, magnifierSize)
-                ctx.stroke()
-
-                ctx.beginPath()
-                ctx.moveTo(0, i)
-                ctx.lineTo(magnifierSize, i)
-                ctx.stroke()
-            }
-
             // Draw crosshair
             const center = magnifierSize / 2
-            ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)'
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'
             ctx.lineWidth = 1
             ctx.beginPath()
             ctx.moveTo(center, 0)
             ctx.lineTo(center, magnifierSize)
-            ctx.stroke()
-            ctx.beginPath()
             ctx.moveTo(0, center)
             ctx.lineTo(magnifierSize, center)
             ctx.stroke()
         } catch (error) {
-            console.warn('Error updating magnifier:', error)
+            console.warn('Magnifier error:', error)
         }
     }
 
-    const handleSave = () => {
-        const { left, top, width, height } = selectionRect.value
-        captureArea(left, top, width, height)
-    }
+    // Action handlers
+    const handleSave = () => captureArea()
+    const handleUpload = () => captureAndUpload()
+    const handleCopy = () => copyToClipboard()
+    const handlePrint = () => printScreenshot()
+    const handleSearch = () => searchImageGoogle()
+    const handleEdit = () => console.log('Edit action')
+    const handleCancel = () => window.electron?.cancelScreenshotMode()
 
-    const handleUpload = () => {
-        const { left, top, width, height } = selectionRect.value
-        captureAndUpload(left, top, width, height)
-    }
-
-    const captureArea = async (x, y, width, height) => {
+    const captureArea = async () => {
         try {
+            const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.takeScreenshot(
                 'area',
                 {
-                    x: Math.round(x),
-                    y: Math.round(y),
+                    x: Math.round(left),
+                    y: Math.round(top),
                     width: Math.round(width),
                     height: Math.round(height)
                 },
                 displayId.value
             )
+
             if (!result?.success) console.error('Screenshot failed:', result?.error)
         } catch (error) {
-            console.error('Error capturing area screenshot:', error)
+            console.error('Error capturing screenshot:', error)
         }
     }
 
-    const captureAndUpload = async (x, y, width, height) => {
+    const captureAndUpload = async () => {
+        const notificationId = nextNotificationId.value++
+
         try {
-            // Capture the screenshot
+            const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.captureScreenshot(
                 'area',
                 {
-                    x: Math.round(x),
-                    y: Math.round(y),
+                    x: Math.round(left),
+                    y: Math.round(top),
                     width: Math.round(width),
                     height: Math.round(height)
                 },
@@ -281,96 +222,84 @@
 
             if (!result?.success) {
                 console.error('Screenshot failed:', result?.error)
+                showUploadError(notificationId, 'Screenshot capture failed')
                 return
             }
 
-            // Convert base64 to blob
-            const base64Data = result.data.replace(/^data:image\/\w+;base64,/, '')
-            const binaryString = atob(base64Data)
-            const bytes = new Uint8Array(binaryString.length)
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i)
-            }
-            const blob = new Blob([bytes], { type: 'image/png' })
-            const file = new File([blob], `screenshot-${Date.now()}.png`, {
-                type: 'image/png'
-            })
+            // Convert to file
+            const file = base64ToFile(result.data, `screenshot-${Date.now()}.png`)
 
-            // Create notification
-            const notificationId = nextNotificationId.value++
-            const notification = {
-                id: notificationId,
-                status: 'uploading',
-                progress: 0,
-                fileSize: formatFileSize(file.size),
-                uploadedBytes: 0,
-                fileName: file.name,
-                url: null,
-                error: null,
-                remainingTime: null
-            }
-            uploadNotifications.value.push(notification)
+            // Create upload notification
+            createUploadNotification(notificationId, file)
 
-            // Upload the screenshot using direct API call
-            const formData = new FormData()
-            formData.append('file', file)
-            formData.append('type', 'screenshot')
-            formData.append('title', `Screenshot ${new Date().toLocaleString()}`)
-            formData.append('uploaded_at', new Date().toISOString())
-            formData.append('file_size', file.size.toString())
-            formData.append('file_name', file.name)
-
-            const uploadResult = await apiClient.post('/media/upload', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                },
-                onUploadProgress: (progressEvent) => {
-                    const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-                    const notif = uploadNotifications.value.find((n) => n.id === notificationId)
-                    if (notif) {
-                        notif.progress = progress
-                        notif.uploadedBytes = progressEvent.loaded
-                        notif.remainingTime = calculateRemainingTime(progressEvent)
-                    }
-                }
-            })
-
-            // Update notification based on result
-            const notif = uploadNotifications.value.find((n) => n.id === notificationId)
-            if (notif) {
-                if (uploadResult.data) {
-                    notif.status = 'completed'
-                    notif.url = uploadResult.data.media?.url || uploadResult.data.media?.public_url || '#'
-                } else {
-                    notif.status = 'failed'
-                    notif.error = uploadResult.response?.data?.message || 'Upload failed'
-                }
-            }
-
-            // Close screenshot window after successful upload
-            if (uploadResult.data) {
-                setTimeout(() => {
-                    handleCancel()
-                }, 2000)
-            }
+            // Upload file
+            await uploadFile(file, notificationId)
         } catch (error) {
-            console.error('Error capturing and uploading screenshot:', error)
+            console.error('Upload error:', error)
+            showUploadError(notificationId, error.message || 'Upload failed')
+        }
+    }
 
-            // Update existing notification if it was created
-            const notif = uploadNotifications.value.find((n) => n.id === notificationId)
-            if (notif) {
-                notif.status = 'failed'
-                notif.error = error.response?.data?.message || error.message || 'Upload failed'
+    // Helper functions
+    const base64ToFile = (base64Data, fileName) => {
+        const data = base64Data.replace(/^data:image\/\w+;base64,/, '')
+        const bytes = new Uint8Array(
+            atob(data)
+                .split('')
+                .map((c) => c.charCodeAt(0))
+        )
+        return new File([new Blob([bytes], { type: 'image/png' })], fileName, { type: 'image/png' })
+    }
+
+    const createUploadNotification = (id, file) => {
+        uploadNotifications.value.push({
+            id,
+            status: 'uploading',
+            progress: 0,
+            fileSize: formatFileSize(file.size),
+            fileName: file.name,
+            url: null,
+            error: null
+        })
+    }
+
+    const showUploadError = (id, message) => {
+        const notif = uploadNotifications.value.find((n) => n.id === id)
+        if (notif) {
+            notif.status = 'failed'
+            notif.error = message
+        } else {
+            uploadNotifications.value.push({ id, status: 'failed', error: message, fileSize: '0 MB' })
+        }
+    }
+
+    const uploadFile = async (file, notificationId) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('type', 'screenshot')
+        formData.append('title', `Screenshot ${new Date().toLocaleString()}`)
+
+        const result = await apiClient.post('/media/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (e) => updateUploadProgress(notificationId, e)
+        })
+
+        const notif = uploadNotifications.value.find((n) => n.id === notificationId)
+        if (notif) {
+            if (result.data) {
+                notif.status = 'completed'
+                notif.url = result.data.media?.url || result.data.media?.public_url || '#'
+                setTimeout(handleCancel, 2000)
             } else {
-                // Create new error notification if none exists
-                const errorNotificationId = nextNotificationId.value++
-                uploadNotifications.value.push({
-                    id: errorNotificationId,
-                    status: 'failed',
-                    error: error.response?.data?.message || error.message || 'Unknown error occurred',
-                    fileSize: '0 MB'
-                })
+                throw new Error(result.response?.data?.message || 'Upload failed')
             }
+        }
+    }
+
+    const updateUploadProgress = (id, progressEvent) => {
+        const notif = uploadNotifications.value.find((n) => n.id === id)
+        if (notif) {
+            notif.progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
         }
     }
 
@@ -379,25 +308,13 @@
         const k = 1024
         const sizes = ['Bytes', 'KB', 'MB', 'GB']
         const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
     }
 
-    const calculateRemainingTime = (progressEvent) => {
-        if (!progressEvent.loaded || !progressEvent.total) return null
-        const bytesPerSecond = progressEvent.loaded / ((Date.now() - progressEvent.timeStamp) / 1000)
-        const remainingBytes = progressEvent.total - progressEvent.loaded
-        const remainingSeconds = remainingBytes / bytesPerSecond
-        if (remainingSeconds < 60) {
-            return `${Math.round(remainingSeconds)} Second${remainingSeconds !== 1 ? 's' : ''} Remaining`
-        }
-        const remainingMinutes = Math.round(remainingSeconds / 60)
-        return `${remainingMinutes} Minute${remainingMinutes !== 1 ? 's' : ''} Remaining`
-    }
-
+    // Notification actions
     const copyUploadLink = async (url) => {
         try {
             await navigator.clipboard.writeText(url)
-            console.log('Link copied to clipboard')
         } catch (err) {
             console.error('Failed to copy link:', err)
         }
@@ -405,12 +322,7 @@
 
     const shareUploadLink = (url) => {
         if (navigator.share) {
-            navigator
-                .share({
-                    title: 'Screenshot',
-                    url: url
-                })
-                .catch((err) => console.error('Error sharing:', err))
+            navigator.share({ title: 'Screenshot', url }).catch(console.error)
         } else {
             window.open(url, '_blank')
         }
@@ -418,141 +330,100 @@
 
     const removeNotification = (id) => {
         const index = uploadNotifications.value.findIndex((n) => n.id === id)
-        if (index !== -1) {
-            uploadNotifications.value.splice(index, 1)
-        }
+        if (index !== -1) uploadNotifications.value.splice(index, 1)
     }
 
     const retryUpload = (notification) => {
         removeNotification(notification.id)
-        const { left, top, width, height } = selectionRect.value
-        captureAndUpload(left, top, width, height)
+        captureAndUpload()
     }
 
-    const copyToClipboard = async (x, y, width, height) => {
+    // Screenshot actions
+    const copyToClipboard = async () => {
         try {
+            const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.copyScreenshot(
                 'area',
                 {
-                    x: Math.round(x),
-                    y: Math.round(y),
+                    x: Math.round(left),
+                    y: Math.round(top),
                     width: Math.round(width),
                     height: Math.round(height)
                 },
                 displayId.value
             )
-            if (result?.success) {
-                console.log('Screenshot copied to clipboard successfully')
-            } else {
-                console.error('Copy to clipboard failed:', result?.error)
-            }
+
+            if (!result?.success) console.error('Copy failed:', result?.error)
         } catch (error) {
-            console.error('Error copying screenshot to clipboard:', error)
+            console.error('Error copying screenshot:', error)
         }
     }
 
-    const printScreenshot = async (x, y, width, height) => {
+    const printScreenshot = async () => {
         try {
+            const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.printScreenshot(
                 'area',
                 {
-                    x: Math.round(x),
-                    y: Math.round(y),
+                    x: Math.round(left),
+                    y: Math.round(top),
                     width: Math.round(width),
                     height: Math.round(height)
                 },
                 displayId.value
             )
-            if (result?.success) {
-                console.log('Print dialog opened successfully')
-            } else {
-                // alert("Print failed "+ result?.error);
 
-                console.error('Print failed:', result?.error)
-            }
+            if (!result?.success) console.error('Print failed:', result?.error)
         } catch (error) {
             console.error('Error printing screenshot:', error)
         }
     }
 
-    const searchImageGoogle = async (x, y, width, height) => {
+    const searchImageGoogle = async () => {
         try {
+            const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.searchImageGoogle(
                 'area',
                 {
-                    x: Math.round(x),
-                    y: Math.round(y),
+                    x: Math.round(left),
+                    y: Math.round(top),
                     width: Math.round(width),
                     height: Math.round(height)
                 },
                 displayId.value
             )
-            if (result?.success) {
-                console.log('Google Image Search opened successfully')
-            } else {
-                console.error('Google Image Search failed:', result?.error)
-            }
+
+            if (!result?.success) console.error('Search failed:', result?.error)
         } catch (error) {
             console.error('Error opening Google Image Search:', error)
         }
     }
 
-    const handleCancel = () => {
-        window.electron?.cancelScreenshotMode()
-    }
-
-    const handleCopy = () => {
-        const { left, top, width, height } = selectionRect.value
-        copyToClipboard(left, top, width, height)
-    }
-    const handlePrint = () => {
-        const { left, top, width, height } = selectionRect.value
-        printScreenshot(left, top, width, height)
-    }
-    const handleSearch = () => {
-        const { left, top, width, height } = selectionRect.value
-        searchImageGoogle(left, top, width, height)
-    }
-    const handleEdit = () => console.log('Edit action')
-
     onMounted(() => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
-        const initialMouseX = parseInt(params.get('initialMouseX') || '0', 10)
-        const initialMouseY = parseInt(params.get('initialMouseY') || '0', 10)
-        mouseX.value = initialMouseX
-        mouseY.value = initialMouseY
-
-        // Set initial position immediately to allow area selection
-        hasInitialPositionBeenSet = true
+        mouseX.value = parseInt(params.get('initialMouseX') || '0', 10)
+        mouseY.value = parseInt(params.get('initialMouseY') || '0', 10)
 
         document.addEventListener('keydown', handleCancel)
 
+        // Handle display changes
         window.electronWindows?.onDisplayChanged((data) => {
-            if (typeof data === 'object' && data.displayId) {
-                displayId.value = data.displayId
-                // Update mouse position for the new display
-                if (data.mouseX !== undefined && data.mouseY !== undefined) {
-                    mouseX.value = data.mouseX
-                    mouseY.value = data.mouseY
-                }
-            } else {
-                // Backward compatibility for old format
-                displayId.value = data
-            }
+            displayId.value = data.displayId || data
+            if (data.mouseX !== undefined) mouseX.value = data.mouseX
+            if (data.mouseY !== undefined) mouseY.value = data.mouseY
         })
 
+        // Handle magnifier data
         window.electronWindows?.onMagnifierData((dataURL) => {
-            fullScreenImage.value = new Image()
-            fullScreenImage.value.src = dataURL
-            fullScreenImage.value.onload = async () => {
-                magnifierActive.value = true
-                await nextTick()
-                // Ensure we have valid coordinates before updating magnifier
-                if (mouseX.value > 0 || mouseY.value > 0) {
+            const img = new Image()
+            img.onload = () => {
+                fullScreenImage.value = img
+                if (mouseX.value || mouseY.value) {
                     updateMagnifier(mouseX.value, mouseY.value)
                 }
             }
+            img.src = dataURL
         })
     })
 
@@ -657,7 +528,7 @@
             <div
                 v-if="mode === 'selecting' || mode === 'resizing'"
                 class="absolute -top-[30px] left-1/2 -translate-x-1/2 rounded bg-black/80 px-2 py-1 text-xs whitespace-nowrap text-white">
-                <p>{{ selectionDimensions.width }} x {{ selectionDimensions.height }}</p>
+                <p>{{ Math.round(selectionRect.width) }} x {{ Math.round(selectionRect.height) }}</p>
             </div>
         </div>
 
