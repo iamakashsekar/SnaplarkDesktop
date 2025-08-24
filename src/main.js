@@ -171,7 +171,6 @@ app.whenReady().then(() => {
         const image = await takeScreenshotForDisplay(source, 'fullscreen', null, currentDisplay)
         const dataURL = image.toDataURL()
 
-        // Create screenshot window
         const win = windowManager.createWindow('screenshot', {
             ...currentDisplay.bounds,
             params: {
@@ -181,16 +180,21 @@ app.whenReady().then(() => {
             }
         })
 
+        // Use handleOnce to securely provide the initial screenshot data to the renderer
+        // only once, when it's ready to ask for it. This avoids the race condition.
+        ipcMain.handleOnce('get-initial-magnifier-data', (event) => {
+            // Ensure the request is coming from the correct window.
+            if (event.sender === win.webContents) {
+                return dataURL
+            }
+            return null
+        })
+
         // Additional macOS specific settings for better workspace behavior
         if (process.platform === 'darwin') {
             win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
             win.setAlwaysOnTop(true, 'screen-saver', 1)
         }
-
-        // Send the magnifier data once the window is ready
-        win.webContents.once('did-finish-load', () => {
-            win.webContents.send('magnifier-data', dataURL)
-        })
 
         win.currentDisplayId = currentDisplay.id // Store for polling check
 
@@ -240,6 +244,11 @@ app.whenReady().then(() => {
                 clearInterval(screenPollInterval)
             }
         }, 100)
+
+        // Clean up the IPC handler if the window is closed before the data is requested.
+        win.on('closed', () => {
+            ipcMain.removeHandler('get-initial-magnifier-data')
+        })
     })
 
     // Handle copy screenshot to clipboard

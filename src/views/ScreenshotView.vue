@@ -400,7 +400,7 @@
         }
     }
 
-    onMounted(() => {
+    onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
         mouseX.value = parseInt(params.get('initialMouseX') || '0', 10)
@@ -408,15 +408,8 @@
 
         document.addEventListener('keydown', handleCancel)
 
-        // Handle display changes
-        window.electronWindows?.onDisplayChanged((data) => {
-            displayId.value = data.displayId || data
-            if (data.mouseX !== undefined) mouseX.value = data.mouseX
-            if (data.mouseY !== undefined) mouseY.value = data.mouseY
-        })
-
-        // Handle magnifier data
-        window.electronWindows?.onMagnifierData((dataURL) => {
+        const processMagnifierData = (dataURL) => {
+            if (!dataURL) return
             const img = new Image()
             img.src = dataURL
             img.onload = () => {
@@ -425,7 +418,26 @@
                     updateMagnifier(mouseX.value, mouseY.value)
                 }
             }
+            img.onerror = (e) => console.error('Error loading magnifier image from data URL:', e)
+        }
+
+        // Fetch the initial data from the main process once the component is mounted.
+        // This avoids a race condition where the main process sends data before the listener is ready.
+        try {
+            const initialDataURL = await window.electronWindows?.getInitialMagnifierData()
+            processMagnifierData(initialDataURL)
+        } catch (error) {
+            console.error('Failed to get initial magnifier data:', error)
+        }
+
+        // Listen for subsequent data updates (e.g., when moving to a new display)
+        window.electronWindows?.onDisplayChanged((data) => {
+            alert('Display changed!')
+            displayId.value = data.displayId || data
+            if (data.mouseX !== undefined) mouseX.value = data.mouseX
+            if (data.mouseY !== undefined) mouseY.value = data.mouseY
         })
+        window.electronWindows?.onMagnifierData(processMagnifierData)
     })
 
     onUnmounted(() => {

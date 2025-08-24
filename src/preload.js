@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld("electronWindows", {
   removeDisplayChangedListener: () => {
     ipcRenderer.removeAllListeners("display-changed");
   },
+  // Used to fetch the initial screen capture to avoid race conditions.
+  getInitialMagnifierData: () => ipcRenderer.invoke('get-initial-magnifier-data'),
   onMagnifierData: (callback) => {
     ipcRenderer.on("magnifier-data", (event, dataURL) => callback(dataURL));
   },
