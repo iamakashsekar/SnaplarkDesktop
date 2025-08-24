@@ -432,8 +432,9 @@
 
         // Listen for subsequent data updates (e.g., when moving to a new display)
         window.electronWindows?.onDisplayChanged((data) => {
-            alert('Display changed!')
-            displayId.value = data.displayId || data
+            // A leftover alert for debugging, can be removed or commented out.
+            // alert('Display changed!')
+            displayId.value = data.displayId
             if (data.mouseX !== undefined) mouseX.value = data.mouseX
             if (data.mouseY !== undefined) mouseY.value = data.mouseY
         })

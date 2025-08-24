@@ -68,6 +68,53 @@ async function takeScreenshotForDisplay(source, type, bounds, display) {
     return image
 }
 
+/**
+ * Finds the correct desktopCapturer source for a given Electron screen display object.
+ * This is necessary because the `display_id` from desktopCapturer can be inconsistent
+ * across different platforms and versions, especially on macOS and Linux.
+ * @param {Electron.Display} display The display object from `screen.getDisplayNearestPoint()`.
+ * @returns {Promise<Electron.DesktopCapturerSource | null>} The matching source or null.
+ */
+async function findSourceForDisplay(display) {
+    if (!display) return null
+
+    const displayIdStr = display.id.toString()
+    const scaleFactor = display.scaleFactor || 1
+    const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: {
+            width: Math.round(display.size.width * scaleFactor),
+            height: Math.round(display.size.height * scaleFactor)
+        },
+        fetchWindowIcons: false
+    })
+
+    if (sources.length === 0) return null
+
+    // Method 1: Exact display ID match (most reliable when it works).
+    let source = sources.find((s) => s.display_id === displayIdStr)
+    if (source) return source
+
+    // Method 2: If exact match fails, try position-based matching.
+    const displays = screen.getAllDisplays()
+    if (sources.length === displays.length) {
+        const sortedDisplays = [...displays].sort((a, b) => {
+            if (a.bounds.y !== b.bounds.y) return a.bounds.y - b.bounds.y
+            return a.bounds.x - b.bounds.x
+        })
+        const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+
+        const targetIndex = sortedDisplays.findIndex((d) => d.id === display.id)
+        if (targetIndex !== -1 && sortedSources[targetIndex]) {
+            return sortedSources[targetIndex]
+        }
+    }
+
+    // Method 3: As a last resort, fallback to the first available source.
+    console.error(`Could not reliably find screen source for displayId: ${display.id}. Falling back to first source.`)
+    return sources[0]
+}
+
 const createWindow = () => {
     // Initialize window manager
     windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME)
@@ -153,18 +200,9 @@ app.whenReady().then(() => {
         const currentDisplay = screen.getDisplayNearestPoint(referencePoint)
 
         // Get a screenshot of the current display to use for the magnifier
-        const scaleFactor = currentDisplay.scaleFactor || 1
-        const sources = await desktopCapturer.getSources({
-            types: ['screen'],
-            thumbnailSize: {
-                width: Math.round(currentDisplay.size.width * scaleFactor),
-                height: Math.round(currentDisplay.size.height * scaleFactor)
-            }
-        })
-        const source = sources.find((s) => s.display_id === currentDisplay.id.toString())
-
+        const source = await findSourceForDisplay(currentDisplay)
         if (!source) {
-            console.error(`Could not find screen source for displayId: ${currentDisplay.id}`)
+            console.error(`Could not find screen source for initial displayId: ${currentDisplay.id}`)
             return
         }
 
@@ -217,18 +255,12 @@ app.whenReady().then(() => {
                     }
 
                     // Get and send new data for the new display
-                    const newScaleFactor = display.scaleFactor || 1
-                    const newSources = await desktopCapturer.getSources({
-                        types: ['screen'],
-                        thumbnailSize: {
-                            width: Math.round(display.size.width * newScaleFactor),
-                            height: Math.round(display.size.height * newScaleFactor)
-                        }
-                    })
-                    const newSource = newSources.find((s) => s.display_id === display.id.toString())
+                    const newSource = await findSourceForDisplay(display)
                     if (newSource) {
                         const newImage = await takeScreenshotForDisplay(newSource, 'fullscreen', null, display)
                         win.webContents.send('magnifier-data', newImage.toDataURL())
+                    } else {
+                        console.error(`Could not find screen source for new displayId: ${display.id}`)
                     }
 
                     // Notify the renderer process of the display change with updated mouse coordinates
@@ -272,43 +304,7 @@ app.whenReady().then(() => {
 
             const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
-            // Get sources with correct thumbnail size for the target display
-            const scaleFactor = targetDisplay.scaleFactor || 1
-            const sources = await desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: {
-                    width: Math.round(targetDisplay.size.width * scaleFactor),
-                    height: Math.round(targetDisplay.size.height * scaleFactor)
-                },
-                fetchWindowIcons: false
-            })
-
-            // Find the source that matches our target display
-            let source = null
-
-            // Method 1: Exact display ID match
-            source = sources.find((s) => s.display_id === displayIdStr)
-
-            // Method 2: If exact match fails, try position-based matching
-            if (!source && sources.length === displays.length) {
-                // Sort both arrays by position to match them up
-                const sortedDisplays = [...displays].sort((a, b) => {
-                    if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x
-                    return a.bounds.y - b.bounds.y
-                })
-                const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name))
-
-                const targetIndex = sortedDisplays.findIndex((d) => d.id.toString() === displayIdStr)
-                if (targetIndex >= 0 && targetIndex < sortedSources.length) {
-                    source = sortedSources[targetIndex]
-                }
-            }
-
-            // Method 3: Use primary display as fallback
-            if (!source) {
-                const primaryDisplayIdStr = primaryDisplay.id.toString()
-                source = sources.find((s) => s.display_id === primaryDisplayIdStr) || sources[0]
-            }
+            const source = await findSourceForDisplay(targetDisplay)
 
             if (!source) {
                 throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
@@ -352,43 +348,7 @@ app.whenReady().then(() => {
 
             const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
-            // Get sources with correct thumbnail size for the target display
-            const scaleFactor = targetDisplay.scaleFactor || 1
-            const sources = await desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: {
-                    width: Math.round(targetDisplay.size.width * scaleFactor),
-                    height: Math.round(targetDisplay.size.height * scaleFactor)
-                },
-                fetchWindowIcons: false
-            })
-
-            // Find the source that matches our target display
-            let source = null
-
-            // Method 1: Exact display ID match
-            source = sources.find((s) => s.display_id === displayIdStr)
-
-            // Method 2: If exact match fails, try position-based matching
-            if (!source && sources.length === displays.length) {
-                // Sort both arrays by position to match them up
-                const sortedDisplays = [...displays].sort((a, b) => {
-                    if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x
-                    return a.bounds.y - b.bounds.y
-                })
-                const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name))
-
-                const targetIndex = sortedDisplays.findIndex((d) => d.id.toString() === displayIdStr)
-                if (targetIndex >= 0 && targetIndex < sortedSources.length) {
-                    source = sortedSources[targetIndex]
-                }
-            }
-
-            // Method 3: Use primary display as fallback
-            if (!source) {
-                const primaryDisplayIdStr = primaryDisplay.id.toString()
-                source = sources.find((s) => s.display_id === primaryDisplayIdStr) || sources[0]
-            }
+            const source = await findSourceForDisplay(targetDisplay)
 
             if (!source) {
                 throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
@@ -524,43 +484,7 @@ app.whenReady().then(() => {
 
             const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
-            // Get sources with correct thumbnail size for the target display
-            const scaleFactor = targetDisplay.scaleFactor || 1
-            const sources = await desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: {
-                    width: Math.round(targetDisplay.size.width * scaleFactor),
-                    height: Math.round(targetDisplay.size.height * scaleFactor)
-                },
-                fetchWindowIcons: false
-            })
-
-            // Find the source that matches our target display
-            let source = null
-
-            // Method 1: Exact display ID match
-            source = sources.find((s) => s.display_id === displayIdStr)
-
-            // Method 2: If exact match fails, try position-based matching
-            if (!source && sources.length === displays.length) {
-                // Sort both arrays by position to match them up
-                const sortedDisplays = [...displays].sort((a, b) => {
-                    if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x
-                    return a.bounds.y - b.bounds.y
-                })
-                const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name))
-
-                const targetIndex = sortedDisplays.findIndex((d) => d.id.toString() === displayIdStr)
-                if (targetIndex >= 0 && targetIndex < sortedSources.length) {
-                    source = sortedSources[targetIndex]
-                }
-            }
-
-            // Method 3: Use primary display as fallback
-            if (!source) {
-                const primaryDisplayIdStr = primaryDisplay.id.toString()
-                source = sources.find((s) => s.display_id === primaryDisplayIdStr) || sources[0]
-            }
+            const source = await findSourceForDisplay(targetDisplay)
 
             if (!source) {
                 throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
@@ -615,43 +539,7 @@ app.whenReady().then(() => {
 
             const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
-            // Get sources with correct thumbnail size for the target display
-            const scaleFactor = targetDisplay.scaleFactor || 1
-            const sources = await desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: {
-                    width: Math.round(targetDisplay.size.width * scaleFactor),
-                    height: Math.round(targetDisplay.size.height * scaleFactor)
-                },
-                fetchWindowIcons: false
-            })
-
-            // Find the source that matches our target display
-            let source = null
-
-            // Method 1: Exact display ID match
-            source = sources.find((s) => s.display_id === displayIdStr)
-
-            // Method 2: If exact match fails, try position-based matching
-            if (!source && sources.length === displays.length) {
-                // Sort both arrays by position to match them up
-                const sortedDisplays = [...displays].sort((a, b) => {
-                    if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x
-                    return a.bounds.y - b.bounds.y
-                })
-                const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name))
-
-                const targetIndex = sortedDisplays.findIndex((d) => d.id.toString() === displayIdStr)
-                if (targetIndex >= 0 && targetIndex < sortedSources.length) {
-                    source = sortedSources[targetIndex]
-                }
-            }
-
-            // Method 3: Use primary display as fallback
-            if (!source) {
-                const primaryDisplayIdStr = primaryDisplay.id.toString()
-                source = sources.find((s) => s.display_id === primaryDisplayIdStr) || sources[0]
-            }
+            const source = await findSourceForDisplay(targetDisplay)
 
             if (!source) {
                 throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
@@ -708,22 +596,12 @@ app.whenReady().then(() => {
             // Get display info
             const displays = screen.getAllDisplays()
             const display = displayId
-                ? displays.find((d) => d.id === displayId || d.id.toString() === displayId)
+                ? displays.find((d) => d.id.toString() === displayId.toString())
                 : screen.getPrimaryDisplay()
 
-            // Get screen sources
-            const sources = await desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: {
-                    width: display.size.width * (display.scaleFactor || 1),
-                    height: display.size.height * (display.scaleFactor || 1)
-                }
-            })
-
-            const source = sources.find((s) => s.display_id === display.id.toString())
-
+            const source = await findSourceForDisplay(display)
             if (!source) {
-                throw new Error(`No source found for display ${displayId}`)
+                throw new Error(`No source found for display ${display?.id}`)
             }
 
             // Get the image using the same logic as saving
