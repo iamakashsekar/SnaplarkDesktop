@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+    import { ref, onMounted, onUnmounted, computed } from 'vue'
     import { apiClient } from '@/api/config.js'
 
     // Core selection state
@@ -14,7 +14,7 @@
     const resizingHandle = ref(null)
 
     // Magnifier state
-    const magnifierActive = ref(false)
+    const magnifierActive = ref(true)
     const magnifierSize = 200
     const zoomFactor = 2
     const magnifierCanvas = ref(null)
@@ -171,7 +171,8 @@
             ctx.lineTo(magnifierSize, center)
             ctx.stroke()
         } catch (error) {
-            console.warn('Magnifier error:', error)
+            // console.warn('Magnifier error:', error)
+            alert(error)
         }
     }
 
@@ -417,13 +418,13 @@
         // Handle magnifier data
         window.electronWindows?.onMagnifierData((dataURL) => {
             const img = new Image()
+            img.src = dataURL
             img.onload = () => {
                 fullScreenImage.value = img
                 if (mouseX.value || mouseY.value) {
                     updateMagnifier(mouseX.value, mouseY.value)
                 }
             }
-            img.src = dataURL
         })
     })
 
