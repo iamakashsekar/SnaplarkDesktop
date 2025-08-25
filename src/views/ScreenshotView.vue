@@ -522,11 +522,11 @@
         <!-- Crosshair (only when not confirming) -->
         <div
             v-if="mode !== 'confirming'"
-            class="pointer-events-none fixed right-0 left-0 z-[99] h-px bg-gray-900/50 transition-none"
+            class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
             v-if="mode !== 'confirming'"
-            class="pointer-events-none fixed top-0 bottom-0 z-[99] w-px bg-gray-900/50 transition-none"
+            class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
         <!-- Magnifier -->
