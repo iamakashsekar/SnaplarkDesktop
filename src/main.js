@@ -521,6 +521,10 @@ app.whenReady().then(() => {
     // Handle screenshot capture
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId) => {
         try {
+            // open the dev tool
+            // const screenWin = windowManager.getWindow("screenshot");
+            // screenWin.webContents.openDevTools();
+
             // Hide the screenshot overlay window to exclude it from the capture
             const senderWindow = BrowserWindow.fromWebContents(event.sender)
             if (senderWindow) {
@@ -577,7 +581,7 @@ app.whenReady().then(() => {
             //   mainWindow.show();
             // }
 
-            return { success: true, path: filepath }
+            return { success: true, path: filepath , dataUrl: image.toDataURL() }
         } catch (error) {
             console.error('Screenshot error:', error)
             return { success: false, error: error.message }

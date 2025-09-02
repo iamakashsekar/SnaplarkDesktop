@@ -1,6 +1,6 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed } from 'vue'
-    import { apiClient } from '@/api/config.js'
+    import { apiClient } from '../api/config.js'
 
     // Core selection state
     const startX = ref(0)
@@ -206,11 +206,9 @@
     }
 
     const captureAndUpload = async () => {
-        const notificationId = nextNotificationId.value++
-
         try {
             const { left, top, width, height } = selectionRect.value
-            const result = await window.electron?.captureScreenshot(
+            const result = await window.electron?.takeScreenshot(
                 'area',
                 {
                     x: Math.round(left),
@@ -220,25 +218,46 @@
                 },
                 displayId.value
             )
-
-            if (!result?.success) {
-                console.error('Screenshot failed:', result?.error)
-                showUploadError(notificationId, 'Screenshot capture failed')
-                return
-            }
-
-            // Convert to file
-            const file = base64ToFile(result.data, `screenshot-${Date.now()}.png`)
-
-            // Create upload notification
-            createUploadNotification(notificationId, file)
-
-            // Upload file
-            await uploadFile(file, notificationId)
+            alert(result.dataUrl)
+            if (!result?.success) console.error('Screenshot failed:', result?.error)
         } catch (error) {
-            console.error('Upload error:', error)
-            showUploadError(notificationId, error.message || 'Upload failed')
+            console.error('Error capturing screenshot:', error)
         }
+
+        // const notificationId = nextNotificationId.value++
+        //
+        // try {
+        //     const { left, top, width, height } = selectionRect.value
+        //     const result = await window.electron?.captureScreenshot(
+        //         'area',
+        //         {
+        //             x: Math.round(left),
+        //             y: Math.round(top),
+        //             width: Math.round(width),
+        //             height: Math.round(height)
+        //         },
+        //         displayId.value
+        //     )
+        //
+        //     if (!result?.success) {
+        //         console.error('Screenshot failed:', result?.error)
+        //         showUploadError(notificationId, 'Screenshot capture failed')
+        //         return
+        //     }
+        //
+        //     // Convert to file
+        //     const file = base64ToFile(result.data, `screenshot-${Date.now()}.png`)
+        //
+        //     // Create upload notification
+        //     createUploadNotification(notificationId, file)
+        //
+        //     // Upload file
+        //     await uploadFile(file, notificationId)
+        // } catch (error) {
+        //     alert('Upload error:' + error)
+        //     console.error('Upload error:', error)
+        //     showUploadError(notificationId, error.message || 'Upload failed')
+        // }
     }
 
     // Helper functions
