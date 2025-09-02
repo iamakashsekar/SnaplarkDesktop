@@ -162,8 +162,17 @@
 
             // Draw crosshair
             const center = magnifierSize / 2
-            ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)'
-            ctx.lineWidth = 1
+            ctx.strokeStyle = 'white'
+            ctx.lineWidth = 4 // This will create the white border
+            ctx.beginPath()
+            ctx.moveTo(center, 0)
+            ctx.lineTo(center, magnifierSize)
+            ctx.moveTo(0, center)
+            ctx.lineTo(magnifierSize, center)
+            ctx.stroke()
+
+            ctx.strokeStyle = 'black'
+            ctx.lineWidth = 2 // This will be the black line inside the white border
             ctx.beginPath()
             ctx.moveTo(center, 0)
             ctx.lineTo(center, magnifierSize)
