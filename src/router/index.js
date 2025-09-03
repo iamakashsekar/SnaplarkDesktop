@@ -7,6 +7,7 @@ import TourView from '../views/TourView.vue'
 import LoginView from '../views/LoginView.vue'
 import ScreenshotView from '../views/ScreenshotView.vue'
 import DesignView from '../views/DesignView.vue'
+import NotificationsView from '../views/NotificationsView.vue'
 import { useStore } from '../store'
 
 const routes = [
@@ -51,6 +52,12 @@ const routes = [
         name: 'design',
         component: DesignView,
         meta: { windowType: 'design' }
+    },
+    {
+        path: '/notifications',
+        name: 'notifications',
+        component: NotificationsView,
+        meta: { windowType: 'notifications' }
     }
 ]
 

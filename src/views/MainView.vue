@@ -28,8 +28,42 @@
     }
 
     const recordGIF = () => {
-        console.log('Record GIF')
-        // TODO: Implement GIF recording
+        const id = `demo-upload-${Date.now()}`
+
+        const notify = (payload) => window.electronNotifications?.notify(payload)
+
+        notify({
+            id,
+            title: 'Uploading',
+            message: '3.5 MB',
+            variant: 'info',
+            progress: 0,
+            timeoutMs: null
+        })
+
+        let progress = 0
+        const timer = setInterval(() => {
+            progress = Math.min(100, progress + 8)
+            notify({ id, progress })
+            if (progress >= 100) {
+                clearInterval(timer)
+                const url = 'https://example.com/file/abcd'
+                notify({
+                    id,
+                    title: 'Upload Complete',
+                    message: url,
+                    variant: 'success',
+                    progress: null,
+                    timeoutMs: 6000,
+                    actions: [
+                        {
+                            label: 'Copy Link',
+                            onClick: () => navigator.clipboard.writeText(url)
+                        }
+                    ]
+                })
+            }
+        }, 200)
     }
 
     const openLastCapture = async () => {
@@ -143,7 +177,7 @@
 
             <button
                 type="button"
-                @click="recordVideo"
+                @click="recordGIF"
                 class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                 <svg
                     width="29"

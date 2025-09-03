@@ -51,6 +51,7 @@ if (process.defaultApp) {
 let windowManager
 let tray
 let screenPollInterval = null
+let lastNotificationsDisplayId = null
 
 async function takeScreenshotForDisplay(source, type, bounds, display) {
     const scaleFactor = display.scaleFactor || 1
@@ -648,6 +649,77 @@ app.whenReady().then(() => {
     // Handle opening external URLs
     ipcMain.handle('open-external', (event, url) => {
         shell.openExternal(url)
+    })
+
+    // Notifications positioning helper
+    const positionNotificationsWindow = (win) => {
+        if (!win || win.isDestroyed()) return
+        const referencePoint = screen.getCursorScreenPoint()
+        const display = screen.getDisplayNearestPoint(referencePoint)
+        lastNotificationsDisplayId = display.id
+
+        const margin = 16
+        const { width, height } = win.getBounds()
+        const workArea = display.workArea
+
+        let x = workArea.x + workArea.width - width - margin
+        let y
+
+        if (process.platform === 'darwin') {
+            // macOS: top-right
+            y = workArea.y + margin
+        } else {
+            // Windows/Linux: bottom-right
+            y = workArea.y + workArea.height - height - margin
+        }
+
+        win.setBounds({ x, y, width, height })
+    }
+
+    // Show/Add notification from any renderer
+    ipcMain.handle('notify', (event, notification) => {
+        try {
+            const win = windowManager.getWindow('notifications') || windowManager.createWindow('notifications')
+
+            // macOS: keep above full screen
+            if (process.platform === 'darwin') {
+                win.setAlwaysOnTop(true, 'screen-saver')
+                win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+            }
+
+            // Ensure correct initial position
+            positionNotificationsWindow(win)
+            if (typeof win.showInactive === 'function') {
+                win.showInactive()
+            } else {
+                win.show()
+            }
+
+            win.webContents.send('notifications:add', notification)
+
+            return { success: true }
+        } catch (error) {
+            console.error('Error showing notification:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
+    // Resize notifications window based on content height
+    ipcMain.on('notifications:resize', (event, height) => {
+        const win = windowManager.getWindow('notifications')
+        if (!win || win.isDestroyed()) return
+        const { width } = win.getBounds()
+        const minHeight = 10
+        const nextHeight = Math.max(minHeight, Math.ceil(height))
+        win.setSize(width, nextHeight, true)
+        positionNotificationsWindow(win)
+    })
+
+    // Reposition when display potentially changes
+    ipcMain.on('notifications:reposition', () => {
+        const win = windowManager.getWindow('notifications')
+        if (!win || win.isDestroyed()) return
+        positionNotificationsWindow(win)
     })
 
     // Window management IPC handlers
