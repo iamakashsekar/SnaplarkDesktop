@@ -1,6 +1,7 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed } from 'vue'
     import { apiClient } from '../api/config.js'
+    import axios from 'axios'
 
     // Core selection state
     const startX = ref(0)
@@ -214,6 +215,10 @@
         }
     }
 
+    const bufferToFile = (buffer, fileName) => {
+        return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
+    }
+
     const captureAndUpload = async () => {
         try {
             const { left, top, width, height } = selectionRect.value
@@ -227,46 +232,16 @@
                 },
                 displayId.value
             )
-            alert(result.dataUrl)
+
+            const buffer = await window.electron.readFileAsBuffer(result.path)
+            const file = bufferToFile(buffer, result.filename)
+
+            const link = await uploadFile(file)
+
             if (!result?.success) console.error('Screenshot failed:', result?.error)
         } catch (error) {
             console.error('Error capturing screenshot:', error)
         }
-
-        // const notificationId = nextNotificationId.value++
-        //
-        // try {
-        //     const { left, top, width, height } = selectionRect.value
-        //     const result = await window.electron?.captureScreenshot(
-        //         'area',
-        //         {
-        //             x: Math.round(left),
-        //             y: Math.round(top),
-        //             width: Math.round(width),
-        //             height: Math.round(height)
-        //         },
-        //         displayId.value
-        //     )
-        //
-        //     if (!result?.success) {
-        //         console.error('Screenshot failed:', result?.error)
-        //         showUploadError(notificationId, 'Screenshot capture failed')
-        //         return
-        //     }
-        //
-        //     // Convert to file
-        //     const file = base64ToFile(result.data, `screenshot-${Date.now()}.png`)
-        //
-        //     // Create upload notification
-        //     createUploadNotification(notificationId, file)
-        //
-        //     // Upload file
-        //     await uploadFile(file, notificationId)
-        // } catch (error) {
-        //     alert('Upload error:' + error)
-        //     console.error('Upload error:', error)
-        //     showUploadError(notificationId, error.message || 'Upload failed')
-        // }
     }
 
     // Helper functions
@@ -280,56 +255,17 @@
         return new File([new Blob([bytes], { type: 'image/png' })], fileName, { type: 'image/png' })
     }
 
-    const createUploadNotification = (id, file) => {
-        uploadNotifications.value.push({
-            id,
-            status: 'uploading',
-            progress: 0,
-            fileSize: formatFileSize(file.size),
-            fileName: file.name,
-            url: null,
-            error: null
-        })
-    }
-
-    const showUploadError = (id, message) => {
-        const notif = uploadNotifications.value.find((n) => n.id === id)
-        if (notif) {
-            notif.status = 'failed'
-            notif.error = message
-        } else {
-            uploadNotifications.value.push({ id, status: 'failed', error: message, fileSize: '0 MB' })
-        }
-    }
-
-    const uploadFile = async (file, notificationId) => {
+    const uploadFile = async (file) => {
         const formData = new FormData()
-        formData.append('file', file)
-        formData.append('type', 'screenshot')
-        formData.append('title', `Screenshot ${new Date().toLocaleString()}`)
+        formData.append('capture', file)
 
         const result = await apiClient.post('/media/upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-            onUploadProgress: (e) => updateUploadProgress(notificationId, e)
+            headers: { 'Content-Type': 'multipart/form-data' }
         })
 
-        const notif = uploadNotifications.value.find((n) => n.id === notificationId)
-        if (notif) {
-            if (result.data) {
-                notif.status = 'completed'
-                notif.url = result.data.media?.url || result.data.media?.public_url || '#'
-                setTimeout(handleCancel, 2000)
-            } else {
-                throw new Error(result.response?.data?.message || 'Upload failed')
-            }
-        }
-    }
-
-    const updateUploadProgress = (id, progressEvent) => {
-        const notif = uploadNotifications.value.find((n) => n.id === id)
-        if (notif) {
-            notif.progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-        }
+        console.log(result)
+        const link = 'https://snaplark.com/' + result.data
+        return link
     }
 
     const formatFileSize = (bytes) => {

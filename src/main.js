@@ -170,6 +170,26 @@ app.whenReady().then(() => {
         return os.hostname()
     })
 
+    // Handle reading a file from a given path and returning it as a Buffer
+    ipcMain.handle('read-file-as-buffer', async (event, filePath) => {
+        try {
+            // Basic security check: ensure the path is within an expected directory
+            // to prevent path traversal attacks. For this app, allowing from home is reasonable.
+            const allowedDir = os.homedir()
+            if (!path.resolve(filePath).startsWith(path.resolve(allowedDir))) {
+                throw new Error('File access is restricted to the user home directory.')
+            }
+
+            if (fs.existsSync(filePath)) {
+                return fs.readFileSync(filePath) // Returns a Buffer
+            }
+            throw new Error(`File not found at path: ${filePath}`)
+        } catch (error) {
+            console.error('Error reading file in main process:', error)
+            throw error // The renderer's try/catch will handle this rejection.
+        }
+    })
+
     // Handle window resize requests
     ipcMain.handle('resize-window', (event, type, width, height) => {
         const mainWindow = windowManager.getWindow(type)
@@ -522,8 +542,8 @@ app.whenReady().then(() => {
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId) => {
         try {
             // open the dev tool
-            // const screenWin = windowManager.getWindow("screenshot");
-            // screenWin.webContents.openDevTools();
+            // const screenWin = windowManager.getWindow('screenshot')
+            // screenWin.webContents.openDevTools()
 
             // Hide the screenshot overlay window to exclude it from the capture
             const senderWindow = BrowserWindow.fromWebContents(event.sender)
@@ -581,7 +601,7 @@ app.whenReady().then(() => {
             //   mainWindow.show();
             // }
 
-            return { success: true, path: filepath , dataUrl: image.toDataURL() }
+            return { success: true, path: filepath, dataUrl: image.toDataURL(), filename: filename }
         } catch (error) {
             console.error('Screenshot error:', error)
             return { success: false, error: error.message }

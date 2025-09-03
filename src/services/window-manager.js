@@ -78,8 +78,8 @@ class WindowManager {
                 }
             },
             design: {
-                width: 1200,
-                height: 800,
+                width: 384,
+                height: 210,
                 resizable: true,
                 frame: false,
                 transparent: true,
