@@ -92,6 +92,24 @@ class WindowManager {
                     nodeIntegration: false,
                     contextIsolation: true
                 }
+            },
+            notifications: {
+                width: 420,
+                height: 10,
+                resizable: false,
+                frame: false,
+                transparent: true,
+                alwaysOnTop: true,
+                skipTaskbar: true,
+                show: false,
+                focusable: false,
+                fullscreenable: false,
+                hasShadow: false,
+                roundedCorners: true,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true
+                }
             }
         }
     }

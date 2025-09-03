@@ -53,6 +53,14 @@ contextBridge.exposeInMainWorld("electronWindows", {
   },
 });
 
+// Notifications API
+contextBridge.exposeInMainWorld("electronNotifications", {
+  notify: (payload) => ipcRenderer.invoke("notify", payload),
+  onAdd: (callback) => ipcRenderer.on("notifications:add", (e, n) => callback(n)),
+  resize: (height) => ipcRenderer.send("notifications:resize", height),
+  reposition: () => ipcRenderer.send("notifications:reposition"),
+});
+
 contextBridge.exposeInMainWorld("electronStore", {
   get: (key) => storeSend("get", key),
   set: (key, value) => storeSend("set", key, value),
