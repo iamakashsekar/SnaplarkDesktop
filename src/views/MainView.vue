@@ -113,7 +113,7 @@
         if (!store.isLoggedIn) {
             router.push('/login')
         }
-        await resizeWindowTo('main', 264, 800)
+        await resizeWindowTo('main', 264, 550)
         console.log('Main window resized')
     })
 
