@@ -136,29 +136,47 @@
             ctx.imageSmoothingEnabled = false
             ctx.clearRect(0, 0, magnifierSize, magnifierSize)
 
-            const dpr = window.devicePixelRatio || 1
-            const sourceSize = magnifierSize / zoomFactor
-            const sourceX = Math.max(
-                0,
-                Math.min(x * dpr - sourceSize / 2, fullScreenImage.value.naturalWidth - sourceSize)
-            )
-            const sourceY = Math.max(
-                0,
-                Math.min(y * dpr - sourceSize / 2, fullScreenImage.value.naturalHeight - sourceSize)
-            )
+            // Map cursor position in view space to image space
+            const img = fullScreenImage.value
+            const imgW = img.naturalWidth
+            const imgH = img.naturalHeight
+            const viewW = window.innerWidth
+            const viewH = window.innerHeight
+            const scaleX = imgW / viewW
+            const scaleY = imgH / viewH
 
-            // Draw magnified image
-            ctx.drawImage(
-                fullScreenImage.value,
-                sourceX,
-                sourceY,
-                sourceSize,
-                sourceSize,
-                0,
-                0,
-                magnifierSize,
-                magnifierSize
-            )
+            // Desired source rectangle centered on cursor
+            const sourceSizeView = magnifierSize / zoomFactor
+            const sourceWImg = sourceSizeView * scaleX
+            const sourceHImg = sourceSizeView * scaleY
+            const centerXImg = x * scaleX
+            const centerYImg = y * scaleY
+            const desiredLeft = centerXImg - sourceWImg / 2
+            const desiredTop = centerYImg - sourceHImg / 2
+            const desiredRight = desiredLeft + sourceWImg
+            const desiredBottom = desiredTop + sourceHImg
+
+            // Intersect with image bounds to support edges/corners
+            const interLeft = Math.max(0, desiredLeft)
+            const interTop = Math.max(0, desiredTop)
+            const interRight = Math.min(imgW, desiredRight)
+            const interBottom = Math.min(imgH, desiredBottom)
+            const interW = Math.max(0, interRight - interLeft)
+            const interH = Math.max(0, interBottom - interTop)
+
+            // Fill background so out-of-bounds area shows as blank
+            ctx.fillStyle = 'black'
+            ctx.fillRect(0, 0, magnifierSize, magnifierSize)
+
+            if (interW > 0 && interH > 0) {
+                // Position the sampled image so the cursor stays centered
+                const destX = ((interLeft - desiredLeft) / sourceWImg) * magnifierSize
+                const destY = ((interTop - desiredTop) / sourceHImg) * magnifierSize
+                const destW = (interW / sourceWImg) * magnifierSize
+                const destH = (interH / sourceHImg) * magnifierSize
+
+                ctx.drawImage(img, interLeft, interTop, interW, interH, destX, destY, destW, destH)
+            }
 
             // Draw crosshair
             const center = magnifierSize / 2
