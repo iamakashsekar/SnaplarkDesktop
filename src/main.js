@@ -674,7 +674,9 @@ app.whenReady().then(() => {
                 win.show()
             }
 
-            win.webContents.send('notifications:add', notification)
+            setTimeout(() => {
+                win.webContents.send('notifications:add', notification)
+            }, 300)
 
             return { success: true }
         } catch (error) {

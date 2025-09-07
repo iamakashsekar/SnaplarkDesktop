@@ -91,8 +91,7 @@
         notifications,
         (newNotifications) => {
             if (newNotifications.length === 0) {
-                // Close the notification window when no notifications remain
-                // Use a small delay to ensure smooth animation completion
+                console.log('there is no window')
                 setTimeout(() => {
                     window.electronNotifications?.close()
                 }, 200)
@@ -101,21 +100,17 @@
         { deep: true, immediate: false }
     )
 
-    onMounted(() => {
-        window.electronNotifications?.onAdd((payload) => {
-            setTimeout(() => {
-                addOrMerge(payload)
-            }, 300)
-        })
-        window.addEventListener('resize', () => recalc())
-        window.electronNotifications?.reposition()
-
-        // Initial setup
-        nextTick(() => {
-            recalc()
-        })
-        requestAnimationFrame(tick)
+    window.electronNotifications?.onAdd((payload) => {
+        addOrMerge(payload)
     })
+    window.addEventListener('resize', () => recalc())
+    window.electronNotifications?.reposition()
+
+    // Initial setup
+    nextTick(() => {
+        recalc()
+    })
+    requestAnimationFrame(tick)
 </script>
 
 <template>

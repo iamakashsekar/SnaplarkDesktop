@@ -49,7 +49,7 @@
             const progressInterval = simulateProgressAnimation()
 
             const buffer = await window.electron.readFileAsBuffer(props.fileInfo.path)
-            const blobFile = bufferToFile(buffer, props.fileInfo.filename)
+            const blobFile = bufferToFile(buffer, props.fileInfo.fileName)
 
             const formData = new FormData()
             formData.append('capture', blobFile)
