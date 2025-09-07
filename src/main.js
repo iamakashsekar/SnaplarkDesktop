@@ -623,43 +623,6 @@ app.whenReady().then(() => {
         }
     })
 
-    // Handle screenshot capture (returns base64 data instead of saving to file)
-    ipcMain.handle('capture-screenshot', async (event, type, bounds, displayId) => {
-        try {
-            // Hide the screenshot overlay window to exclude it from the capture
-            const senderWindow = BrowserWindow.fromWebContents(event.sender)
-            if (senderWindow) {
-                senderWindow.hide()
-            }
-
-            // Get display info
-            const displays = screen.getAllDisplays()
-            const display = displayId
-                ? displays.find((d) => d.id.toString() === displayId.toString())
-                : screen.getPrimaryDisplay()
-
-            const source = await findSourceForDisplay(display)
-            if (!source) {
-                throw new Error(`No source found for display ${display?.id}`)
-            }
-
-            // Get the image using the same logic as saving
-            const image = await takeScreenshotForDisplay(source, type, bounds, display)
-
-            // Convert to base64 data URL
-            const dataURL = image.toDataURL()
-
-            // Cleanup screenshot mode
-            if (screenPollInterval) clearInterval(screenPollInterval)
-            windowManager.closeWindowsByType('screenshot')
-
-            return { success: true, data: dataURL }
-        } catch (error) {
-            console.error('Screenshot capture error:', error)
-            return { success: false, error: error.message }
-        }
-    })
-
     // Handle opening external URLs
     ipcMain.handle('open-external', (event, url) => {
         shell.openExternal(url)
