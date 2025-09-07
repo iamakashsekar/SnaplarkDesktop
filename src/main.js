@@ -564,7 +564,7 @@ app.whenReady().then(() => {
                 senderWindow.hide()
             }
 
-            // await new Promise((resolve) => setTimeout(resolve, 200))
+            await new Promise((resolve) => setTimeout(resolve, 200))
 
             const displays = screen.getAllDisplays()
             const primaryDisplay = screen.getPrimaryDisplay()
