@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("electron", {
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   getDeviceName: () => ipcRenderer.invoke("get-device-name"),
   quitApp: () => ipcRenderer.send("quit-app"),
+  showMainAtTray: (options) => ipcRenderer.invoke("show-main-at-tray", options),
   takeScreenshot: (type, bounds, displayId) =>
     ipcRenderer.invoke("take-screenshot", type, bounds, displayId),
   captureScreenshot: (type, bounds, displayId) =>

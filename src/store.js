@@ -77,9 +77,7 @@ export const useStore = defineStore('main', {
                         this.user = response.data
                         this.isAuthenticated = true
                         await router.push('/')
-                        setTimeout(() => {
-                            window.electronWindows.showWindow('main')
-                        }, 500)
+                        window.electron.showMainAtTray({ force: true, gap: 0 })
                     }
                     return true
                 } catch (error) {

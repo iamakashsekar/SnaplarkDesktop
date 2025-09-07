@@ -179,6 +179,20 @@ app.whenReady().then(() => {
         }
     })
 
+    // Show main window at tray icon position (programmatic trigger)
+    ipcMain.handle('show-main-at-tray', (event, options = {}) => {
+        try {
+            if (tray && typeof tray.showMainAtTray === 'function') {
+                tray.showMainAtTray(null, options)
+                return { success: true }
+            }
+            return { success: false, error: 'Tray not initialized' }
+        } catch (error) {
+            console.error('Error showing main at tray:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
     ipcMain.handle('start-screenshot-mode', async () => {
         // Hide the main window before starting screenshot mode (but don't focus it)
         const mainWindow = windowManager.getWindow('main')
@@ -834,11 +848,11 @@ const handleProtocolUrl = (url) => {
                 mainWindow.webContents.send('auth-response', authData)
 
                 // Show and focus the window with better Windows handling
-                if (mainWindow.isMinimized()) {
-                    mainWindow.restore()
-                }
-                mainWindow.show()
-                mainWindow.focus()
+                // if (mainWindow.isMinimized()) {
+                //     mainWindow.restore()
+                // }
+                // mainWindow.show()
+                // mainWindow.focus()
             }
         } catch (error) {
             console.error('Error parsing auth URL:', error)

@@ -96,8 +96,10 @@
 
     const handleLogout = () => {
         store.logout()
+        window.electronWindows?.hideWindow('main')
         setTimeout(() => {
             router.push('/login')
+             window.electron.showMainAtTray({ force: true, gap: 0 })
         }, 100)
     }
 
@@ -111,7 +113,11 @@
 
     onMounted(async () => {
         if (!store.isLoggedIn) {
-            router.push('/login')
+            window.electronWindows?.hideWindow('main')
+            setTimeout(() => {
+                router.push('/login')
+                 window.electron.showMainAtTray({ force: true, gap: 0 })
+            }, 100)
         }
         await resizeWindowTo('main', 264, 550)
         console.log('Main window resized')
