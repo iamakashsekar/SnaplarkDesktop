@@ -9,7 +9,6 @@ contextBridge.exposeInMainWorld('electron', {
     quitApp: () => ipcRenderer.send('quit-app'),
     showMainAtTray: (options) => ipcRenderer.invoke('show-main-at-tray', options),
     takeScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('take-screenshot', type, bounds, displayId),
-    captureScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('capture-screenshot', type, bounds, displayId),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
     printScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('print-screenshot', type, bounds, displayId),
     searchImageGoogle: (type, bounds, displayId) => ipcRenderer.invoke('search-image-google', type, bounds, displayId),
@@ -49,8 +48,7 @@ contextBridge.exposeInMainWorld('electronNotifications', {
     notify: (payload) => ipcRenderer.invoke('notify', payload),
     onAdd: (callback) => ipcRenderer.on('notifications:add', (e, n) => callback(n)),
     resize: (height) => ipcRenderer.send('notifications:resize', height),
-    reposition: () => ipcRenderer.send('notifications:reposition'),
-    close: () => ipcRenderer.send('notifications:close')
+    reposition: () => ipcRenderer.send('notifications:reposition')
 })
 
 contextBridge.exposeInMainWorld('electronStore', {
@@ -67,24 +65,9 @@ contextBridge.exposeInMainWorld('electronAuth', {
     }
 })
 
-// Handle system tray screenshot trigger
-contextBridge.exposeInMainWorld('electronTray', {
-    // Listen for tray screenshot trigger
-    onScreenshotFromTray: (callback) => {
-        ipcRenderer.on('start-screenshot-from-tray', () => {
-            callback()
-        })
-    },
-
-    // Remove tray listeners
-    removeTrayListeners: () => {
-        ipcRenderer.removeAllListeners('start-screenshot-from-tray')
-    }
-})
-
-// Handle connectivity communication with main process
+// Handle connectivity communication with the main process
 contextBridge.exposeInMainWorld('electronConnectivity', {
-    // Notify main process of connectivity status
+    // Notify the main process of connectivity status
     notifyStatus: (status, isOnline) => {
         ipcRenderer.send('connectivity-status', {
             status,
@@ -93,7 +76,7 @@ contextBridge.exposeInMainWorld('electronConnectivity', {
         })
     },
 
-    // Listen for connectivity events from main process
+    // Listen for connectivity events from the main process
     onConnectivityEvent: (callback) => {
         ipcRenderer.on('connectivity-event', (event, data) => {
             callback(data)
