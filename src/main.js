@@ -556,67 +556,55 @@ app.whenReady().then(() => {
     // Handle screenshot capture
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId) => {
         try {
-            // open the dev tool
-            // const screenWin = windowManager.getWindow('screenshot')
-            // screenWin.webContents.openDevTools()
-
-            // Hide the screenshot overlay window to exclude it from the capture
             const senderWindow = BrowserWindow.fromWebContents(event.sender)
             if (senderWindow) {
                 senderWindow.hide()
             }
 
-            // A short delay to allow the window to disappear.
-            await new Promise((resolve) => setTimeout(resolve, 200))
+            // await new Promise((resolve) => setTimeout(resolve, 200))
 
-            // Get all displays
             const displays = screen.getAllDisplays()
             const primaryDisplay = screen.getPrimaryDisplay()
-
-            // Defensively handle null displayId by defaulting to the primary display
             const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-
             const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
             const source = await findSourceForDisplay(targetDisplay)
-
             if (!source) {
                 throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
             }
 
-            // Use desktopCapturer to get screen sources
             const image = await takeScreenshotForDisplay(source, type, bounds, targetDisplay)
 
-            // Create screenshots directory
             const homeDir = os.homedir()
             const screenshotsDir = path.join(
                 homeDir,
                 process.platform === 'darwin' ? 'Pictures/Snaplark' : 'Pictures/Snaplark'
             )
 
-            // Ensure directory exists
             if (!fs.existsSync(screenshotsDir)) {
                 fs.mkdirSync(screenshotsDir, { recursive: true })
             }
 
-            // Generate filename with timestamp
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
             const filename = `Screenshot_${timestamp}.png`
             const filepath = path.join(screenshotsDir, filename)
 
-            fs.writeFileSync(filepath, image.toPNG())
+            const imageBuffer = image.toPNG()
+            fs.writeFileSync(filepath, imageBuffer)
 
-            // Cleanup screenshot mode
+            // Get file size in bytes
+            const { size } = fs.statSync(filepath)
+
             if (screenPollInterval) clearInterval(screenPollInterval)
             windowManager.closeWindowsByType('screenshot')
 
-            // Show the main window again
-            // const mainWindow = windowManager.getWindow("main");
-            // if (mainWindow) {
-            //   mainWindow.show();
-            // }
-
-            return { success: true, path: filepath, dataUrl: image.toDataURL(), filename: filename }
+            return { 
+                success: true, 
+                path: filepath, 
+                dataUrl: image.toDataURL(), 
+                filename: filename,
+                size: size // in bytes
+            }
         } catch (error) {
             console.error('Screenshot error:', error)
             return { success: false, error: error.message }
