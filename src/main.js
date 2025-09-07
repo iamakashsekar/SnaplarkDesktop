@@ -556,6 +556,9 @@ app.whenReady().then(() => {
     // Handle screenshot capture
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId) => {
         try {
+            // const screenWin = windowManager.getWindow('screenshot')
+            // screenWin.webContents.openDevTools()
+
             const senderWindow = BrowserWindow.fromWebContents(event.sender)
             if (senderWindow) {
                 senderWindow.hide()
