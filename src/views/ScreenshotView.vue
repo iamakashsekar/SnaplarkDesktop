@@ -250,7 +250,11 @@
                 displayId.value
             )
 
-            if (!result?.success) console.error('Screenshot failed:', result?.error)
+            if (result?.success) {
+                return result
+            } else {
+                console.error('Screenshot failed:', result?.error)
+            }
         } catch (error) {
             console.error('Error capturing screenshot:', error)
         }
@@ -262,24 +266,21 @@
 
     const captureAndUpload = async () => {
         try {
-            const { left, top, width, height } = selectionRect.value
-            const result = await window.electron?.takeScreenshot(
-                'area',
-                {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId.value
-            )
+            const result = await captureArea()
 
-            const buffer = await window.electron.readFileAsBuffer(result.path)
-            const file = bufferToFile(buffer, result.filename)
+            if (result?.success) {
+                const notify = (payload) => window.electronNotifications?.notify(payload)
 
-            const link = await uploadFile(file)
-
-            if (!result?.success) console.error('Screenshot failed:', result?.error)
+                notify({
+                    variant: 'upload',
+                    fileInfo: {
+                        path: result.path,
+                        fileName: result.filename
+                    }
+                })
+            } else {
+                console.error('Screenshot failed:', result?.error)
+            }
         } catch (error) {
             console.error('Error capturing screenshot:', error)
         }
@@ -294,19 +295,6 @@
                 .map((c) => c.charCodeAt(0))
         )
         return new File([new Blob([bytes], { type: 'image/png' })], fileName, { type: 'image/png' })
-    }
-
-    const uploadFile = async (file) => {
-        const formData = new FormData()
-        formData.append('capture', file)
-
-        const result = await apiClient.post('/media/upload', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        })
-
-        console.log(result)
-        const link = 'https://snaplark.com/' + result.data
-        return link
     }
 
     const formatFileSize = (bytes) => {

@@ -28,17 +28,18 @@
     }
 
     const recordGIF = () => {
-        const id = `demo-upload-${Date.now()}`
+        const id = `upload-${Date.now()}`
 
         const notify = (payload) => window.electronNotifications?.notify(payload)
 
         notify({
             id,
-            title: 'Uploading',
-            message: '3.5 MB',
-            variant: 'info',
-            progress: 0,
-            timeoutMs: null
+            variant: 'upload',
+            additionalInfo: {
+                link: 'https://example.com/',
+                file: '',
+                fileSize: '1.2 MB'
+            }
         })
 
         let progress = 0
@@ -99,7 +100,7 @@
         window.electronWindows?.hideWindow('main')
         setTimeout(() => {
             router.push('/login')
-             window.electron.showMainAtTray({ force: true, gap: 0 })
+            window.electron.showMainAtTray({ force: true, gap: 0 })
         }, 100)
     }
 
@@ -116,7 +117,7 @@
             window.electronWindows?.hideWindow('main')
             setTimeout(() => {
                 router.push('/login')
-                 window.electron.showMainAtTray({ force: true, gap: 0 })
+                window.electron.showMainAtTray({ force: true, gap: 0 })
             }, 100)
         }
         await resizeWindowTo('main', 264, 550)

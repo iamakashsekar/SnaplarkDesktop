@@ -97,7 +97,7 @@ class WindowManager {
                 width: 420,
                 height: 10,
                 resizable: false,
-                frame: false,
+                frame: true,
                 transparent: true,
                 alwaysOnTop: true,
                 skipTaskbar: true,

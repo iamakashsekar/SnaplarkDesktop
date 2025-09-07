@@ -695,6 +695,8 @@ app.whenReady().then(() => {
         try {
             const win = windowManager.getWindow('notifications') || windowManager.createWindow('notifications')
 
+            win.openDevTools()
+
             // macOS: keep above full screen
             if (process.platform === 'darwin') {
                 win.setAlwaysOnTop(true, 'screen-saver')
@@ -734,6 +736,17 @@ app.whenReady().then(() => {
         const win = windowManager.getWindow('notifications')
         if (!win || win.isDestroyed()) return
         positionNotificationsWindow(win)
+    })
+
+    // Close notifications window
+    ipcMain.on('notifications:close', () => {
+        const win = windowManager.getWindow('notifications')
+        if (win) {
+            // First hide the window to prevent any visual artifacts
+            win.hide()
+            // Then close it to trigger proper cleanup
+            win.close()
+        }
     })
 
     // Window management IPC handlers
