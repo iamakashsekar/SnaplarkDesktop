@@ -165,8 +165,31 @@
             const interW = Math.max(0, interRight - interLeft)
             const interH = Math.max(0, interBottom - interTop)
 
+            // create an offscreen canvas for pattern
+            const patternCanvas = document.createElement('canvas')
+            const size = 10 // size of each square
+            patternCanvas.width = size * 2
+            patternCanvas.height = size * 2
+
+            const pctx = patternCanvas.getContext('2d')
+
+            // colors
+            const color1 = '#eee' // light gray
+            const color2 = '#ccc' // darker gray
+
+            // draw squares
+            pctx.fillStyle = color1
+            pctx.fillRect(0, 0, size * 2, size * 2)
+
+            pctx.fillStyle = color2
+            pctx.fillRect(0, 0, size, size)
+            pctx.fillRect(size, size, size, size)
+
+            // create pattern
+            const pattern = ctx.createPattern(patternCanvas, 'repeat')
+
             // Fill background so out-of-bounds area shows as blank
-            ctx.fillStyle = 'black'
+            ctx.fillStyle = pattern
             ctx.fillRect(0, 0, magnifierSize, magnifierSize)
 
             if (interW > 0 && interH > 0) {
@@ -514,7 +537,7 @@
         <!-- Magnifier -->
         <div
             v-if="magnifierActive"
-            class="pointer-events-none fixed z-[101] flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white bg-black shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
+            class="pointer-events-none fixed z-[101] flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
             :style="magnifierStyle">
             <canvas
                 ref="magnifierCanvas"
