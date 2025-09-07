@@ -9,7 +9,7 @@ class WindowManager {
         this.windowConfigs = {
             main: {
                 width: 264,
-                height: 800,
+                height: 300,
                 resizable: false,
                 frame: false,
                 transparent: true,
