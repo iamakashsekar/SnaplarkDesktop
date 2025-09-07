@@ -275,7 +275,8 @@
                     variant: 'upload',
                     fileInfo: {
                         path: result.path,
-                        fileName: result.filename
+                        fileName: result.filename,
+                        fileSize: result
                     }
                 })
             } else {

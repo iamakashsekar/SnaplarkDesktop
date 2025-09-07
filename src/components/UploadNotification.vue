@@ -82,6 +82,8 @@
     // Automatically start upload when component mounts
     onMounted(() => {
         uploadFile()
+
+        console.log(props.fileInfo?.fileSize)
     })
 </script>
 
