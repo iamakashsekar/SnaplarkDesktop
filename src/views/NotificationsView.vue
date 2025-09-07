@@ -10,17 +10,11 @@
     const recalc = () => {
         requestAnimationFrame(() => {
             const height = wrap.value?.scrollHeight || 0
-            window.electronNotifications?.resize(height + 2)
+            window.electronNotifications?.resize(height + 20)
         })
     }
 
     const addOrMerge = (n) => {
-        // const existingIdx = notifications.value.findIndex((x) => x.id === n.id)
-        // if (existingIdx >= 0) {
-        //     notifications.value[existingIdx] = { ...notifications.value[existingIdx], ...n }
-        // } else {
-
-        // }
         notifications.value.unshift({
             id: n.id || `n_${idCounter++}`,
             variant: n.variant || 'info',

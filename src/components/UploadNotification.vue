@@ -14,14 +14,30 @@
         return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
     }
 
-    const simulateProgressAnimation = () => {
+    const animateProgressTo = (targetProgress) => {
+        const currentProgress = uploadProgress.value
+        const difference = targetProgress - currentProgress
+        const steps = Math.abs(difference)
+        const stepSize = difference / Math.max(steps, 1)
+        const animationSpeed = 25 // milliseconds between steps
+
+        let step = 0
         const interval = setInterval(() => {
-            if (uploadProgress.value < 85) {
-                uploadProgress.value += Math.random() * 10 + 1
-            } else {
+            step++
+            const newProgress = currentProgress + stepSize * step
+
+            if (
+                (stepSize > 0 && newProgress >= targetProgress) ||
+                (stepSize < 0 && newProgress <= targetProgress) ||
+                step >= steps
+            ) {
+                uploadProgress.value = targetProgress
                 clearInterval(interval)
+            } else {
+                uploadProgress.value = Math.round(newProgress)
             }
-        }, 200)
+        }, animationSpeed)
+
         return interval
     }
 
@@ -44,9 +60,7 @@
         try {
             uploadStatus.value = 'pending'
             uploadProgress.value = 0
-
-            // Start smooth progress animation
-            const progressInterval = simulateProgressAnimation()
+            let currentAnimationInterval = null
 
             const buffer = await window.electron.readFileAsBuffer(props.fileInfo.path)
             const blobFile = bufferToFile(buffer, props.fileInfo.fileName)
@@ -58,21 +72,37 @@
                 headers: { 'Content-Type': 'multipart/form-data' },
                 onUploadProgress: (progressEvent) => {
                     if (progressEvent.lengthComputable) {
-                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-                        uploadProgress.value = Math.max(percentCompleted, uploadProgress.value)
+                        const percentCompleted = Math.min(
+                            Math.round((progressEvent.loaded * 100) / progressEvent.total),
+                            99
+                        )
+
+                        // Clear any existing animation
+                        if (currentAnimationInterval) {
+                            clearInterval(currentAnimationInterval)
+                        }
+
+                        // Only animate to progress that's higher than current
+                        if (percentCompleted > uploadProgress.value) {
+                            currentAnimationInterval = animateProgressTo(percentCompleted)
+                        }
                     }
                 }
             })
 
-            // Clear progress animation and complete
-            clearInterval(progressInterval)
-            uploadProgress.value = 100
+            // Clear any existing animation
+            if (currentAnimationInterval) {
+                clearInterval(currentAnimationInterval)
+            }
+
+            // Only set to 99% after upload is complete and animate to it
+            if (uploadProgress.value < 99) {
+                currentAnimationInterval = animateProgressTo(99)
+            }
 
             // Set success status and data
             uploadStatus.value = 'success'
             link.value = 'https://snaplark.com/' + result.data
-
-            // Show success alert
         } catch (error) {
             uploadStatus.value = 'error'
             console.error('Upload failed:', error)
@@ -183,13 +213,14 @@
     <!-- Progress -->
     <template v-if="uploadStatus === 'pending' || uploadStatus === 'error'">
         <div class="flex items-end justify-between">
-            <p class="text-xs text-slate-500">3.5 MB</p>
+            <p class="text-xs text-slate-500">{{ fileInfo.fileSize }}</p>
             <p
                 v-if="uploadStatus === 'pending'"
                 class="text-sm font-semibold">
                 {{ `${uploadProgress}%` }}
             </p>
             <button
+                @cick="uploadFile"
                 v-else
                 class="group relative">
                 <svg
@@ -220,7 +251,7 @@
             <div
                 v-if="uploadStatus === 'pending'"
                 :style="{ width: `${uploadProgress}%` }"
-                class="let-0 absolute inset-y-0 bg-linear-to-r from-blue-500 to-cyan-500"></div>
+                class="let-0 absolute inset-y-0 bg-linear-to-r from-blue-500 to-cyan-500 transition-all duration-150 ease-out"></div>
         </div>
         <p class="mt-2 text-right text-xs text-slate-400">
             {{ uploadStatus === 'pending' ? '12 Second Remaining' : 'Error 500  API not working' }}

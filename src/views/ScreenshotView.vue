@@ -276,7 +276,7 @@
                     fileInfo: {
                         path: result.path,
                         fileName: result.filename,
-                        fileSize: result
+                        fileSize: formatFileSize(result.size)
                     }
                 })
             } else {
@@ -303,7 +303,15 @@
         const k = 1024
         const sizes = ['Bytes', 'KB', 'MB', 'GB']
         const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
+        const value = bytes / Math.pow(k, i)
+
+        if (sizes[i] === 'KB') {
+            return `${Math.round(value)} KB` // no decimals
+        } else if (sizes[i] === 'Bytes') {
+            return `${bytes} Bytes` // keep as is
+        } else {
+            return `${value.toFixed(1)} ${sizes[i]}` // 1 decimal for MB, GB
+        }
     }
 
     // Notification actions
