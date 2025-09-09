@@ -649,7 +649,7 @@ app.whenReady().then(() => {
         try {
             const win = windowManager.getWindow('notifications') || windowManager.createWindow('notifications')
 
-            win.openDevTools()
+            // win.openDevTools()
 
             // macOS: keep above full screen
             if (process.platform === 'darwin') {
