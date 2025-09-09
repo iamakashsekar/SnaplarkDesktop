@@ -1,5 +1,6 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses')
 const { FuseV1Options, FuseVersion } = require('@electron/fuses')
+const path = require('path')
 
 module.exports = {
     packagerConfig: {
@@ -12,8 +13,8 @@ module.exports = {
         {
             name: '@electron-forge/maker-squirrel',
             config: {
-                iconUrl: 'src/assets/icons/icon.ico',
-                setupIcon: 'src/assets/icons/icon.ico'
+                setupIcon: 'src/assets/icons/icon.ico',
+                iconUrl: `file://${path.resolve(__dirname, 'src/assets/icons/icon.ico')}`
             }
         },
         {
