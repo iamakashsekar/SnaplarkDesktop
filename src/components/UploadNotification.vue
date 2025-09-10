@@ -221,7 +221,7 @@
                     {{ `${uploadProgress}%` }}
                 </p>
                 <button
-                    @cick="uploadFile"
+                    @click="uploadFile"
                     v-else
                     class="group relative">
                     <svg

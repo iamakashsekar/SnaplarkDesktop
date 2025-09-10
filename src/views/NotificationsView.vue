@@ -94,16 +94,22 @@
         { deep: true, immediate: false }
     )
 
-    window.electronNotifications?.onAdd((payload) => {
-        addOrMerge(payload)
-    })
-    window.addEventListener('resize', () => recalc())
-    window.electronNotifications?.reposition()
+    // Setup when component is fully mounted
+    onMounted(() => {
+        // Set up the notification listener after component is ready
+        window.electronNotifications?.onAdd((payload) => {
+            addOrMerge(payload)
+        })
+        
+        window.addEventListener('resize', () => recalc())
+        window.electronNotifications?.reposition()
 
-    // Initial setup
-    nextTick(() => {
-        recalc()
+        // Initial setup
+        nextTick(() => {
+            recalc()
+        })
     })
+    
     requestAnimationFrame(tick)
 </script>
 

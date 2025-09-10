@@ -649,8 +649,6 @@ app.whenReady().then(() => {
         try {
             const win = windowManager.getWindow('notifications') || windowManager.createWindow('notifications')
 
-            win.openDevTools()
-
             // macOS: keep above full screen
             if (process.platform === 'darwin') {
                 win.setAlwaysOnTop(true, 'screen-saver')
@@ -665,9 +663,20 @@ app.whenReady().then(() => {
                 win.show()
             }
 
-            setTimeout(() => {
-                win.webContents.send('notifications:add', notification)
-            }, 300)
+            // Send notification immediately if window is ready, otherwise wait for ready event
+            if (win.webContents.isLoadingMainFrame()) {
+                win.webContents.once('did-finish-load', () => {
+                    // Small delay to ensure Vue component is mounted
+                    setTimeout(() => {
+                        win.webContents.send('notifications:add', notification)
+                    }, 100)
+                })
+            } else {
+                // Window is already loaded, send immediately with small delay for component mounting
+                setTimeout(() => {
+                    win.webContents.send('notifications:add', notification)
+                }, 100)
+            }
 
             return { success: true }
         } catch (error) {
