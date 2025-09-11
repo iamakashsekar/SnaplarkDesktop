@@ -6,9 +6,12 @@
         fileInfo: Object
     })
 
+    const emit = defineEmits(['close'])
+
     const uploadProgress = ref(0)
     const uploadStatus = ref('pending')
     const link = ref('')
+    const tooltipText = ref('Copy Link')
 
     const bufferToFile = (buffer, fileName) => {
         return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
@@ -44,16 +47,20 @@
     const copyToClipboard = async () => {
         try {
             await navigator.clipboard.writeText(link.value)
+            // Change tooltip to "Copied" on successful copy
+            tooltipText.value = 'Copied'
+            // Reset tooltip back to "Copy Link" after 2 seconds
+            setTimeout(() => {
+                tooltipText.value = 'Copy Link'
+            }, 2000)
         } catch (error) {
             console.error('Failed to copy link:', error)
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea')
-            textArea.value = link.value
-            document.body.appendChild(textArea)
-            textArea.select()
-            document.execCommand('copy')
-            document.body.removeChild(textArea)
         }
+    }
+
+    const openLink = () => {
+        window.electron.openExternal(link.value)
+        emit('close')
     }
 
     const uploadFile = async () => {
@@ -118,7 +125,7 @@
 </script>
 
 <template>
-    <div>
+    <div class="no-select">
         <!-- Title -->
         <div class="mb-5 flex items-center gap-4">
             <template v-if="uploadStatus === 'pending'">
@@ -290,7 +297,7 @@
                     <!-- Tooltip -->
                     <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
                         <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            Copy Link
+                            {{ tooltipText }}
                             <!-- Arrow -->
                             <div
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
@@ -298,22 +305,37 @@
                     </div>
                 </button>
                 <button
+                    type="button"
+                    @click="openLink"
                     class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
                     <svg
+                        xmlns="http://www.w3.org/2000/svg"
                         class="size-5"
-                        viewBox="0 0 24 20"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
+                        viewBox="0 0 24 24"
+                        fill="none">
                         <path
-                            d="M14 17.7929V14.3333C14 14.1315 13.8783 13.9471 13.6878 13.8804C9.49794 12.4142 4.58425 16.1566 1.92376 18.9596C1.60082 19.2998 1.01594 19.0703 1.05045 18.6025C1.73698 9.29573 9.26646 6.37576 13.5212 6.02893C13.7889 6.0071 14 5.78753 14 5.51886V2.20711C14 1.76165 14.5386 1.53857 14.8536 1.85355L22.6464 9.64645C22.8417 9.84171 22.8417 10.1583 22.6464 10.3536L14.8536 18.1464C14.5386 18.4614 14 18.2383 14 17.7929Z"
-                            stroke="#2178FF"
+                            d="M13 10.9998L21.2 2.7998"
+                            stroke="#2178ff"
                             stroke-width="1.5"
-                            stroke-linecap="round" />
+                            stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path
+                            d="M22 6.8V2H17.2"
+                            stroke="#2178ff"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path
+                            d="M11 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22H15C20 22 22 20 22 15V13"
+                            stroke="#2178ff"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round" />
                     </svg>
 
                     <div class="absolute top-full mt-1.5 hidden group-hover:block">
                         <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            Share
+                            Open
                             <!-- Arrow -->
                             <div
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
