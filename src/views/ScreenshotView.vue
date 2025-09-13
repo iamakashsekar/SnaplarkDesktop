@@ -15,7 +15,8 @@
     const resizingHandle = ref(null)
 
     // Magnifier state
-    const magnifierActive = ref(true)
+    const magnifierActive = ref(false) // Start inactive, will be activated by mouse position
+    const isWindowActive = ref(false) // Track if this window is currently active
     const magnifierSize = 200
     const zoomFactor = 2
     const magnifierCanvas = ref(null)
@@ -69,6 +70,8 @@
     const handleMouseDown = (e) => {
         if (mode.value === 'confirming') return
 
+        // Ensure this window is active when user starts selecting
+        isWindowActive.value = true
         mode.value = 'selecting'
         magnifierActive.value = true
         startX.value = endX.value = e.clientX
@@ -96,7 +99,8 @@
             if (handle.includes('bottom')) endY.value = e.clientY
         }
 
-        if (magnifierActive.value) {
+        // Only update magnifier if this window is active
+        if (isWindowActive.value && magnifierActive.value) {
             updateMagnifier(e.clientX, e.clientY)
         }
     }
@@ -410,6 +414,26 @@
 
         document.addEventListener('keydown', handleCancel)
 
+        // Set up display activation listener first
+        window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
+            console.log(`Display ${displayId.value} activation changed:`, activationData.isActive)
+            isWindowActive.value = activationData.isActive
+
+            if (activationData.isActive) {
+                // This window is now active - show magnifier and update mouse position
+                magnifierActive.value = true
+                mouseX.value = Math.max(0, Math.min(activationData.mouseX, window.innerWidth))
+                mouseY.value = Math.max(0, Math.min(activationData.mouseY, window.innerHeight))
+
+                if (mode.value === 'idle') {
+                    updateMagnifier(mouseX.value, mouseY.value)
+                }
+            } else {
+                // This window is no longer active - hide magnifier
+                magnifierActive.value = false
+            }
+        })
+
         const processMagnifierData = (dataURL) => {
             if (!dataURL) return
             const img = new Image()
@@ -423,30 +447,19 @@
             img.onerror = (e) => console.error('Error loading magnifier image from data URL:', e)
         }
 
-        // Fetch the initial data from the main process once the component is mounted.
-        // This avoids a race condition where the main process sends data before the listener is ready.
+        // Fetch the initial screenshot data for this specific display
         try {
-            const initialDataURL = await window.electronWindows?.getInitialMagnifierData()
+            const handlerKey = `get-initial-magnifier-data-${displayId.value}`
+            const initialDataURL = await window.electron?.invoke(handlerKey)
             processMagnifierData(initialDataURL)
         } catch (error) {
             console.error('Failed to get initial magnifier data:', error)
         }
-
-        // Listen for subsequent data updates (e.g., when moving to a new display)
-        window.electronWindows?.onDisplayChanged((data) => {
-            // A leftover alert for debugging, can be removed or commented out.
-            // alert('Display changed!')
-            displayId.value = data.displayId
-            if (data.mouseX !== undefined) mouseX.value = data.mouseX
-            if (data.mouseY !== undefined) mouseY.value = data.mouseY
-        })
-        window.electronWindows?.onMagnifierData(processMagnifierData)
     })
 
     onUnmounted(() => {
         document.removeEventListener('keydown', handleCancel)
-        window.electronWindows?.removeDisplayChangedListener()
-        window.electronWindows?.removeMagnifierDataListener()
+        window.electronWindows?.removeDisplayActivationChangedListener?.()
     })
 </script>
 
@@ -514,20 +527,20 @@
             </div>
         </div>
 
-        <!-- Instructions -->
+        <!-- Instructions (only show on active window) -->
         <div
-            v-if="mode === 'idle'"
+            v-if="mode === 'idle' && isWindowActive"
             class="pointer-events-none fixed top-1/2 left-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
             <p>Click and drag to select an area or click to capture full screen</p>
         </div>
 
-        <!-- Crosshair (only when not confirming) -->
+        <!-- Crosshair (only when not confirming and window is active) -->
         <div
-            v-if="mode !== 'confirming'"
+            v-if="mode !== 'confirming' && isWindowActive"
             class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
-            v-if="mode !== 'confirming'"
+            v-if="mode !== 'confirming' && isWindowActive"
             class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 

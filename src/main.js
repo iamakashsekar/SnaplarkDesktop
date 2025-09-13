@@ -50,7 +50,7 @@ if (process.defaultApp) {
 
 let windowManager
 let tray
-let screenPollInterval = null
+// Removed screenPollInterval - now using event-driven display tracking
 let lastNotificationsDisplayId = null
 
 async function takeScreenshotForDisplay(source, type, bounds, display) {
@@ -214,108 +214,209 @@ app.whenReady().then(() => {
     })
 
     ipcMain.handle('start-screenshot-mode', async () => {
-        // Hide the main window before starting screenshot mode (but don't focus it)
-        const mainWindow = windowManager.getWindow('main')
-        if (mainWindow) {
-            mainWindow.hide()
-        }
-
-        // Close any existing windows and clear a previous interval
-        windowManager.closeWindowsByType('screenshot')
-        if (screenPollInterval) clearInterval(screenPollInterval)
-
-        // Use tray position if available, otherwise fall back to the cursor position
-        let referencePoint = screen.getCursorScreenPoint()
-        // if (mainWindow && mainWindow.trayPosition) {
-        //     referencePoint = mainWindow.trayPosition;
-        //     // Clear the tray position after using it
-        //     delete mainWindow.trayPosition;
-        // }
-
-        const currentDisplay = screen.getDisplayNearestPoint(referencePoint)
-
-        // Get a screenshot of the current display to use for the magnifier
-        const source = await findSourceForDisplay(currentDisplay)
-        if (!source) {
-            console.error(`Could not find screen source for initial displayId: ${currentDisplay.id}`)
-            return
-        }
-
-        const image = await takeScreenshotForDisplay(source, 'fullscreen', null, currentDisplay)
-        const dataURL = image.toDataURL()
-
-        const win = windowManager.createWindow('screenshot', {
-            ...currentDisplay.bounds,
-            params: {
-                displayId: currentDisplay.id,
-                initialMouseX: screen.getCursorScreenPoint().x - currentDisplay.bounds.x,
-                initialMouseY: screen.getCursorScreenPoint().y - currentDisplay.bounds.y
+        try {
+            // Hide the main window before starting screenshot mode
+            const mainWindow = windowManager.getWindow('main')
+            if (mainWindow) {
+                mainWindow.hide()
             }
-        })
 
-        // Use handleOnce to securely provide the initial screenshot data to the renderer
-        // only once, when it's ready to ask for it. This avoids the race condition.
-        ipcMain.handleOnce('get-initial-magnifier-data', (event) => {
-            // Ensure the request is coming from the correct window.
-            if (event.sender === win.webContents) {
-                return dataURL
+            // Close any existing screenshot windows
+            windowManager.closeWindowsByType('screenshot')
+
+            // Get all available displays
+            const allDisplays = screen.getAllDisplays()
+            console.log(`Found ${allDisplays.length} display(s)`)
+
+            // Create screenshots and windows for each display
+            const screenshotPromises = allDisplays.map(async (display) => {
+                try {
+                    // Get screenshot source for this display
+                    const source = await findSourceForDisplay(display)
+                    if (!source) {
+                        console.error(`Could not find screen source for displayId: ${display.id}`)
+                        return null
+                    }
+
+                    // Take screenshot of this display
+                    const image = await takeScreenshotForDisplay(source, 'fullscreen', null, display)
+                    const dataURL = image.toDataURL()
+
+                    // Determine initial mouse position for this display
+                    const cursorPos = screen.getCursorScreenPoint()
+                    const mouseX = cursorPos.x - display.bounds.x
+                    const mouseY = cursorPos.y - display.bounds.y
+
+                    return {
+                        display,
+                        dataURL,
+                        mouseX: Math.max(0, Math.min(mouseX, display.bounds.width)),
+                        mouseY: Math.max(0, Math.min(mouseY, display.bounds.height))
+                    }
+                } catch (error) {
+                    console.error(`Error processing display ${display.id}:`, error)
+                    return null
+                }
+            })
+
+            // Wait for all screenshots to complete
+            const screenshotResults = await Promise.all(screenshotPromises)
+            const validResults = screenshotResults.filter(result => result !== null)
+
+            if (validResults.length === 0) {
+                console.error('No valid displays found for screenshot')
+                return { success: false, error: 'No displays available' }
             }
-            return null
-        })
 
-        // Additional macOS specific settings for better workspace behavior
-        if (process.platform === 'darwin') {
-            win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-            win.setAlwaysOnTop(true, 'screen-saver', 1)
-        }
+            // Determine initial active display before creating windows
+            const initialCursorPos = screen.getCursorScreenPoint()
+            const initialActiveDisplay = screen.getDisplayNearestPoint(initialCursorPos)
 
-        win.currentDisplayId = currentDisplay.id // Store for polling check
+            // Create windows for each display
+            const windows = validResults.map(({ display, dataURL, mouseX, mouseY }, index) => {
+                // Create unique window type for each display to avoid conflicts
+                const windowType = `screenshot-${display.id}`
+                
+                console.log(`Creating window ${windowType} for display ${display.id}:`, {
+                    bounds: display.bounds,
+                    primary: display.primary
+                })
+                
+                const win = windowManager.createWindow(windowType, {
+                    ...display.bounds,
+                    x: display.bounds.x,
+                    y: display.bounds.y,
+                    width: display.bounds.width,
+                    height: display.bounds.height,
+                    params: {
+                        displayId: display.id,
+                        initialMouseX: mouseX,
+                        initialMouseY: mouseY
+                    }
+                })
+                
+                console.log(`Window ${windowType} created successfully`)
 
-        screenPollInterval = setInterval(async () => {
-            try {
-                if (win.isDestroyed()) {
-                    clearInterval(screenPollInterval)
-                    return
+                // Store the screenshot data for this specific window
+                win.screenshotData = dataURL
+                win.displayInfo = display
+
+                // Ensure window is positioned correctly on the target display
+                win.setBounds({
+                    x: display.bounds.x,
+                    y: display.bounds.y,
+                    width: display.bounds.width,
+                    height: display.bounds.height
+                })
+
+                // Set up handler for this specific window's magnifier data
+                const handlerKey = `get-initial-magnifier-data-${display.id}`
+                ipcMain.handleOnce(handlerKey, (event) => {
+                    if (event.sender === win.webContents) {
+                        return dataURL
+                    }
+                    return null
+                })
+
+                // Platform-specific settings
+                if (process.platform === 'darwin') {
+                    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+                    win.setAlwaysOnTop(true, 'screen-saver', 1)
                 }
 
-                const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-                if (win.currentDisplayId !== display.id) {
-                    win.setBounds(display.bounds)
-                    win.currentDisplayId = display.id
-
-                    // Additional macOS specific settings for the new display
-                    if (process.platform === 'darwin') {
-                        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-                        win.setAlwaysOnTop(true, 'screen-saver', 1)
+                // Determine if this window should be initially active
+                const isInitiallyActive = display.id === initialActiveDisplay.id
+                
+                // Set up initial activation when window is ready
+                win.webContents.once('did-finish-load', () => {
+                    const activationData = {
+                        isActive: isInitiallyActive,
+                        activeDisplayId: initialActiveDisplay.id,
+                        mouseX: initialCursorPos.x - display.bounds.x,
+                        mouseY: initialCursorPos.y - display.bounds.y
                     }
+                    win.webContents.send('display-activation-changed', activationData)
+                    console.log(`Initial activation sent to window ${windowType}:`, activationData.isActive)
+                })
 
-                    // Get and send new data for the new display
-                    const newSource = await findSourceForDisplay(display)
-                    if (newSource) {
-                        const newImage = await takeScreenshotForDisplay(newSource, 'fullscreen', null, display)
-                        win.webContents.send('magnifier-data', newImage.toDataURL())
-                    } else {
-                        console.error(`Could not find screen source for new displayId: ${display.id}`)
-                    }
+                // Explicitly show the window
+                win.show()
+                console.log(`Window ${windowType} shown on display ${display.id}`)
 
-                    // Notify the renderer process of the display change with updated mouse coordinates
-                    const currentMouse = screen.getCursorScreenPoint()
-                    win.webContents.send('display-changed', {
-                        displayId: display.id,
-                        mouseX: currentMouse.x - display.bounds.x,
-                        mouseY: currentMouse.y - display.bounds.y
+                // Clean up handler when window closes
+                win.on('closed', () => {
+                    ipcMain.removeHandler(handlerKey)
+                })
+
+                return win
+            })
+            
+            // Set up global mouse tracking to manage which window is active
+            let currentActiveDisplayId = initialActiveDisplay.id
+            let mouseTrackingInterval = null
+            
+            const updateActiveWindow = (force = false) => {
+                const cursorPos = screen.getCursorScreenPoint()
+                const activeDisplay = screen.getDisplayNearestPoint(cursorPos)
+                
+                if (force || currentActiveDisplayId !== activeDisplay.id) {
+                    currentActiveDisplayId = activeDisplay.id
+                    
+                    // Notify all windows about the active display change
+                    windows.forEach(win => {
+                        if (!win.isDestroyed() && win.webContents) {
+                            const isActive = win.displayInfo.id === activeDisplay.id
+                            const activationData = {
+                                isActive,
+                                activeDisplayId: activeDisplay.id,
+                                mouseX: cursorPos.x - win.displayInfo.bounds.x,
+                                mouseY: cursorPos.y - win.displayInfo.bounds.y
+                            }
+                            
+                            // Send immediately if ready, or queue for when ready
+                            if (win.webContents.isLoading()) {
+                                win.webContents.once('did-finish-load', () => {
+                                    win.webContents.send('display-activation-changed', activationData)
+                                })
+                            } else {
+                                win.webContents.send('display-activation-changed', activationData)
+                            }
+                        }
                     })
                 }
-            } catch (error) {
-                // Stop polling if there's an error (e.g., window closed)
-                clearInterval(screenPollInterval)
             }
-        }, 100)
+            
+            // Start mouse tracking with reduced frequency (every 100ms)
+            mouseTrackingInterval = setInterval(updateActiveWindow, 100)
+            
+            // Set initial active window with multiple attempts to ensure delivery
+            setTimeout(() => updateActiveWindow(true), 100)
+            setTimeout(() => updateActiveWindow(true), 300)
+            setTimeout(() => updateActiveWindow(true), 500)
+            
+            // Clean up when any screenshot window closes
+            const originalCleanup = () => {
+                if (mouseTrackingInterval) {
+                    clearInterval(mouseTrackingInterval)
+                    mouseTrackingInterval = null
+                }
+            }
+            
+            windows.forEach(win => {
+                win.on('closed', originalCleanup)
+            })
 
-        // Clean up the IPC handler if the window is closed before the data is requested.
-        win.on('closed', () => {
-            ipcMain.removeHandler('get-initial-magnifier-data')
-        })
+            console.log(`Created ${windows.length} screenshot window(s)`)
+            return { 
+                success: true, 
+                displayCount: allDisplays.length,
+                windowCount: windows.length 
+            }
+
+        } catch (error) {
+            console.error('Error starting screenshot mode:', error)
+            return { success: false, error: error.message }
+        }
     })
 
     // Handle copy screenshot to clipboard
@@ -352,7 +453,7 @@ app.whenReady().then(() => {
             clipboard.writeImage(image)
 
             // Cleanup screenshot mode
-            if (screenPollInterval) clearInterval(screenPollInterval)
+            // No longer needed - using event-driven display tracking
             windowManager.closeWindowsByType('screenshot')
 
             return { success: true, message: 'Screenshot copied to clipboard' }
@@ -488,7 +589,7 @@ app.whenReady().then(() => {
             })
 
             // Cleanup screenshot mode
-            if (screenPollInterval) clearInterval(screenPollInterval)
+            // No longer needed - using event-driven display tracking
             windowManager.closeWindowsByType('screenshot')
 
             return { success: true, message: 'Print dialog opened' }
@@ -535,7 +636,7 @@ app.whenReady().then(() => {
             await shell.openExternal('https://images.google.com/')
 
             // Cleanup screenshot mode
-            if (screenPollInterval) clearInterval(screenPollInterval)
+            // No longer needed - using event-driven display tracking
             windowManager.closeWindowsByType('screenshot')
 
             return {
@@ -549,7 +650,7 @@ app.whenReady().then(() => {
     })
 
     ipcMain.on('cancel-screenshot-mode', () => {
-        if (screenPollInterval) clearInterval(screenPollInterval)
+        // No longer needed - using event-driven display tracking
         windowManager.closeWindowsByType('screenshot')
     })
 
@@ -598,7 +699,7 @@ app.whenReady().then(() => {
             // Get file size in bytes
             const { size } = fs.statSync(filepath)
 
-            if (screenPollInterval) clearInterval(screenPollInterval)
+            // No longer needed - using event-driven display tracking
             windowManager.closeWindowsByType('screenshot')
 
             return { 
@@ -814,10 +915,7 @@ app.whenReady().then(() => {
     ipcMain.handle('close-windows-by-type', (event, type) => {
         try {
             windowManager.closeWindowsByType(type)
-            // Also clear the interval if we're closing screenshot windows this way
-            if (type === 'screenshot' && screenPollInterval) {
-                clearInterval(screenPollInterval)
-            }
+            // Event listeners are automatically cleaned up when windows close
             return { success: true }
         } catch (error) {
             console.error(`Error closing windows of type ${type}:`, error)

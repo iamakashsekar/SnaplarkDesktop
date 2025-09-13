@@ -116,8 +116,11 @@ class WindowManager {
     }
 
     createWindow(type, options = {}) {
-        if (this.windows.has(type)) {
-            // If window already exists, focus it
+        // For screenshot windows, allow multiple instances
+        const isScreenshotWindow = type.startsWith('screenshot')
+        
+        if (!isScreenshotWindow && this.windows.has(type)) {
+            // If window already exists and it's not a screenshot window, focus it
             const existingWindow = this.windows.get(type)
             if (!existingWindow.isDestroyed()) {
                 existingWindow.show()
@@ -128,10 +131,20 @@ class WindowManager {
             }
         }
 
-        const config = { ...this.windowConfigs[type], ...options }
+        // Get base config for screenshot windows
+        const baseType = isScreenshotWindow ? 'screenshot' : type
+        const config = { ...this.windowConfigs[baseType], ...options }
         const parentWindow = this.windows.get('main') || null
 
         // Create the browser window
+        console.log(`Creating window of type "${type}" with config:`, {
+            x: config.x,
+            y: config.y,
+            width: config.width,
+            height: config.height,
+            isScreenshot: isScreenshotWindow
+        })
+        
         const window = new BrowserWindow({
             ...config,
             parent: config.modal && parentWindow ? parentWindow : null,
@@ -145,7 +158,7 @@ class WindowManager {
 
         // Set macOS specific properties
         if (process.platform === 'darwin' && config.alwaysOnTop) {
-            if (type === 'screenshot') {
+            if (isScreenshotWindow) {
                 // For screenshot windows, use highest level to appear above fullscreen apps
                 window.setAlwaysOnTop(true, 'screen-saver')
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
@@ -173,8 +186,8 @@ class WindowManager {
         // Store the window
         this.windows.set(type, window)
 
-        if (type !== 'main') {
-            // Show the window immediately after creation
+        if (type !== 'main' && !isScreenshotWindow) {
+            // Show the window immediately after creation (except for screenshot windows)
             window.show()
             window.focus()
         }
@@ -183,7 +196,9 @@ class WindowManager {
     }
 
     loadWindowContent(window, type, params = {}) {
-        const urlParams = new URLSearchParams({ window: type, ...params })
+        // For screenshot windows, use 'screenshot' as the window type for routing
+        const windowType = type.startsWith('screenshot') ? 'screenshot' : type
+        const urlParams = new URLSearchParams({ window: windowType, ...params })
 
         if (this.viteDevServerUrl) {
             window.loadURL(`${this.viteDevServerUrl}?${urlParams.toString()}`)

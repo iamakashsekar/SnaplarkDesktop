@@ -14,7 +14,9 @@ contextBridge.exposeInMainWorld('electron', {
     searchImageGoogle: (type, bounds, displayId) => ipcRenderer.invoke('search-image-google', type, bounds, displayId),
     readFileAsBuffer: (filePath) => ipcRenderer.invoke('read-file-as-buffer', filePath),
     startScreenshotMode: () => ipcRenderer.invoke('start-screenshot-mode'),
-    cancelScreenshotMode: () => ipcRenderer.send('cancel-screenshot-mode')
+    cancelScreenshotMode: () => ipcRenderer.send('cancel-screenshot-mode'),
+    send: (channel, data) => ipcRenderer.send(channel, data),
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
 })
 
 // Window management APIs
@@ -32,6 +34,12 @@ contextBridge.exposeInMainWorld('electronWindows', {
     },
     removeDisplayChangedListener: () => {
         ipcRenderer.removeAllListeners('display-changed')
+    },
+    onDisplayActivationChanged: (callback) => {
+        ipcRenderer.on('display-activation-changed', (event, data) => callback(data))
+    },
+    removeDisplayActivationChangedListener: () => {
+        ipcRenderer.removeAllListeners('display-activation-changed')
     },
     // Used to fetch the initial screen capture to avoid race conditions.
     getInitialMagnifierData: () => ipcRenderer.invoke('get-initial-magnifier-data'),

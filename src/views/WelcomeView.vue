@@ -72,7 +72,7 @@
 </script>
 
 <template>
-    <div class="welcome-window">
+    <div class="welcome-window shadow-md">
         <transition
             name="slide-fade"
             mode="out-in">
