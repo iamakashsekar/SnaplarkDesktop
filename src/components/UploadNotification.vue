@@ -113,7 +113,7 @@
             // Set success status and data
             uploadStatus.value = 'success'
             link.value = 'https://snaplark.com/' + result.data
-            store.lastCapture = link.value
+            store.lastCapture = link.value // Automatic sync will handle this
         } catch (error) {
             uploadStatus.value = 'error'
             console.error('Upload failed:', error)

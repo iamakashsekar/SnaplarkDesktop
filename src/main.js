@@ -714,6 +714,16 @@ app.whenReady().then(() => {
         }
     })
 
+    // Store synchronization between windows
+    ipcMain.on('store:sync', (event, { key, value }) => {
+        // Broadcast store changes to all windows except the sender
+        windowManager.getAllWindows().forEach(window => {
+            if (window.webContents !== event.sender) {
+                window.webContents.send('store:update', { key, value })
+            }
+        })
+    })
+
     // Window management IPC handlers
     ipcMain.handle('create-window', (event, type, options) => {
         try {

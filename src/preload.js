@@ -54,7 +54,9 @@ contextBridge.exposeInMainWorld('electronNotifications', {
 
 contextBridge.exposeInMainWorld('electronStore', {
     get: (key) => storeSend('get', key),
-    set: (key, value) => storeSend('set', key, value)
+    set: (key, value) => storeSend('set', key, value),
+    sync: (key, value) => ipcRenderer.send('store:sync', { key, value }),
+    onUpdate: (callback) => ipcRenderer.on('store:update', (event, { key, value }) => callback(key, value))
 })
 
 // Handle authentication responses from the main process

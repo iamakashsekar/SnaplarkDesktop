@@ -49,6 +49,7 @@
             if (progress >= 100) {
                 clearInterval(timer)
                 const url = 'https://example.com/file/abcd'
+                store.lastCapture = url // Automatic sync will handle this
                 notify({
                     id,
                     title: 'Upload Complete',
@@ -67,7 +68,7 @@
         }, 200)
     }
 
-    const openLastCapture = async () => {
+    const openLastCapture = () => {
         if (store.lastCapture) {
             hideWindow('main')
             store.openExternal(store.lastCapture)

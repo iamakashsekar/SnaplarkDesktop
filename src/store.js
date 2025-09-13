@@ -122,6 +122,53 @@ export const useStore = defineStore('main', {
             connectivityService.on('changed', (data) => {
                 this.isOnline = data.isOnline
             })
+        },
+
+        // Initialize store sync listener and watcher
+        initializeStoreSync() {
+            // Track previous state to detect actual changes
+            let previousState = {}
+            
+            // Listen for updates from other windows
+            if (window.electronStore?.onUpdate) {
+                window.electronStore.onUpdate((key, value) => {
+                    // Update store without triggering sync (to prevent infinite loops)
+                    this._isReceivingSync = true
+                    this[key] = value
+                    // Update previous state to match
+                    previousState[key] = value
+                    this._isReceivingSync = false
+                })
+            }
+
+            // Initialize previous state
+            const syncableKeys = ['lastCapture', 'user', 'isAuthenticated', 'isDarkMode', 'welcomeCompleted']
+            syncableKeys.forEach(key => {
+                previousState[key] = this[key]
+            })
+
+            // Watch for local store changes and sync to other windows
+            this.$subscribe((mutation, state) => {
+                // Skip sync if this update came from another window
+                if (this._isReceivingSync) return
+
+                // Check which syncable properties actually changed
+                const changedKeys = []
+                syncableKeys.forEach(key => {
+                    if (state[key] !== previousState[key]) {
+                        changedKeys.push(key)
+                        previousState[key] = state[key]
+                    }
+                })
+                
+                // Only sync if there are actual changes to syncable properties
+                if (changedKeys.length > 0 && window.electronStore?.sync) {
+                    console.log('Syncing changed keys to other windows:', changedKeys)
+                    changedKeys.forEach(key => {
+                        window.electronStore.sync(key, state[key])
+                    })
+                }
+            })
         }
     }
 })
