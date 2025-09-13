@@ -68,12 +68,16 @@
     }
 
     const openLastCapture = async () => {
-        console.log('Opening design workspace')
-        await createWindow('design')
+        if (store.lastCapture) {
+            hideWindow('main')
+            store.openExternal(store.lastCapture)
+        }
     }
 
     const uploadMedia = async () => {
         console.log('Upload media')
+        console.log('Opening design workspace')
+        await createWindow('design')
         // TODO: Implement media upload
     }
 
@@ -208,42 +212,52 @@
 
         <!-- Media Actions -->
         <div class="space-y-4">
-            <button
-                type="button"
-                @click="openLastCapture"
-                class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
-                <svg
-                    width="29"
-                    height="29"
-                    viewBox="0 0 29 29"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M2.41699 9.13501H4.84574H7.78199"
-                        fill="#2178FF" />
-                    <path
-                        d="M17.5816 26.1846C22.7653 24.8192 26.5837 20.1067 26.5837 14.5C26.5837 7.83001 21.2187 2.41667 14.5003 2.41667C6.44074 2.41667 2.41699 9.13501 2.41699 9.13501M2.41699 9.13501V3.62501M2.41699 9.13501H4.84574H7.78199"
-                        stroke="#2178FF"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round" />
-                    <path
-                        d="M2.41699 14.5C2.41699 21.17 7.83033 26.5833 14.5003 26.5833"
-                        stroke="#2178FF"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-dasharray="3 3" />
-                    <path
-                        d="M20.0093 16.41L18.4443 12.75C18.1593 12.08 17.7343 11.7 17.2493 11.675C16.7693 11.65 16.3043 11.985 15.9493 12.625L14.9993 14.33C14.7993 14.69 14.5143 14.905 14.2043 14.93C13.8893 14.96 13.5743 14.795 13.3193 14.47L13.2093 14.33C12.8543 13.885 12.4143 13.67 11.9643 13.715C11.5143 13.76 11.1293 14.07 10.8743 14.575L10.0093 16.3C9.69934 16.925 9.72934 17.65 10.0943 18.24C10.4593 18.83 11.0943 19.185 11.7893 19.185H18.1693C18.8393 19.185 19.4643 18.85 19.8343 18.29C20.2143 17.73 20.2743 17.025 20.0093 16.41Z"
-                        fill="#2178FF" />
-                    <path
-                        d="M12.4849 12.19C13.4183 12.19 14.1749 11.4334 14.1749 10.5C14.1749 9.56664 13.4183 8.81 12.4849 8.81C11.5516 8.81 10.7949 9.56664 10.7949 10.5C10.7949 11.4334 11.5516 12.19 12.4849 12.19Z"
-                        fill="#2178FF" />
-                </svg>
+            <div class="group relative">
+                <button
+                    :disabled="!store.lastCapture"
+                    type="button"
+                    @click="openLastCapture"
+                    :class="{ 'opacity-50': !store.lastCapture }"
+                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    <svg
+                        width="29"
+                        height="29"
+                        viewBox="0 0 29 29"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M2.41699 9.13501H4.84574H7.78199"
+                            fill="#2178FF" />
+                        <path
+                            d="M17.5816 26.1846C22.7653 24.8192 26.5837 20.1067 26.5837 14.5C26.5837 7.83001 21.2187 2.41667 14.5003 2.41667C6.44074 2.41667 2.41699 9.13501 2.41699 9.13501M2.41699 9.13501V3.62501M2.41699 9.13501H4.84574H7.78199"
+                            stroke="#2178FF"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path
+                            d="M2.41699 14.5C2.41699 21.17 7.83033 26.5833 14.5003 26.5833"
+                            stroke="#2178FF"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-dasharray="3 3" />
+                        <path
+                            d="M20.0093 16.41L18.4443 12.75C18.1593 12.08 17.7343 11.7 17.2493 11.675C16.7693 11.65 16.3043 11.985 15.9493 12.625L14.9993 14.33C14.7993 14.69 14.5143 14.905 14.2043 14.93C13.8893 14.96 13.5743 14.795 13.3193 14.47L13.2093 14.33C12.8543 13.885 12.4143 13.67 11.9643 13.715C11.5143 13.76 11.1293 14.07 10.8743 14.575L10.0093 16.3C9.69934 16.925 9.72934 17.65 10.0943 18.24C10.4593 18.83 11.0943 19.185 11.7893 19.185H18.1693C18.8393 19.185 19.4643 18.85 19.8343 18.29C20.2143 17.73 20.2743 17.025 20.0093 16.41Z"
+                            fill="#2178FF" />
+                        <path
+                            d="M12.4849 12.19C13.4183 12.19 14.1749 11.4334 14.1749 10.5C14.1749 9.56664 13.4183 8.81 12.4849 8.81C11.5516 8.81 10.7949 9.56664 10.7949 10.5C10.7949 11.4334 11.5516 12.19 12.4849 12.19Z"
+                            fill="#2178FF" />
+                    </svg>
 
-                <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">Last Capture</p>
-            </button>
+                    <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
+                        Last Capture
+                    </p>
+                </button>
+                <span
+                    class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    {{ store.lastCapture ? 'Open last uploaded capture' : 'No capture uploaded yet' }}
+                </span>
+            </div>
 
             <button
                 type="button"

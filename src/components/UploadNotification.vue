@@ -1,10 +1,13 @@
 <script setup>
     import { onMounted, ref } from 'vue'
     import { apiClient } from '../api/config'
+    import { useStore } from '@/store'
 
     const props = defineProps({
         fileInfo: Object
     })
+
+    const store = useStore()
 
     const emit = defineEmits(['close'])
 
@@ -110,6 +113,7 @@
             // Set success status and data
             uploadStatus.value = 'success'
             link.value = 'https://snaplark.com/' + result.data
+            store.lastCapture = link.value
         } catch (error) {
             uploadStatus.value = 'error'
             console.error('Upload failed:', error)

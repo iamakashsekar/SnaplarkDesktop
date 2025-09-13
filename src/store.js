@@ -17,7 +17,10 @@ export const useStore = defineStore('main', {
         welcomeCompleted: false,
 
         // Connectivity State (synced with global service)
-        isOnline: connectivityService.isOnline
+        isOnline: connectivityService.isOnline,
+
+        // Upload State
+        lastCapture:null,
     }),
 
     persist: {
