@@ -1,5 +1,5 @@
 <script setup>
-    import { onMounted, ref } from 'vue'
+    import { onMounted, onUnmounted, ref } from 'vue'
     import { apiClient } from '../api/config'
     import { useStore } from '@/store'
 
@@ -9,12 +9,14 @@
 
     const store = useStore()
 
-    const emit = defineEmits(['close'])
+    const emit = defineEmits(['close', 'hide', 'show'])
 
     const uploadProgress = ref(0)
     const uploadStatus = ref('pending')
     const link = ref('')
     const tooltipText = ref('Copy Link')
+    const autoCloseCountdown = ref(0)
+    const autoCloseTimer = ref(null)
 
     const bufferToFile = (buffer, fileName) => {
         return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
@@ -56,6 +58,10 @@
             setTimeout(() => {
                 tooltipText.value = 'Copy Link'
             }, 2000)
+
+            setTimeout(() => {
+                emit('close')
+            }, 1000)
         } catch (error) {
             console.error('Failed to copy link:', error)
         }
@@ -64,6 +70,25 @@
     const openLink = () => {
         window.electron.openExternal(link.value)
         emit('close')
+    }
+
+    const startAutoCloseCountdown = () => {
+        autoCloseCountdown.value = 10
+        autoCloseTimer.value = setInterval(() => {
+            autoCloseCountdown.value--
+            if (autoCloseCountdown.value <= 0) {
+                clearInterval(autoCloseTimer.value)
+                emit('close')
+            }
+        }, 1000)
+    }
+
+    const cancelAutoClose = () => {
+        if (autoCloseTimer.value) {
+            clearInterval(autoCloseTimer.value)
+            autoCloseTimer.value = null
+            autoCloseCountdown.value = 0
+        }
     }
 
     const uploadFile = async () => {
@@ -81,6 +106,7 @@
             const result = await apiClient.post('/media/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 onUploadProgress: (progressEvent) => {
+                    console.log('progressEvent', progressEvent)
                     if (progressEvent.lengthComputable) {
                         const percentCompleted = Math.min(
                             Math.round((progressEvent.loaded * 100) / progressEvent.total),
@@ -114,9 +140,15 @@
             uploadStatus.value = 'success'
             link.value = 'https://snaplark.com/' + result.data
             store.lastCapture = link.value // Automatic sync will handle this
+
+            // Start auto-close countdown for successful uploads
+            startAutoCloseCountdown()
         } catch (error) {
             uploadStatus.value = 'error'
             console.error('Upload failed:', error)
+
+            // Show notification if it was hidden (for failed uploads)
+            emit('show')
         }
     }
 
@@ -126,10 +158,15 @@
 
         console.log(props.fileInfo?.fileSize)
     })
+
+    // Clean up timer when component is unmounted
+    onUnmounted(() => {
+        cancelAutoClose()
+    })
 </script>
 
 <template>
-    <div class="no-select">
+    <div>
         <!-- Title -->
         <div class="mb-5 flex items-center gap-4">
             <template v-if="uploadStatus === 'pending'">
@@ -188,7 +225,10 @@
             </template>
 
             <div class="ml-auto flex items-center gap-1">
-                <button>
+                <button
+                    @click="$emit('hide')"
+                    class="rounded-full p-1 transition-colors hover:bg-gray-100"
+                    title="Hide notification (upload continues in background)">
                     <svg
                         class="size-6"
                         viewBox="0 0 26 24"
@@ -345,6 +385,18 @@
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
                         </div>
                     </div>
+                </button>
+            </div>
+
+            <!-- Auto-close countdown -->
+            <div
+                v-if="autoCloseCountdown > 0"
+                class="mt-3 flex items-center justify-between text-xs text-gray-500">
+                <span>Auto-closing in {{ autoCloseCountdown }}s</span>
+                <button
+                    @click="cancelAutoClose"
+                    class="text-blue-500 underline hover:text-blue-600">
+                    Cancel
                 </button>
             </div>
         </template>

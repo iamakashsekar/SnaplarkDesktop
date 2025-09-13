@@ -135,7 +135,8 @@
 </script>
 
 <template>
-    <div class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
+    <div
+        class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 shadow-md select-none">
         <!-- Capture Actions -->
         <div class="space-y-4">
             <button
