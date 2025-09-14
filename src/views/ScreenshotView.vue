@@ -466,6 +466,12 @@
 <template>
     <div
         class="fixed top-0 left-0 h-screen w-screen cursor-crosshair select-none"
+        :style="{
+            backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'top left',
+            backgroundRepeat: 'no-repeat'
+        }"
         @mousedown="handleMouseDown"
         @mousemove="handleMouseMove"
         @mouseup="handleMouseUp">
