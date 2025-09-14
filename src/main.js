@@ -925,6 +925,25 @@ app.whenReady().then(() => {
         }
     })
 
+    // Close other screenshot windows except the current one
+    ipcMain.handle('close-other-screenshot-windows', (event, currentDisplayId) => {
+        try {
+            const currentWindow = BrowserWindow.fromWebContents(event.sender)
+            windowManager.windows.forEach((window, key) => {
+                if (key.startsWith('screenshot-') && 
+                    !window.isDestroyed() && 
+                    window !== currentWindow) {
+                    console.log(`Closing other screenshot window: ${key}`)
+                    window.close()
+                }
+            })
+            return { success: true }
+        } catch (error) {
+            console.error('Error closing other screenshot windows:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
     createWindow()
 
     // On OS X it's common to re-create a window in the app when the

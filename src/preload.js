@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electronWindows', {
     resizeWindow: (type, width, height) => ipcRenderer.invoke('resize-window', type, width, height),
     getWindowType: () => ipcRenderer.invoke('get-window-type'),
     closeWindowsByType: (type) => ipcRenderer.invoke('close-windows-by-type', type),
+    closeOtherScreenshotWindows: (currentDisplayId) => ipcRenderer.invoke('close-other-screenshot-windows', currentDisplayId),
     onDisplayChanged: (callback) => {
         ipcRenderer.on('display-changed', (event, displayId) => callback(displayId))
     },

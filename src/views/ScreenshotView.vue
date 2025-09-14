@@ -67,8 +67,15 @@
         return { left: `${toolbarLeft}px`, top: `${toolbarTop}px` }
     })
 
-    const handleMouseDown = (e) => {
+    const handleMouseDown = async (e) => {
         if (mode.value === 'confirming') return
+
+        // Close other screenshot windows when user starts selecting on this monitor
+        try {
+            await window.electronWindows?.closeOtherScreenshotWindows(displayId.value)
+        } catch (error) {
+            console.error('Error closing other screenshot windows:', error)
+        }
 
         // Ensure this window is active when user starts selecting
         isWindowActive.value = true
