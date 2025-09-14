@@ -220,6 +220,8 @@ app.whenReady().then(() => {
             if (mainWindow) {
                 mainWindow.hide()
             }
+            // A short delay to allow the window to disappear.
+            await new Promise((resolve) => setTimeout(resolve, 100))
 
             // Close any existing screenshot windows
             windowManager.closeWindowsByType('screenshot')
