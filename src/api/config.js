@@ -23,63 +23,77 @@ export class TokenManager {
 // Create the main API client
 export const apiClient = axios.create({
     baseURL: `${BASE_URL}/api/${API_VERSION}`,
-    timeout: 30000,
+    timeout: 0, // No timeout - unlimited
+    maxContentLength: Infinity, // No content length limit
+    maxBodyLength: Infinity, // No body length limit
     headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json'
     }
 })
 
-// Request interceptor - automatically attach auth token
-apiClient.interceptors.request.use(
-    (config) => {
-        const token = TokenManager.getToken()
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`
-        }
-        return config
-    },
-    (error) => {
-        console.error('[API Request Error]', error)
-        return Promise.reject(error)
+// Shared request interceptor function
+const requestInterceptor = (config) => {
+    const token = TokenManager.getToken()
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`
     }
-)
+    return config
+}
 
-// Response interceptor - handle errors
-apiClient.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        // Handle 401 Unauthorized - Token expired or invalid
-        if (error.response?.status === 401) {
-            // Clear tokens and emit logout event
-            TokenManager.removeToken()
+const requestErrorInterceptor = (error) => {
+    console.error('[API Request Error]', error)
+    return Promise.reject(error)
+}
 
-            // Emit custom event for auth failure
-            window.dispatchEvent(
-                new CustomEvent('auth:logout', {
-                    detail: { reason: 'token_expired' }
-                })
-            )
-        }
+// Shared response interceptor function
+const responseSuccessInterceptor = (response) => response
 
-        // Handle network errors
-        if (!error.response) {
-            console.error('[Network Error]', error.message)
-            return Promise.reject({
-                ...error,
-                message: 'Network error. Please check your connection.',
-                isNetworkError: true
+const responseErrorInterceptor = async (error) => {
+    // Handle 401 Unauthorized - Token expired or invalid
+    if (error.response?.status === 401) {
+        // Clear tokens and emit logout event
+        TokenManager.removeToken()
+
+        // Emit custom event for auth failure
+        window.dispatchEvent(
+            new CustomEvent('auth:logout', {
+                detail: { reason: 'token_expired' }
             })
-        }
-
-        // Handle other HTTP errors
-        const errorResponse = {
-            status: error.response.status,
-            message: error.response.data?.message || error.message,
-            data: error.response.data,
-            isHttpError: true
-        }
-
-        return Promise.reject(errorResponse)
+        )
     }
-)
+
+    // Handle connection aborted errors (rare since timeout is disabled)
+    if (error.code === 'ECONNABORTED') {
+        console.error('[Connection Aborted]', error.message)
+        return Promise.reject({
+            ...error,
+            message: 'Connection was interrupted. Please try again.',
+            isConnectionError: true
+        })
+    }
+
+    // Handle network errors
+    if (!error.response) {
+        console.error('[Network Error]', error.message)
+        return Promise.reject({
+            ...error,
+            message: 'Network error. Please check your connection.',
+            isNetworkError: true
+        })
+    }
+
+    // Handle other HTTP errors
+    const errorResponse = {
+        status: error.response.status,
+        message: error.response.data?.message || error.message,
+        data: error.response.data,
+        isHttpError: true
+    }
+
+    return Promise.reject(errorResponse)
+}
+
+// Apply interceptors to API client
+apiClient.interceptors.request.use(requestInterceptor, requestErrorInterceptor)
+apiClient.interceptors.response.use(responseSuccessInterceptor, responseErrorInterceptor)

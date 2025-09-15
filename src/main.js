@@ -220,8 +220,11 @@ app.whenReady().then(() => {
             if (mainWindow) {
                 mainWindow.hide()
             }
-            // A short delay to allow the window to disappear.
-            await new Promise((resolve) => setTimeout(resolve, 100))
+            
+            if (process.platform === 'darwin') {
+                // A short delay to allow the window to disappear.
+                await new Promise((resolve) => setTimeout(resolve, 100))
+            }
 
             // Close any existing screenshot windows
             windowManager.closeWindowsByType('screenshot')
@@ -324,6 +327,14 @@ app.whenReady().then(() => {
                 if (process.platform === 'darwin') {
                     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                     win.setAlwaysOnTop(true, 'screen-saver', 1)
+                } else if (process.platform === 'win32') {
+                    // Windows-specific settings to ensure window stays above taskbar and other apps
+                    win.setAlwaysOnTop(true, 'screen-saver')
+                    win.setSkipTaskbar(true)
+                    // Ensure window is fullscreen and covers taskbar
+                    win.setFullScreen(true)
+                    // Alternative approach: set kiosk mode for complete coverage
+                    // win.setKiosk(true)
                 }
 
                 // Determine if this window should be initially active
@@ -343,6 +354,16 @@ app.whenReady().then(() => {
 
                 // Explicitly show the window
                 win.show()
+                
+                // Additional Windows-specific fixes
+                if (process.platform === 'win32') {
+                    // Force window to front and ensure it stays there
+                    win.focus()
+                    win.moveTop()
+                    // Ensure window captures all input
+                    win.setAlwaysOnTop(true, 'screen-saver')
+                }
+                
                 console.log(`Window ${windowType} shown on display ${display.id}`)
 
                 // Clean up handler when window closes
