@@ -245,7 +245,12 @@
     const handlePrint = () => printScreenshot()
     const handleSearch = () => searchImageGoogle()
     const handleEdit = () => console.log('Edit action')
-    const handleCancel = () => window.electron?.cancelScreenshotMode()
+    const handleCancel = (event) => {
+        // Only cancel on Escape key
+        if (event && event.key === 'Escape') {
+            window.electron?.cancelScreenshotMode()
+        }
+    }
 
     const captureArea = async () => {
         try {

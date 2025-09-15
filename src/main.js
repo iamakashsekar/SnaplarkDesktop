@@ -331,10 +331,25 @@ app.whenReady().then(() => {
                     // Windows-specific settings to ensure window stays above taskbar and other apps
                     win.setAlwaysOnTop(true, 'screen-saver')
                     win.setSkipTaskbar(true)
-                    // Ensure window is fullscreen and covers taskbar
-                    win.setFullScreen(true)
-                    // Alternative approach: set kiosk mode for complete coverage
-                    // win.setKiosk(true)
+                    
+                    // For Windows secondary monitors, don't use kiosk mode - it causes issues
+                    // Instead, use manual positioning and sizing
+                    if (display.primary) {
+                        // Primary monitor can use kiosk mode safely
+                        win.setKiosk(true)
+                    } else {
+                        // Secondary monitors: use fullscreen window positioned correctly
+                        win.setFullScreen(false) // Ensure it's not fullscreen first
+                        win.setBounds({
+                            x: display.bounds.x,
+                            y: display.bounds.y,
+                            width: display.bounds.width,
+                            height: display.bounds.height
+                        })
+                        // Force the window to fill the entire screen area
+                        win.setResizable(false)
+                        win.setMovable(false)
+                    }
                 }
 
                 // Determine if this window should be initially active
@@ -362,6 +377,14 @@ app.whenReady().then(() => {
                     win.moveTop()
                     // Ensure window captures all input
                     win.setAlwaysOnTop(true, 'screen-saver')
+                    
+                    // Additional delay to ensure window is properly positioned on secondary monitor
+                    setTimeout(() => {
+                        if (!win.isDestroyed()) {
+                            win.focus()
+                            win.moveTop()
+                        }
+                    }, 200)
                 }
                 
                 console.log(`Window ${windowType} shown on display ${display.id}`)
@@ -673,6 +696,7 @@ app.whenReady().then(() => {
     })
 
     ipcMain.on('cancel-screenshot-mode', () => {
+        console.log('cancel-screenshot-mode called')
         // No longer needed - using event-driven display tracking
         windowManager.closeWindowsByType('screenshot')
     })
@@ -950,12 +974,30 @@ app.whenReady().then(() => {
     ipcMain.handle('close-other-screenshot-windows', (event, currentDisplayId) => {
         try {
             const currentWindow = BrowserWindow.fromWebContents(event.sender)
+            const currentDisplayIdStr = currentDisplayId ? currentDisplayId.toString() : null
+            
+            console.log(`closeOtherScreenshotWindows called - currentDisplayId: ${currentDisplayIdStr}`)
+            console.log(`Current window exists: ${!!currentWindow}`)
+            console.log(`Available windows:`, Array.from(windowManager.windows.keys()))
+            
             windowManager.windows.forEach((window, key) => {
-                if (key.startsWith('screenshot-') && 
-                    !window.isDestroyed() && 
-                    window !== currentWindow) {
-                    console.log(`Closing other screenshot window: ${key}`)
-                    window.close()
+                if (key.startsWith('screenshot-')) {
+                    console.log(`Checking window ${key}:`, {
+                        isDestroyed: window.isDestroyed(),
+                        isSameWindow: window === currentWindow,
+                        shouldSkip: currentDisplayIdStr && key === `screenshot-${currentDisplayIdStr}`
+                    })
+                    
+                    if (!window.isDestroyed() && window !== currentWindow) {
+                        // Extra safety check - don't close windows for the same display
+                        if (currentDisplayIdStr && key === `screenshot-${currentDisplayIdStr}`) {
+                            console.log(`Skipping close of current display window: ${key}`)
+                            return
+                        }
+                        
+                        console.log(`Closing other screenshot window: ${key}`)
+                        window.close()
+                    }
                 }
             })
             return { success: true }
