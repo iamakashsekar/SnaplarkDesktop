@@ -2,6 +2,7 @@
     import { ref, onMounted, onUnmounted, computed } from 'vue'
     import { apiClient } from '../api/config.js'
     import axios from 'axios'
+    import EditorToolbar from '../components/EditorToolbar.vue'
 
     // Core selection state
     const startX = ref(0)
@@ -11,7 +12,7 @@
     const mouseX = ref(0)
     const mouseY = ref(0)
     const displayId = ref(null)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming'
+    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing'
     const resizingHandle = ref(null)
 
     // Magnifier state
@@ -68,7 +69,7 @@
     })
 
     const handleMouseDown = async (e) => {
-        if (mode.value === 'confirming') return
+        if (mode.value === 'confirming' || mode.value === 'editing') return
 
         // Close other screenshot windows when user starts selecting on this monitor
         try {
@@ -244,7 +245,6 @@
     const handleCopy = () => copyToClipboard()
     const handlePrint = () => printScreenshot()
     const handleSearch = () => searchImageGoogle()
-    const handleEdit = () => console.log('Edit action')
     const handleCancel = (event) => {
         window.electron?.cancelScreenshotMode()
     }
@@ -477,11 +477,21 @@
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
     })
+
+    // Editing
+    const handleEdit = () => {
+        mode.value = 'editing'
+    }
+
+    const handleCancelEdit = () => {
+        mode.value = 'confirming'
+    }
 </script>
 
 <template>
     <div
-        class="fixed top-0 left-0 h-screen w-screen cursor-crosshair select-none"
+        :class="{ 'cursor-crosshair select-none': mode !== 'editing' }"
+        class="fixed top-0 left-0 h-screen w-screen"
         :style="{
             backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
             backgroundSize: 'cover',
@@ -493,7 +503,7 @@
         @mouseup="handleMouseUp">
         <!-- Dark overlay for everything outside the selection -->
         <div
-            v-if="mode === 'confirming'"
+            v-if="mode === 'confirming' || mode === 'editing'"
             class="pointer-events-none absolute top-0 left-0 h-full w-full bg-black/50"
             :style="{
                 clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${
@@ -558,11 +568,11 @@
 
         <!-- Crosshair (only when not confirming and window is active) -->
         <div
-            v-if="mode !== 'confirming' && isWindowActive"
+            v-if="mode !== 'confirming' && mode !== 'editing' && isWindowActive"
             class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
-            v-if="mode !== 'confirming' && isWindowActive"
+            v-if="mode !== 'confirming' && mode !== 'editing' && isWindowActive"
             class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
@@ -759,6 +769,12 @@
                 </button>
             </div>
         </div>
+
+        <!-- Edit toolbar -->
+        <EditorToolbar
+            v-if="mode === 'editing'"
+            @cancel="handleCancelEdit"
+            :style="toolbarStyle" />
 
         <!-- Upload Notifications -->
         <div class="fixed top-4 right-4 z-[10000] min-w-[380px] space-y-3">
