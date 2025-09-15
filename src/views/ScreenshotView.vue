@@ -246,8 +246,12 @@
     const handleSearch = () => searchImageGoogle()
     const handleEdit = () => console.log('Edit action')
     const handleCancel = (event) => {
-        // Only cancel on Escape key
-        if (event && event.key === 'Escape') {
+        window.electron?.cancelScreenshotMode()
+    }
+
+    const handleEscapeKeyCancel = (event) => {
+        // If called from button click (no event) or Escape key, cancel screenshot mode
+        if (event.key === 'Escape') {
             window.electron?.cancelScreenshotMode()
         }
     }
@@ -424,7 +428,7 @@
         mouseX.value = parseInt(params.get('initialMouseX') || '0', 10)
         mouseY.value = parseInt(params.get('initialMouseY') || '0', 10)
 
-        document.addEventListener('keydown', handleCancel)
+        document.addEventListener('keydown', handleEscapeKeyCancel)
 
         // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
@@ -470,7 +474,7 @@
     })
 
     onUnmounted(() => {
-        document.removeEventListener('keydown', handleCancel)
+        document.removeEventListener('keydown', handleEscapeKeyCancel)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
     })
 </script>

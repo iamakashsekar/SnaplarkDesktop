@@ -221,10 +221,8 @@ app.whenReady().then(() => {
                 mainWindow.hide()
             }
             
-            if (process.platform === 'darwin') {
-                // A short delay to allow the window to disappear.
-                await new Promise((resolve) => setTimeout(resolve, 100))
-            }
+           // A short delay to allow the window to disappear.
+           await new Promise((resolve) => setTimeout(resolve, 100))
 
             // Close any existing screenshot windows
             windowManager.closeWindowsByType('screenshot')
