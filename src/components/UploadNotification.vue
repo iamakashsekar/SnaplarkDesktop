@@ -244,7 +244,10 @@
                     </svg>
                 </button>
 
-                <button @click="$emit('close')">
+                <button
+                    @click="$emit('close')"
+                    class="rounded-full p-1 transition-colors hover:bg-gray-100"
+                    title="Close notification">
                     <svg
                         class="size-6"
                         viewBox="0 0 26 24"
