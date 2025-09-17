@@ -2,7 +2,7 @@
     import { ref, onMounted, onUnmounted, computed } from 'vue'
     import { apiClient } from '../api/config.js'
     import axios from 'axios'
-    import EditorToolbar from '../components/EditorToolbar.vue'
+    import KonvaEditor from '../components/KonvaEditor.vue'
 
     // Core selection state
     const startX = ref(0)
@@ -771,10 +771,11 @@
         </div>
 
         <!-- Edit toolbar -->
-        <EditorToolbar
+        <KonvaEditor
             v-if="mode === 'editing'"
             @cancel="handleCancelEdit"
-            :style="toolbarStyle" />
+            :selectionRect="selectionRect"
+            :toolbarStyle="toolbarStyle" />
 
         <!-- Upload Notifications -->
         <div class="fixed top-4 right-4 z-[10000] min-w-[380px] space-y-3">
