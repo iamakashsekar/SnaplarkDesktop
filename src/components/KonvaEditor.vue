@@ -1,6 +1,7 @@
 <script setup>
     import Konva from 'konva'
     import { onMounted, ref } from 'vue'
+    import ColorPalette from './ColorPalette.vue'
     import UndoIcon from './icons/UndoIcon.vue'
     import RedoIcon from './icons/RedoIcon.vue'
     import ArrowIcon from './icons/ArrowIcon.vue'
@@ -28,11 +29,22 @@
 
     // state
     const activeTool = ref(null)
-    const selectedColor = ref('#007bff') // default blue
+    const selectedColor = ref('#2178FF') // default blue
+    const showColorPicker = ref(false)
+    const blurAreas = ref([]) // Store blur areas for CSS blur effect
 
     const selectTool = (tool) => {
         activeTool.value = tool
     }
+
+    const clearBlurAreas = () => {
+        blurAreas.value = []
+    }
+
+    // Expose methods for parent component
+    defineExpose({
+        clearBlurAreas
+    })
 
     onMounted(() => {
         stage = new Konva.Stage({
@@ -102,7 +114,35 @@
                     strokeWidth: 2,
                     lineCap: 'round',
                     lineJoin: 'round',
-                    tension: 0.5 // smooth lines
+                    tension: 0.5, // smooth lines
+                    globalCompositeOperation: 'source-over' // keep normal blending
+                })
+            }
+
+            // highlighter
+            if (activeTool.value === 'highlighter') {
+                currentShape = new Konva.Line({
+                    points: [startPos.x, startPos.y],
+                    stroke: selectedColor.value,
+                    strokeWidth: 15, // wider stroke for highlighter
+                    opacity: 0.3, // transparent look
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    globalCompositeOperation: 'multiply'
+                })
+            }
+
+            // Blur tool - using CSS blur effect
+            if (activeTool.value === 'blur') {
+                // Create a transparent rectangle for positioning
+                currentShape = new Konva.Rect({
+                    x: startPos.x,
+                    y: startPos.y,
+                    width: 0,
+                    height: 0,
+                    fill: 'transparent',
+                    stroke: 'rgba(100, 100, 100, 0.8)',
+                    strokeWidth: 2
                 })
             }
 
@@ -139,15 +179,43 @@
                 })
             }
 
-            if (activeTool.value === 'pencil') {
+            if (activeTool.value === 'pencil' || activeTool.value === 'highlighter') {
                 const oldPoints = currentShape.points()
                 currentShape.points([...oldPoints, pos.x, pos.y])
+            }
+
+            if (activeTool.value === 'blur') {
+                const newWidth = pos.x - startPos.x
+                const newHeight = pos.y - startPos.y
+                currentShape.setAttrs({
+                    x: Math.min(startPos.x, pos.x),
+                    y: Math.min(startPos.y, pos.y),
+                    width: Math.abs(newWidth),
+                    height: Math.abs(newHeight)
+                })
             }
 
             layer.batchDraw()
         })
 
         stage.on('mouseup', () => {
+            if (drawing && activeTool.value === 'blur' && currentShape) {
+                // Create a CSS blur area
+                const rect = currentShape.getClientRect()
+                if (rect.width > 5 && rect.height > 5) {
+                    // Only create if area is significant
+                    blurAreas.value.push({
+                        id: Date.now(), // Simple ID
+                        x: rect.x,
+                        y: rect.y,
+                        width: rect.width,
+                        height: rect.height
+                    })
+                }
+                // Remove the temporary rectangle
+                currentShape.destroy()
+                layer.batchDraw()
+            }
             drawing = false
             currentShape = null
         })
@@ -166,6 +234,24 @@
         class="fixed"
         id="selected-area"></div>
 
+    <!-- CSS Blur Areas -->
+    <div
+        v-for="blur in blurAreas"
+        :key="blur.id"
+        :style="{
+            position: 'fixed',
+            left: `${props.selectionRect.left + blur.x}px`,
+            top: `${props.selectionRect.top + blur.y}px`,
+            width: `${blur.width}px`,
+            height: `${blur.height}px`,
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)', // Safari support
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            pointerEvents: 'none',
+            zIndex: 45
+        }"
+        class="blur-area"></div>
+
     <!-- Toolbar -->
     <div
         :style="toolbarStyle"
@@ -175,49 +261,80 @@
             <button><RedoIcon /></button>
         </div>
 
-        <div class="flex items-center gap-2 rounded-full bg-white px-4 py-1.5">
-            <!-- Tools -->
+        <div class="flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
+            <!-- Line -->
             <button
+                class="flex size-6 items-center justify-center rounded"
                 @click="selectTool('line')"
-                :class="{ 'text-primary-blue': activeTool === 'line' }">
+                :class="{ 'bg-primary-blue text-white': activeTool === 'line' }">
                 <LineIcon />
             </button>
+
+            <!-- Arrow -->
             <button
+                class="flex size-6 items-center justify-center rounded"
                 @click="selectTool('arrow')"
-                :class="{ 'text-primary-blue': activeTool === 'arrow' }">
+                :class="{ 'bg-primary-blue text-white': activeTool === 'arrow' }">
                 <ArrowIcon />
             </button>
+
+            <!-- Circle -->
             <button
+                class="flex size-6 items-center justify-center rounded"
                 @click="selectTool('ellipse')"
-                :class="{ 'text-primary-blue': activeTool === 'ellipse' }">
+                :class="{ 'bg-primary-blue text-white': activeTool === 'ellipse' }">
                 <EllipseIcon />
             </button>
+
+            <!-- Rectangle -->
             <button
+                class="flex size-6 items-center justify-center rounded"
                 @click="selectTool('rect')"
-                :class="{ 'text-primary-blue': activeTool === 'rect' }">
+                :class="{ 'bg-primary-blue text-white': activeTool === 'rect' }">
                 <RectangleIcon />
             </button>
 
             <!-- Pencil -->
             <button
+                class="flex size-6 items-center justify-center rounded"
                 @click="selectTool('pencil')"
-                :class="{ 'text-primary-blue': activeTool === 'pencil' }">
+                :class="{ 'bg-primary-blue text-white': activeTool === 'pencil' }">
                 <PencilIcon />
             </button>
 
-            <!-- Other future tools -->
-            <button><HighlighterIcon /></button>
-            <button><EraserIcon /></button>
-            <button><BlurIcon /></button>
-            <button><TextIcon /></button>
+            <!-- Highlight -->
+            <button
+                class="flex size-6 items-center justify-center rounded"
+                @click="selectTool('highlighter')"
+                :class="{ 'bg-primary-blue text-white': activeTool === 'highlighter' }">
+                <HighlighterIcon />
+            </button>
+
+            <button
+                class="flex size-6 items-center justify-center rounded"
+                @click="selectTool('eraser')"
+                :class="{ 'bg-primary-blue text-white': activeTool === 'eraser' }">
+                <EraserIcon />
+            </button>
+            <button
+                class="flex size-6 items-center justify-center rounded"
+                @click="selectTool('blur')"
+                :class="{ 'bg-primary-blue text-white': activeTool === 'blur' }">
+                <BlurIcon />
+            </button>
+            <button class="flex size-6 items-center justify-center rounded"><TextIcon /></button>
 
             <!-- Color Picker -->
-            <input
-                type="color"
-                :value="selectedColor"
-                class="size-5 rounded-full border-2 border-black"
-                :style="{ backgroundColor: selectedColor }"
-                @input="selectedColor = $event.target.value" />
+            <div class="relative size-5">
+                <button
+                    @click="showColorPicker = true"
+                    class="relative size-5 rounded-full border transition hover:scale-105"
+                    :style="{ background: selectedColor }"></button>
+                <ColorPalette
+                    v-if="showColorPicker"
+                    :selected="selectedColor"
+                    @change="(color) => ((selectedColor = color), (showColorPicker = false))" />
+            </div>
         </div>
 
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
