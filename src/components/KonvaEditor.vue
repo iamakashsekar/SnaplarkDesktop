@@ -26,6 +26,9 @@
     let drawing = false
     let currentShape = null
     let startPos = null
+    let activeTextarea = null
+    let activeTextareaHandlers = { keydown: null, blur: null, input: null }
+    let activeTextareaStagePos = null
 
     // state
     const activeTool = ref(null)
@@ -46,6 +49,128 @@
         clearBlurAreas
     })
 
+    function showTextEditorAt(position) {
+        if (activeTextarea) {
+            // If an editor is already open, commit/cancel it first
+            finalizeTextEditor()
+        }
+
+        activeTextareaStagePos = { x: position.x, y: position.y }
+
+        const textarea = document.createElement('textarea')
+        activeTextarea = textarea
+
+        const left = props.selectionRect.left + position.x
+        const top = props.selectionRect.top + position.y
+
+        Object.assign(textarea.style, {
+            position: 'fixed',
+            left: `${left}px`,
+            top: `${top}px`,
+            zIndex: 60,
+            color: selectedColor.value,
+            background: 'transparent',
+            border: '1px dashed rgba(0,0,0,0.25)',
+            outline: 'none',
+            padding: '2px 4px',
+            margin: '0',
+            fontSize: '16px',
+            lineHeight: '1.2',
+            fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+            resize: 'both',
+            overflow: 'auto',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            minWidth: '40px',
+            minHeight: '20px',
+            width: '200px',
+            maxWidth: `${props.selectionRect.width - position.x - 8}px`,
+            backgroundColor: 'rgba(255,255,255,0.01)'
+        })
+
+        textarea.rows = 1
+        textarea.spellcheck = false
+        textarea.wrap = 'soft'
+
+        const maxWidth = props.selectionRect.width - position.x - 8
+
+        function autosizeTextarea() {
+            if (!activeTextarea) return
+            textarea.style.height = 'auto'
+            const targetHeight = Math.max(textarea.scrollHeight, 20)
+            const currentHeight = parseFloat(window.getComputedStyle(textarea).height)
+            if (isNaN(currentHeight) || targetHeight > currentHeight) {
+                textarea.style.height = `${targetHeight}px`
+            }
+        }
+
+        activeTextareaHandlers.keydown = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                finalizeTextEditor(true)
+            } else if (e.key === 'Escape') {
+                e.preventDefault()
+                finalizeTextEditor(false)
+            }
+        }
+
+        activeTextareaHandlers.blur = () => finalizeTextEditor(true)
+        activeTextareaHandlers.input = () => autosizeTextarea()
+
+        textarea.addEventListener('keydown', activeTextareaHandlers.keydown)
+        textarea.addEventListener('blur', activeTextareaHandlers.blur)
+        textarea.addEventListener('input', activeTextareaHandlers.input)
+
+        document.body.appendChild(textarea)
+        setTimeout(() => {
+            if (!textarea) return
+            autosizeTextarea()
+            textarea.focus()
+        }, 0)
+    }
+
+    function cleanupActiveTextarea() {
+        if (!activeTextarea) return
+        if (activeTextareaHandlers.keydown)
+            activeTextarea.removeEventListener('keydown', activeTextareaHandlers.keydown)
+        if (activeTextareaHandlers.blur) activeTextarea.removeEventListener('blur', activeTextareaHandlers.blur)
+        if (activeTextareaHandlers.input) activeTextarea.removeEventListener('input', activeTextareaHandlers.input)
+        if (activeTextarea.parentNode) activeTextarea.parentNode.removeChild(activeTextarea)
+        activeTextarea = null
+        activeTextareaHandlers = { keydown: null, blur: null, input: null }
+        activeTextareaStagePos = null
+    }
+
+    function finalizeTextEditor(commit = true) {
+        if (!activeTextarea) return
+        const rawText = activeTextarea.value || ''
+        const isEmpty = rawText.trim().length === 0
+        const position = activeTextareaStagePos
+        const color = selectedColor.value
+        const widthPx = activeTextarea.clientWidth
+        const heightPx = activeTextarea.clientHeight
+
+        cleanupActiveTextarea()
+
+        if (!commit || isEmpty) return
+
+        const textNode = new Konva.Text({
+            x: position.x,
+            y: position.y,
+            text: rawText,
+            fontSize: 16,
+            lineHeight: 1.2,
+            fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+            fill: color,
+            width: widthPx,
+            align: 'left',
+            draggable: true
+        })
+
+        layer.add(textNode)
+        layer.batchDraw()
+    }
+
     onMounted(() => {
         stage = new Konva.Stage({
             container: 'selected-area',
@@ -56,10 +181,51 @@
         layer = new Konva.Layer()
         stage.add(layer)
 
+        // Handle click tools (text placement, eraser)
+        stage.on('click', () => {
+            const pointerPos = stage.getPointerPosition()
+            if (!pointerPos) return
+
+            if (activeTool.value === 'text') {
+                showTextEditorAt(pointerPos)
+                return
+            }
+
+            if (activeTool.value === 'eraser') {
+                // Try to erase a Konva node under the cursor
+                const target = stage.getIntersection(pointerPos)
+                if (target) {
+                    target.destroy()
+                    layer.batchDraw()
+                    return
+                }
+
+                // If no node, try to erase a CSS blur area at this point
+                const idx = blurAreas.value.findIndex(
+                    (b) =>
+                        pointerPos.x >= b.x &&
+                        pointerPos.x <= b.x + b.width &&
+                        pointerPos.y >= b.y &&
+                        pointerPos.y <= b.y + b.height
+                )
+                if (idx !== -1) {
+                    blurAreas.value.splice(idx, 1)
+                }
+                return
+            }
+        })
+
         stage.on('mousedown', () => {
             if (!activeTool.value) return
+            const pointerPos = stage.getPointerPosition()
+
+            if (activeTool.value === 'text' || activeTool.value === 'eraser') {
+                // handled by click handler
+                return
+            }
+
             drawing = true
-            startPos = stage.getPointerPosition()
+            startPos = pointerPos
 
             // Line
             if (activeTool.value === 'line') {
@@ -146,7 +312,9 @@
                 })
             }
 
-            layer.add(currentShape)
+            if (currentShape) {
+                layer.add(currentShape)
+            }
         })
 
         stage.on('mousemove', () => {
@@ -244,8 +412,8 @@
             top: `${props.selectionRect.top + blur.y}px`,
             width: `${blur.width}px`,
             height: `${blur.height}px`,
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)', // Safari support
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)', // Safari support
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             pointerEvents: 'none',
             zIndex: 45
@@ -322,7 +490,12 @@
                 :class="{ 'bg-primary-blue text-white': activeTool === 'blur' }">
                 <BlurIcon />
             </button>
-            <button class="flex size-6 items-center justify-center rounded"><TextIcon /></button>
+            <button
+                class="flex size-6 items-center justify-center rounded"
+                @click="selectTool('text')"
+                :class="{ 'bg-primary-blue text-white': activeTool === 'text' }">
+                <TextIcon />
+            </button>
 
             <!-- Color Picker -->
             <div class="relative size-5">
