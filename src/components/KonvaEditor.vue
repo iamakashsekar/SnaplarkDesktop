@@ -35,6 +35,99 @@
     const selectedColor = ref('#2178FF') // default blue
     const showColorPicker = ref(false)
     const blurAreas = ref([]) // Store blur areas for CSS blur effect
+    const canUndo = ref(false)
+    const canRedo = ref(false)
+
+    // history stacks
+    const history = []
+    const redoStack = []
+
+    function updateUndoRedoState() {
+        canUndo.value = history.length > 0
+        canRedo.value = redoStack.length > 0
+    }
+
+    function pushHistory(entry) {
+        history.push(entry)
+        redoStack.length = 0
+        updateUndoRedoState()
+    }
+
+    function undo() {
+        if (!history.length) return
+        const entry = history.pop()
+        if (!entry) return
+        switch (entry.type) {
+            case 'node_add': {
+                if (entry.node && entry.node.remove) entry.node.remove()
+                layer && layer.batchDraw && layer.batchDraw()
+                redoStack.push(entry)
+                break
+            }
+            case 'node_remove': {
+                if (entry.node && entry.parent) {
+                    entry.node.moveTo(entry.parent)
+                    if (typeof entry.zIndex === 'number' && entry.node.setZIndex) {
+                        entry.node.setZIndex(entry.zIndex)
+                    }
+                }
+                layer && layer.batchDraw && layer.batchDraw()
+                redoStack.push(entry)
+                break
+            }
+            case 'blur_add': {
+                const idx = blurAreas.value.findIndex((b) => b.id === entry.blur.id)
+                if (idx !== -1) blurAreas.value.splice(idx, 1)
+                redoStack.push(entry)
+                break
+            }
+            case 'blur_remove': {
+                const insertAt = typeof entry.index === 'number' ? entry.index : blurAreas.value.length
+                blurAreas.value.splice(insertAt, 0, entry.blur)
+                redoStack.push(entry)
+                break
+            }
+        }
+        updateUndoRedoState()
+    }
+
+    function redo() {
+        if (!redoStack.length) return
+        const entry = redoStack.pop()
+        if (!entry) return
+        switch (entry.type) {
+            case 'node_add': {
+                if (entry.node && entry.parent) {
+                    entry.node.moveTo(entry.parent)
+                    if (typeof entry.zIndex === 'number' && entry.node.setZIndex) {
+                        entry.node.setZIndex(entry.zIndex)
+                    }
+                }
+                layer && layer.batchDraw && layer.batchDraw()
+                history.push(entry)
+                break
+            }
+            case 'node_remove': {
+                if (entry.node && entry.node.remove) entry.node.remove()
+                layer && layer.batchDraw && layer.batchDraw()
+                history.push(entry)
+                break
+            }
+            case 'blur_add': {
+                const insertAt = typeof entry.index === 'number' ? entry.index : blurAreas.value.length
+                blurAreas.value.splice(insertAt, 0, entry.blur)
+                history.push(entry)
+                break
+            }
+            case 'blur_remove': {
+                const idx = blurAreas.value.findIndex((b) => b.id === entry.blur.id)
+                if (idx !== -1) blurAreas.value.splice(idx, 1)
+                history.push(entry)
+                break
+            }
+        }
+        updateUndoRedoState()
+    }
 
     const selectTool = (tool) => {
         activeTool.value = tool
@@ -169,6 +262,9 @@
 
         layer.add(textNode)
         layer.batchDraw()
+
+        // history: node added
+        pushHistory({ type: 'node_add', node: textNode, parent: layer, zIndex: textNode.zIndex() })
     }
 
     onMounted(() => {
@@ -195,6 +291,9 @@
                 // Try to erase a Konva node under the cursor
                 const target = stage.getIntersection(pointerPos)
                 if (target) {
+                    const parent = target.getLayer() || layer
+                    const z = typeof target.zIndex === 'function' ? target.zIndex() : undefined
+                    pushHistory({ type: 'node_remove', node: target, parent, zIndex: z })
                     target.destroy()
                     layer.batchDraw()
                     return
@@ -209,7 +308,8 @@
                         pointerPos.y <= b.y + b.height
                 )
                 if (idx !== -1) {
-                    blurAreas.value.splice(idx, 1)
+                    const removed = blurAreas.value.splice(idx, 1)[0]
+                    pushHistory({ type: 'blur_remove', blur: removed, index: idx })
                 }
                 return
             }
@@ -372,17 +472,24 @@
                 const rect = currentShape.getClientRect()
                 if (rect.width > 5 && rect.height > 5) {
                     // Only create if area is significant
-                    blurAreas.value.push({
+                    const blurObj = {
                         id: Date.now(), // Simple ID
                         x: rect.x,
                         y: rect.y,
                         width: rect.width,
                         height: rect.height
-                    })
+                    }
+                    blurAreas.value.push(blurObj)
+                    pushHistory({ type: 'blur_add', blur: blurObj, index: blurAreas.value.length - 1 })
                 }
                 // Remove the temporary rectangle
                 currentShape.destroy()
                 layer.batchDraw()
+            } else if (drawing && currentShape) {
+                // finalize shape drawing and push history for node add
+                const finalizedShape = currentShape
+                // Some tools might create 0-size shapes on accidental clicks; we still allow undo
+                pushHistory({ type: 'node_add', node: finalizedShape, parent: layer, zIndex: finalizedShape.zIndex() })
             }
             drawing = false
             currentShape = null
@@ -425,8 +532,18 @@
         :style="toolbarStyle"
         class="fixed z-50 -ml-12 flex gap-4">
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
-            <button><UndoIcon /></button>
-            <button><RedoIcon /></button>
+            <button
+                :class="{ 'cursor-not-allowed opacity-40': !canUndo }"
+                @click="undo"
+                :disabled="!canUndo">
+                <UndoIcon />
+            </button>
+            <button
+                :class="{ 'cursor-not-allowed opacity-40': !canRedo }"
+                @click="redo"
+                :disabled="!canRedo">
+                <RedoIcon />
+            </button>
         </div>
 
         <div class="flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
