@@ -29,6 +29,11 @@
     let activeTextarea = null
     let activeTextareaHandlers = { keydown: null, blur: null, input: null }
     let activeTextareaStagePos = null
+    let activeTextNodeRef = null
+    let activeTextGroupRef = null
+    let transformer = null
+    const isEditingText = ref(false)
+    let editingGroupRef = null
 
     // state
     const activeTool = ref(null)
@@ -62,6 +67,7 @@
                 if (entry.node && entry.node.remove) entry.node.remove()
                 layer && layer.batchDraw && layer.batchDraw()
                 redoStack.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
             case 'node_remove': {
@@ -73,18 +79,21 @@
                 }
                 layer && layer.batchDraw && layer.batchDraw()
                 redoStack.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
             case 'blur_add': {
                 const idx = blurAreas.value.findIndex((b) => b.id === entry.blur.id)
                 if (idx !== -1) blurAreas.value.splice(idx, 1)
                 redoStack.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
             case 'blur_remove': {
                 const insertAt = typeof entry.index === 'number' ? entry.index : blurAreas.value.length
                 blurAreas.value.splice(insertAt, 0, entry.blur)
                 redoStack.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
         }
@@ -105,24 +114,28 @@
                 }
                 layer && layer.batchDraw && layer.batchDraw()
                 history.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
             case 'node_remove': {
                 if (entry.node && entry.node.remove) entry.node.remove()
                 layer && layer.batchDraw && layer.batchDraw()
                 history.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
             case 'blur_add': {
                 const insertAt = typeof entry.index === 'number' ? entry.index : blurAreas.value.length
                 blurAreas.value.splice(insertAt, 0, entry.blur)
                 history.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
             case 'blur_remove': {
                 const idx = blurAreas.value.findIndex((b) => b.id === entry.blur.id)
                 if (idx !== -1) blurAreas.value.splice(idx, 1)
                 history.push(entry)
+                if (transformer) transformer.nodes([])
                 break
             }
         }
@@ -142,7 +155,7 @@
         clearBlurAreas
     })
 
-    function showTextEditorAt(position) {
+    function showTextEditorAt(position, opts = {}) {
         if (activeTextarea) {
             // If an editor is already open, commit/cancel it first
             finalizeTextEditor()
@@ -165,27 +178,28 @@
             background: 'transparent',
             border: '1px dashed rgba(0,0,0,0.25)',
             outline: 'none',
-            padding: '2px 4px',
+            padding: '0px',
             margin: '0',
             fontSize: '16px',
             lineHeight: '1.2',
             fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
-            resize: 'both',
+            resize: opts.allowResize ? 'both' : 'none',
             overflow: 'auto',
+            boxSizing: 'border-box',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             minWidth: '40px',
             minHeight: '20px',
-            width: '200px',
-            maxWidth: `${props.selectionRect.width - position.x - 8}px`,
+            width: opts.width ? `${opts.width}px` : '200px',
+            height: opts.height ? `${opts.height}px` : '',
+            maxWidth: `${Math.min(props.selectionRect.width - position.x - 8, opts.width || Infinity)}px`,
             backgroundColor: 'rgba(255,255,255,0.01)'
         })
 
         textarea.rows = 1
         textarea.spellcheck = false
         textarea.wrap = 'soft'
-
-        const maxWidth = props.selectionRect.width - position.x - 8
+        const maxWidth = Math.min(props.selectionRect.width - position.x - 8, opts.width || Infinity)
 
         function autosizeTextarea() {
             if (!activeTextarea) return
@@ -208,18 +222,56 @@
         }
 
         activeTextareaHandlers.blur = () => finalizeTextEditor(true)
-        activeTextareaHandlers.input = () => autosizeTextarea()
+        if (!opts.fixedSize) {
+            activeTextareaHandlers.input = () => autosizeTextarea()
+        }
 
         textarea.addEventListener('keydown', activeTextareaHandlers.keydown)
         textarea.addEventListener('blur', activeTextareaHandlers.blur)
-        textarea.addEventListener('input', activeTextareaHandlers.input)
+        if (activeTextareaHandlers.input) textarea.addEventListener('input', activeTextareaHandlers.input)
 
         document.body.appendChild(textarea)
+        if (typeof opts.initialValue === 'string') {
+            textarea.value = opts.initialValue
+        }
         setTimeout(() => {
             if (!textarea) return
-            autosizeTextarea()
+            if (!opts.fixedSize) autosizeTextarea()
             textarea.focus()
         }, 0)
+    }
+
+    function openEditorForTextGroup(group) {
+        if (!group) return
+        const textNode = group.findOne('Text')
+        if (!textNode) return
+        activeTool.value = null
+        activeTextNodeRef = textNode
+        activeTextGroupRef = group
+        textNode.visible(false)
+        layer.batchDraw()
+        // Hide transformer while editing for stability
+        transformer.nodes([])
+        const gx = group.x()
+        const gy = group.y()
+        const rectNode = group.findOne('Rect')
+        const gw = rectNode ? rectNode.width() : group.width()
+        const gh = rectNode ? rectNode.height() : group.height()
+        showTextEditorAt(
+            { x: gx, y: gy },
+            {
+                width: gw,
+                height: gh,
+                allowResize: false,
+                fixedSize: true,
+                initialValue: textNode.text()
+            }
+        )
+        isEditingText.value = true
+        editingGroupRef = group
+        // Show transformer on the group while editing, but it will not interfere visually with overlay
+        transformer.nodes([group])
+        layer.batchDraw()
     }
 
     function cleanupActiveTextarea() {
@@ -232,6 +284,11 @@
         activeTextarea = null
         activeTextareaHandlers = { keydown: null, blur: null, input: null }
         activeTextareaStagePos = null
+        isEditingText.value = false
+        if (transformer) {
+            transformer.nodes([])
+        }
+        editingGroupRef = null
     }
 
     function finalizeTextEditor(commit = true) {
@@ -244,9 +301,34 @@
         const heightPx = activeTextarea.clientHeight
 
         cleanupActiveTextarea()
+        activeTool.value = null
+        if (transformer) transformer.nodes([])
 
-        if (!commit || isEmpty) return
+        if (!commit || isEmpty) {
+            activeTextNodeRef = null
+            activeTextGroupRef = null
+            return
+        }
 
+        if (activeTextNodeRef && activeTextGroupRef) {
+            const rectNode = activeTextGroupRef.findOne('Rect')
+            const newW = rectNode.width()
+            const newH = rectNode.height()
+            activeTextNodeRef.fill(color)
+            activeTextNodeRef.width(newW)
+            activeTextNodeRef.height(newH)
+            activeTextNodeRef.text(rawText)
+            activeTextNodeRef.wrap('word')
+            activeTextGroupRef.clip({ x: 0, y: 0, width: newW, height: newH })
+            activeTextNodeRef.visible(true)
+            if (transformer) transformer.nodes([])
+            layer.batchDraw()
+            activeTextNodeRef = null
+            activeTextGroupRef = null
+            return
+        }
+
+        // Fallback: point text (if ever invoked)
         const textNode = new Konva.Text({
             x: position.x,
             y: position.y,
@@ -259,11 +341,8 @@
             align: 'left',
             draggable: true
         })
-
         layer.add(textNode)
         layer.batchDraw()
-
-        // history: node added
         pushHistory({ type: 'node_add', node: textNode, parent: layer, zIndex: textNode.zIndex() })
     }
 
@@ -276,26 +355,43 @@
 
         layer = new Konva.Layer()
         stage.add(layer)
+        transformer = new Konva.Transformer({
+            rotateEnabled: false,
+            enabledAnchors: [
+                'top-left',
+                'top-center',
+                'top-right',
+                'middle-left',
+                'middle-right',
+                'bottom-left',
+                'bottom-center',
+                'bottom-right'
+            ],
+            anchorSize: 6,
+            ignoreStroke: true
+        })
+        layer.add(transformer)
 
-        // Handle click tools (text placement, eraser)
-        stage.on('click', () => {
+        // Handle click tools (eraser) and deselect transformer on background click
+        stage.on('click', (evt) => {
             const pointerPos = stage.getPointerPosition()
             if (!pointerPos) return
-
-            if (activeTool.value === 'text') {
-                showTextEditorAt(pointerPos)
-                return
+            if (evt && evt.target === stage) {
+                if (!isEditingText.value) transformer.nodes([])
             }
 
             if (activeTool.value === 'eraser') {
                 // Try to erase a Konva node under the cursor
-                const target = stage.getIntersection(pointerPos)
+                let target = stage.getIntersection(pointerPos)
                 if (target) {
-                    const parent = target.getLayer() || layer
-                    const z = typeof target.zIndex === 'function' ? target.zIndex() : undefined
-                    pushHistory({ type: 'node_remove', node: target, parent, zIndex: z })
-                    target.destroy()
+                    const textGroup = target.findAncestors((n) => n.getAttr && n.getAttr('isTextGroup'))[0]
+                    const nodeToRemove = textGroup || target
+                    const parent = nodeToRemove.getLayer() || layer
+                    const z = typeof nodeToRemove.zIndex === 'function' ? nodeToRemove.zIndex() : undefined
+                    pushHistory({ type: 'node_remove', node: nodeToRemove, parent, zIndex: z })
+                    nodeToRemove.destroy()
                     layer.batchDraw()
+                    if (!isEditingText.value) transformer.nodes([])
                     return
                 }
 
@@ -311,16 +407,39 @@
                     const removed = blurAreas.value.splice(idx, 1)[0]
                     pushHistory({ type: 'blur_remove', blur: removed, index: idx })
                 }
+                if (!isEditingText.value) transformer.nodes([])
                 return
             }
         })
 
-        stage.on('mousedown', () => {
+        stage.on('mousedown', (e) => {
             if (!activeTool.value) return
             const pointerPos = stage.getPointerPosition()
 
-            if (activeTool.value === 'text' || activeTool.value === 'eraser') {
+            // deselect transformer when clicking empty area
+            if (e && e.target === stage) {
+                transformer.nodes([])
+            }
+
+            if (activeTool.value === 'eraser') {
                 // handled by click handler
+                return
+            }
+
+            if (activeTool.value === 'text') {
+                drawing = true
+                startPos = pointerPos
+                currentShape = new Konva.Rect({
+                    x: startPos.x,
+                    y: startPos.y,
+                    width: 0,
+                    height: 0,
+                    fill: 'transparent',
+                    stroke: selectedColor.value,
+                    dash: [4, 4],
+                    strokeWidth: 1
+                })
+                layer.add(currentShape)
                 return
             }
 
@@ -425,7 +544,7 @@
                 currentShape.points([startPos.x, startPos.y, pos.x, pos.y])
             }
 
-            if (activeTool.value === 'rect') {
+            if (activeTool.value === 'rect' || activeTool.value === 'text') {
                 const newWidth = pos.x - startPos.x
                 const newHeight = pos.y - startPos.y
                 currentShape.setAttrs({
@@ -485,6 +604,106 @@
                 // Remove the temporary rectangle
                 currentShape.destroy()
                 layer.batchDraw()
+            } else if (drawing && activeTool.value === 'text' && currentShape) {
+                const rect = currentShape.getClientRect()
+                const width = Math.max(240, Math.round(rect.width))
+                const height = Math.max(120, Math.round(rect.height))
+                const x = Math.max(0, Math.round(rect.x))
+                const y = Math.max(0, Math.round(rect.y))
+                currentShape.destroy()
+
+                // Clamp to canvas boundaries
+                const clampedWidth = Math.min(width, stage.width() - x)
+                const clampedHeight = Math.min(height, stage.height() - y)
+
+                const textGroup = new Konva.Group({
+                    x,
+                    y,
+                    draggable: true,
+                    isTextGroup: true,
+                    dragBoundFunc: function (pos) {
+                        const rectNode = this.findOne('Rect')
+                        const w = rectNode ? rectNode.width() : 0
+                        const h = rectNode ? rectNode.height() : 0
+                        const newX = Math.max(0, Math.min(pos.x, stage.width() - w))
+                        const newY = Math.max(0, Math.min(pos.y, stage.height() - h))
+                        return { x: newX, y: newY }
+                    }
+                })
+                const bgRect = new Konva.Rect({
+                    x: 0,
+                    y: 0,
+                    width: clampedWidth,
+                    height: clampedHeight,
+                    fillEnabled: false,
+                    strokeWidth: 0,
+                    listening: true
+                })
+
+                const textNode = new Konva.Text({
+                    x: 0,
+                    y: 0,
+                    width: clampedWidth,
+                    text: '',
+                    fontSize: 16,
+                    lineHeight: 1.2,
+                    fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+                    fill: selectedColor.value,
+                    align: 'left',
+                    wrap: 'word'
+                })
+
+                textGroup.add(bgRect)
+                textGroup.add(textNode)
+                textGroup.clip({ x: 0, y: 0, width: clampedWidth, height: clampedHeight })
+                layer.add(textGroup)
+
+                // Transformer selection
+                textGroup.on('mousedown', (evt) => {
+                    if (activeTool.value === 'eraser') return
+                    transformer.nodes([textGroup])
+                    evt.cancelBubble = true
+                })
+                textGroup.on('dblclick', () => openEditorForTextGroup(textGroup))
+
+                textGroup.on('transform', () => {
+                    const rectNode = textGroup.findOne('Rect')
+                    const scaleX = textGroup.scaleX()
+                    const scaleY = textGroup.scaleY()
+                    let newW = Math.max(40, rectNode.width() * scaleX)
+                    let newH = Math.max(20, rectNode.height() * scaleY)
+
+                    // Clamp to stage bounds
+                    const pos = textGroup.position()
+                    newW = Math.min(newW, stage.width() - pos.x)
+                    newH = Math.min(newH, stage.height() - pos.y)
+
+                    textGroup.scale({ x: 1, y: 1 })
+                    rectNode.width(newW)
+                    rectNode.height(newH)
+                    textGroup.clip({ x: 0, y: 0, width: newW, height: newH })
+                    textNode.width(newW)
+                    textNode.height(newH)
+                    if (transformer && typeof transformer.forceUpdate === 'function') {
+                        transformer.forceUpdate()
+                    }
+                    layer.batchDraw()
+                })
+
+                // Push history
+                pushHistory({ type: 'node_add', node: textGroup, parent: layer, zIndex: textGroup.zIndex() })
+
+                // Show editor overlay within the area and select transformer
+                activeTextNodeRef = textNode
+                activeTextGroupRef = textGroup
+                transformer.nodes([textGroup])
+                showTextEditorAt(
+                    { x, y },
+                    { width: clampedWidth, height: clampedHeight, allowResize: false, fixedSize: true }
+                )
+                layer.batchDraw()
+                activeTool.value = null
+                isEditingText.value = true
             } else if (drawing && currentShape) {
                 // finalize shape drawing and push history for node add
                 const finalizedShape = currentShape
@@ -519,8 +738,8 @@
             top: `${props.selectionRect.top + blur.y}px`,
             width: `${blur.width}px`,
             height: `${blur.height}px`,
-            backdropFilter: 'blur(5px)',
-            WebkitBackdropFilter: 'blur(5px)', // Safari support
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)', // Safari support
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             pointerEvents: 'none',
             zIndex: 45
