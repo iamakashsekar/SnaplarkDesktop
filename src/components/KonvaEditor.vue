@@ -18,7 +18,8 @@
 
     const props = defineProps({
         toolbarStyle: Object,
-        selectionRect: Object
+        selectionRect: Object,
+        editable: Boolean
     })
 
     let stage = null
@@ -156,6 +157,7 @@
     })
 
     function showTextEditorAt(position, opts = {}) {
+        if (!props.editable) return
         if (activeTextarea) {
             // If an editor is already open, commit/cancel it first
             finalizeTextEditor()
@@ -242,6 +244,7 @@
     }
 
     function openEditorForTextGroup(group) {
+        if (!props.editable) return
         if (!group) return
         const textNode = group.findOne('Text')
         if (!textNode) return
@@ -374,6 +377,7 @@
 
         // Handle click tools (eraser) and deselect transformer on background click
         stage.on('click', (evt) => {
+            if (!props.editable) return
             const pointerPos = stage.getPointerPosition()
             if (!pointerPos) return
             if (evt && evt.target === stage) {
@@ -413,7 +417,7 @@
         })
 
         stage.on('mousedown', (e) => {
-            if (!activeTool.value) return
+            if (!props.editable || !activeTool.value) return
             const pointerPos = stage.getPointerPosition()
 
             // deselect transformer when clicking empty area
@@ -537,7 +541,7 @@
         })
 
         stage.on('mousemove', () => {
-            if (!drawing || !currentShape) return
+            if (!props.editable || !drawing || !currentShape) return
             const pos = stage.getPointerPosition()
 
             if (activeTool.value === 'line' || activeTool.value === 'arrow') {
@@ -586,6 +590,7 @@
         })
 
         stage.on('mouseup', () => {
+            if (!props.editable) return
             if (drawing && activeTool.value === 'blur' && currentShape) {
                 // Create a CSS blur area
                 const rect = currentShape.getClientRect()
@@ -619,7 +624,7 @@
                 const textGroup = new Konva.Group({
                     x,
                     y,
-                    draggable: true,
+                    draggable: props.editable,
                     isTextGroup: true,
                     dragBoundFunc: function (pos) {
                         const rectNode = this.findOne('Rect')
@@ -660,11 +665,12 @@
 
                 // Transformer selection
                 textGroup.on('mousedown', (evt) => {
+                    if (!props.editable) return
                     if (activeTool.value === 'eraser') return
                     transformer.nodes([textGroup])
                     evt.cancelBubble = true
                 })
-                textGroup.on('dblclick', () => openEditorForTextGroup(textGroup))
+                textGroup.on('dblclick', () => props.editable && openEditorForTextGroup(textGroup))
 
                 textGroup.on('transform', () => {
                     const rectNode = textGroup.findOne('Rect')
@@ -748,6 +754,7 @@
 
     <!-- Toolbar -->
     <div
+        v-if="props.editable"
         :style="toolbarStyle"
         class="fixed z-50 -ml-12 flex gap-4">
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">

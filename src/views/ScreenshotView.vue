@@ -69,7 +69,7 @@
     })
 
     const handleMouseDown = async (e) => {
-        if (mode.value === 'confirming' || mode.value === 'editing') return
+        if (mode.value === 'confirming' || mode.value === 'editing' || mode.value === 'edited') return
 
         // Close other screenshot windows when user starts selecting on this monitor
         try {
@@ -503,7 +503,7 @@
         @mouseup="handleMouseUp">
         <!-- Dark overlay for everything outside the selection -->
         <div
-            v-if="mode === 'confirming' || mode === 'editing'"
+            v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"
             class="pointer-events-none absolute top-0 left-0 h-full w-full bg-black/50"
             :style="{
                 clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${
@@ -568,11 +568,11 @@
 
         <!-- Crosshair (only when not confirming and window is active) -->
         <div
-            v-if="mode !== 'confirming' && mode !== 'editing' && isWindowActive"
+            v-if="mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
             class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
-            v-if="mode !== 'confirming' && mode !== 'editing' && isWindowActive"
+            v-if="mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
             class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
@@ -595,7 +595,7 @@
 
         <!-- Action Toolbar -->
         <div
-            v-if="mode === 'confirming'"
+            v-if="mode === 'confirming' || mode === 'edited'"
             class="absolute flex items-center gap-4"
             :style="toolbarStyle">
             <div class="flex items-center rounded-full bg-white/90">
@@ -772,8 +772,10 @@
 
         <!-- Edit toolbar -->
         <KonvaEditor
-            v-if="mode === 'editing'"
+            v-if="mode === 'editing' || mode === 'edited'"
+            :editable="mode === 'editing'"
             @cancel="handleCancelEdit"
+            @save="mode = 'edited'"
             :selectionRect="selectionRect"
             :toolbarStyle="toolbarStyle" />
 
