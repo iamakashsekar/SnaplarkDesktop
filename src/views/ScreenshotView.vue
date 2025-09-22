@@ -1189,7 +1189,7 @@
             <div
                 v-if="loading"
                 class="fixed inset-0 z-[25000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                <div class="text-center">
+                <div class="flex flex-col items-center justify-center text-center">
                     <!-- Spinner Animation -->
                     <div class="relative mb-6">
                         <div class="h-16 w-16 rounded-full border-4 border-white/20"></div>
@@ -1236,56 +1236,58 @@
                     leave-to-class="opacity-0 scale-95 translate-y-4">
                     <div
                         v-if="showOCRModal"
-                        class="relative mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-                        <!-- Modal Header -->
-                        <div class="mb-6 flex items-center justify-between">
-                            <h3 class="text-xl font-semibold text-gray-900">OCR Text</h3>
-                            <button
-                                @click="closeOCRModal"
-                                class="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
-                                <svg
-                                    class="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    stroke-width="2">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <!-- OCR Text Content -->
-                        <div class="mb-8">
-                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                <textarea
-                                    :value="ocrText"
-                                    readonly
-                                    class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none"
-                                    placeholder="OCR text will appear here...">
-                                </textarea>
+                        class="relative w-full max-w-lg rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md">
+                        <div class="rounded-2xl bg-white p-6 shadow-2xl">
+                            <!-- Modal Header -->
+                            <div class="mb-6 flex items-center justify-between">
+                                <h3 class="text-xl font-semibold text-gray-900">OCR Text</h3>
+                                <button
+                                    @click="closeOCRModal"
+                                    class="text-gray-7 rounded-full p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-900">
+                                    <svg
+                                        class="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        stroke-width="2">
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </div>
-                        </div>
 
-                        <!-- Copy Button -->
-                        <div class="flex justify-center">
-                            <button
-                                @click="copyOCRText"
-                                class="bg-primary-blue flex items-center justify-center rounded-full px-8 py-3 text-white transition-all duration-200 hover:scale-105 hover:bg-blue-600 active:scale-95">
-                                <svg
-                                    class="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    stroke-width="2">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                            </button>
+                            <!-- OCR Text Content -->
+                            <div class="mb-8">
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                    <textarea
+                                        :value="ocrText"
+                                        readonly
+                                        class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none"
+                                        placeholder="OCR text will appear here...">
+                                    </textarea>
+                                </div>
+                            </div>
+
+                            <!-- Copy Button -->
+                            <div class="flex justify-center">
+                                <button
+                                    @click="copyOCRText"
+                                    class="bg-primary-blue flex items-center justify-center rounded-full px-8 py-3 text-white transition-all duration-200 hover:scale-105 hover:bg-blue-600 active:scale-95">
+                                    <svg
+                                        class="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        stroke-width="2">
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </transition>
