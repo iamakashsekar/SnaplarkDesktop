@@ -535,7 +535,7 @@
             setTimeout(() => {
                 ocrCopyTooltip.value = 'Copy Text'
                 closeOCRModal()
-            }, 800)
+            }, 200)
         } catch (error) {
             console.error('Failed to copy OCR text:', error)
         }
