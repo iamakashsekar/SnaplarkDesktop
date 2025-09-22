@@ -3,7 +3,9 @@
     import { apiClient } from '../api/config.js'
     import axios from 'axios'
     import KonvaEditor from '../components/KonvaEditor.vue'
+    import { createWorker } from 'tesseract.js'
 
+    const loading = ref(false)
     // Core selection state
     const startX = ref(0)
     const startY = ref(0)
@@ -26,6 +28,11 @@
     // Upload notifications
     const uploadNotifications = ref([])
     const nextNotificationId = ref(1)
+
+    // OCR Modal state
+    const showOCRModal = ref(false)
+    const ocrText = ref('')
+    const ocrCopyTooltip = ref('Copy Text')
 
     const selectionRect = computed(() => {
         const left = Math.min(startX.value, endX.value)
@@ -313,7 +320,7 @@
     }
     const handleUpload = () => captureAndUpload()
     const handleCopy = () => copyToClipboard()
-    const handlePrint = () => printScreenshot()
+    const handleOCR = () => readOCR()
     const handleSearch = () => searchSimilerImage()
     const handleCancel = (event) => {
         window.electron?.cancelScreenshotMode()
@@ -322,11 +329,16 @@
     const handleEscapeKeyCancel = (event) => {
         // If called from button click (no event) or Escape key, cancel screenshot mode
         if (event.key === 'Escape') {
+            // First check if OCR modal is open, close it instead of canceling screenshot
+            if (showOCRModal.value) {
+                closeOCRModal()
+                return
+            }
             window.electron?.cancelScreenshotMode()
         }
     }
 
-    const captureArea = async () => {
+    const captureArea = async (closeWindow = true) => {
         try {
             const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.takeScreenshot(
@@ -337,7 +349,8 @@
                     width: Math.round(width),
                     height: Math.round(height)
                 },
-                displayId.value
+                displayId.value,
+                closeWindow
             )
 
             if (result?.success) {
@@ -386,7 +399,8 @@
                     fileInfo: {
                         path: result.path,
                         fileName: result.filename,
-                        fileSize: formatFileSize(result.size)
+                        fileSize: formatFileSize(result.size),
+                        searchSimilar: false
                     }
                 })
 
@@ -488,35 +502,48 @@
         }
     }
 
-    const printScreenshot = async () => {
+    const readOCR = async () => {
         try {
-            if (mode.value === 'edited') {
-                const dataUrl = getEditedDataUrl()
-                if (dataUrl) {
-                    const w = window.open('', '_blank')
-                    if (!w) return
-                    w.document.write(
-                        `<img src="${dataUrl}" style="max-width:100%" onload="window.print(); window.close();" />`
-                    )
-                    return
-                }
-            }
-            const { left, top, width, height } = selectionRect.value
-            const result = await window.electron?.printScreenshot(
-                'area',
-                {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId.value
-            )
+            const result = await captureArea(false)
 
-            if (!result?.success) console.error('Print failed:', result?.error)
+            if (result?.success) {
+                loading.value = true
+                const buffer = await window.electron.readFileAsBuffer(result.path)
+                const blobFile = bufferToFile(buffer, result.filename)
+
+                const worker = await createWorker('eng')
+                const ret = await worker.recognize(blobFile)
+                ocrText.value = ret.data.text
+                await worker.terminate()
+                showOCRModal.value = true
+                console.log(ret.data.text)
+                loading.value = false
+            } else {
+                loading.value = false
+                console.error('Screenshot failed:', result?.error)
+            }
         } catch (error) {
-            console.error('Error printing screenshot:', error)
+            loading.value = false
+            console.error('Error capturing screenshot:', error)
         }
+    }
+
+    const copyOCRText = async () => {
+        try {
+            await navigator.clipboard.writeText(ocrText.value)
+            ocrCopyTooltip.value = 'Copied!'
+            setTimeout(() => {
+                ocrCopyTooltip.value = 'Copy Text'
+                closeOCRModal()
+            }, 2000)
+        } catch (error) {
+            console.error('Failed to copy OCR text:', error)
+        }
+    }
+
+    const closeOCRModal = () => {
+        showOCRModal.value = false
+        ocrCopyTooltip.value = 'Copy Text'
     }
 
     const searchSimilerImage = async () => {
@@ -603,7 +630,7 @@
 
 <template>
     <div
-        :class="{ 'cursor-crosshair select-none': mode !== 'editing' }"
+        :class="{ 'cursor-crosshair select-none': mode !== 'editing', 'pointer-events-none': loading }"
         class="fixed top-0 left-0 h-screen w-screen"
         :style="{
             backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
@@ -776,7 +803,7 @@
                 </button>
 
                 <button
-                    @click="handlePrint"
+                    @click="handleOCR"
                     title="Print"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
@@ -1164,6 +1191,121 @@
                 </div>
             </transition-group>
         </div>
+
+        <!-- OCR Loading Overlay -->
+        <transition
+            name="loading"
+            enter-active-class="duration-300 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="duration-200 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0">
+            <div
+                v-if="loading"
+                class="fixed inset-0 z-[25000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                <div class="text-center">
+                    <!-- Spinner Animation -->
+                    <div class="relative mb-6">
+                        <div class="h-16 w-16 rounded-full border-4 border-white/20"></div>
+                        <div
+                            class="absolute top-0 h-16 w-16 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
+                    </div>
+
+                    <!-- Loading Text with Animated Dots -->
+                    <div class="flex items-center justify-center gap-1 text-white">
+                        <span class="text-lg font-medium">Extracting text</span>
+                        <div class="flex gap-1">
+                            <div class="animation-delay-0 h-1 w-1 animate-pulse rounded-full bg-white"></div>
+                            <div class="animation-delay-150 h-1 w-1 animate-pulse rounded-full bg-white"></div>
+                            <div class="animation-delay-300 h-1 w-1 animate-pulse rounded-full bg-white"></div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Indicator -->
+                    <div class="mt-4 text-sm text-white/70">Processing with OCR technology</div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- OCR Modal -->
+        <transition
+            name="modal"
+            enter-active-class="duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0">
+            <div
+                v-if="showOCRModal"
+                class="fixed inset-0 z-[20000] flex items-center justify-center bg-black/50"
+                @click.self="closeOCRModal">
+                <transition
+                    name="modal-content"
+                    enter-active-class="duration-200 ease-out"
+                    enter-from-class="opacity-0 scale-95 translate-y-4"
+                    enter-to-class="opacity-100 scale-100 translate-y-0"
+                    leave-active-class="duration-150 ease-in"
+                    leave-from-class="opacity-100 scale-100 translate-y-0"
+                    leave-to-class="opacity-0 scale-95 translate-y-4">
+                    <div
+                        v-if="showOCRModal"
+                        class="relative mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                        <!-- Modal Header -->
+                        <div class="mb-6 flex items-center justify-between">
+                            <h3 class="text-xl font-semibold text-gray-900">OCR Text</h3>
+                            <button
+                                @click="closeOCRModal"
+                                class="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
+                                <svg
+                                    class="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- OCR Text Content -->
+                        <div class="mb-8">
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <textarea
+                                    :value="ocrText"
+                                    readonly
+                                    class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none"
+                                    placeholder="OCR text will appear here...">
+                                </textarea>
+                            </div>
+                        </div>
+
+                        <!-- Copy Button -->
+                        <div class="flex justify-center">
+                            <button
+                                @click="copyOCRText"
+                                class="bg-primary-blue flex items-center justify-center rounded-full px-8 py-3 text-white transition-all duration-200 hover:scale-105 hover:bg-blue-600 active:scale-95">
+                                <svg
+                                    class="h-5 w-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    stroke-width="2">
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+            </div>
+        </transition>
     </div>
 </template>
 
@@ -1185,5 +1327,18 @@
 
     .notification-move {
         transition: transform 0.3s ease;
+    }
+
+    /* Animation delay utilities for loading dots */
+    .animation-delay-0 {
+        animation-delay: 0ms;
+    }
+
+    .animation-delay-150 {
+        animation-delay: 150ms;
+    }
+
+    .animation-delay-300 {
+        animation-delay: 300ms;
     }
 </style>

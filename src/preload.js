@@ -8,9 +8,9 @@ contextBridge.exposeInMainWorld('electron', {
     getDeviceName: () => ipcRenderer.invoke('get-device-name'),
     quitApp: () => ipcRenderer.send('quit-app'),
     showMainAtTray: (options) => ipcRenderer.invoke('show-main-at-tray', options),
-    takeScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('take-screenshot', type, bounds, displayId),
+    takeScreenshot: (type, bounds, displayId, closeWindow) =>
+        ipcRenderer.invoke('take-screenshot', type, bounds, displayId, closeWindow),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
-    printScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('print-screenshot', type, bounds, displayId),
     readFileAsBuffer: (filePath) => ipcRenderer.invoke('read-file-as-buffer', filePath),
     startScreenshotMode: () => ipcRenderer.invoke('start-screenshot-mode'),
     cancelScreenshotMode: () => ipcRenderer.send('cancel-screenshot-mode'),
@@ -28,7 +28,8 @@ contextBridge.exposeInMainWorld('electronWindows', {
     resizeWindow: (type, width, height) => ipcRenderer.invoke('resize-window', type, width, height),
     getWindowType: () => ipcRenderer.invoke('get-window-type'),
     closeWindowsByType: (type) => ipcRenderer.invoke('close-windows-by-type', type),
-    closeOtherScreenshotWindows: (currentDisplayId) => ipcRenderer.invoke('close-other-screenshot-windows', currentDisplayId),
+    closeOtherScreenshotWindows: (currentDisplayId) =>
+        ipcRenderer.invoke('close-other-screenshot-windows', currentDisplayId),
     onDisplayChanged: (callback) => {
         ipcRenderer.on('display-changed', (event, displayId) => callback(displayId))
     },

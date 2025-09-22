@@ -220,9 +220,9 @@ app.whenReady().then(() => {
             if (mainWindow) {
                 mainWindow.hide()
             }
-            
-           // A short delay to allow the window to disappear.
-           await new Promise((resolve) => setTimeout(resolve, 100))
+
+            // A short delay to allow the window to disappear.
+            await new Promise((resolve) => setTimeout(resolve, 100))
 
             // Close any existing screenshot windows
             windowManager.closeWindowsByType('screenshot')
@@ -264,7 +264,7 @@ app.whenReady().then(() => {
 
             // Wait for all screenshots to complete
             const screenshotResults = await Promise.all(screenshotPromises)
-            const validResults = screenshotResults.filter(result => result !== null)
+            const validResults = screenshotResults.filter((result) => result !== null)
 
             if (validResults.length === 0) {
                 console.error('No valid displays found for screenshot')
@@ -279,12 +279,12 @@ app.whenReady().then(() => {
             const windows = validResults.map(({ display, dataURL, mouseX, mouseY }, index) => {
                 // Create unique window type for each display to avoid conflicts
                 const windowType = `screenshot-${display.id}`
-                
+
                 console.log(`Creating window ${windowType} for display ${display.id}:`, {
                     bounds: display.bounds,
                     primary: display.primary
                 })
-                
+
                 const win = windowManager.createWindow(windowType, {
                     ...display.bounds,
                     x: display.bounds.x,
@@ -297,7 +297,7 @@ app.whenReady().then(() => {
                         initialMouseY: mouseY
                     }
                 })
-                
+
                 console.log(`Window ${windowType} created successfully`)
 
                 // Store the screenshot data for this specific window
@@ -329,7 +329,7 @@ app.whenReady().then(() => {
                     // Windows-specific settings to ensure window stays above taskbar and other apps
                     win.setAlwaysOnTop(true, 'screen-saver')
                     win.setSkipTaskbar(true)
-                    
+
                     // For Windows secondary monitors, don't use kiosk mode - it causes issues
                     // Instead, use manual positioning and sizing
                     if (display.primary) {
@@ -352,7 +352,7 @@ app.whenReady().then(() => {
 
                 // Determine if this window should be initially active
                 const isInitiallyActive = display.id === initialActiveDisplay.id
-                
+
                 // Set up initial activation when window is ready
                 win.webContents.once('did-finish-load', () => {
                     const activationData = {
@@ -367,7 +367,7 @@ app.whenReady().then(() => {
 
                 // Explicitly show the window
                 win.show()
-                
+
                 // Additional Windows-specific fixes
                 if (process.platform === 'win32') {
                     // Force window to front and ensure it stays there
@@ -375,7 +375,7 @@ app.whenReady().then(() => {
                     win.moveTop()
                     // Ensure window captures all input
                     win.setAlwaysOnTop(true, 'screen-saver')
-                    
+
                     // Additional delay to ensure window is properly positioned on secondary monitor
                     setTimeout(() => {
                         if (!win.isDestroyed()) {
@@ -384,7 +384,7 @@ app.whenReady().then(() => {
                         }
                     }, 200)
                 }
-                
+
                 console.log(`Window ${windowType} shown on display ${display.id}`)
 
                 // Clean up handler when window closes
@@ -394,20 +394,20 @@ app.whenReady().then(() => {
 
                 return win
             })
-            
+
             // Set up global mouse tracking to manage which window is active
             let currentActiveDisplayId = initialActiveDisplay.id
             let mouseTrackingInterval = null
-            
+
             const updateActiveWindow = (force = false) => {
                 const cursorPos = screen.getCursorScreenPoint()
                 const activeDisplay = screen.getDisplayNearestPoint(cursorPos)
-                
+
                 if (force || currentActiveDisplayId !== activeDisplay.id) {
                     currentActiveDisplayId = activeDisplay.id
-                    
+
                     // Notify all windows about the active display change
-                    windows.forEach(win => {
+                    windows.forEach((win) => {
                         if (!win.isDestroyed() && win.webContents) {
                             const isActive = win.displayInfo.id === activeDisplay.id
                             const activationData = {
@@ -416,7 +416,7 @@ app.whenReady().then(() => {
                                 mouseX: cursorPos.x - win.displayInfo.bounds.x,
                                 mouseY: cursorPos.y - win.displayInfo.bounds.y
                             }
-                            
+
                             // Send immediately if ready, or queue for when ready
                             if (win.webContents.isLoading()) {
                                 win.webContents.once('did-finish-load', () => {
@@ -429,15 +429,15 @@ app.whenReady().then(() => {
                     })
                 }
             }
-            
+
             // Start mouse tracking with reduced frequency (every 100ms)
             mouseTrackingInterval = setInterval(updateActiveWindow, 100)
-            
+
             // Set initial active window with multiple attempts to ensure delivery
             setTimeout(() => updateActiveWindow(true), 100)
             setTimeout(() => updateActiveWindow(true), 300)
             setTimeout(() => updateActiveWindow(true), 500)
-            
+
             // Clean up when any screenshot window closes
             const originalCleanup = () => {
                 if (mouseTrackingInterval) {
@@ -445,18 +445,17 @@ app.whenReady().then(() => {
                     mouseTrackingInterval = null
                 }
             }
-            
-            windows.forEach(win => {
+
+            windows.forEach((win) => {
                 win.on('closed', originalCleanup)
             })
 
             console.log(`Created ${windows.length} screenshot window(s)`)
-            return { 
-                success: true, 
+            return {
+                success: true,
                 displayCount: allDisplays.length,
-                windowCount: windows.length 
+                windowCount: windows.length
             }
-
         } catch (error) {
             console.error('Error starting screenshot mode:', error)
             return { success: false, error: error.message }
@@ -507,142 +506,6 @@ app.whenReady().then(() => {
         }
     })
 
-    // Handle print screenshot
-    ipcMain.handle('print-screenshot', async (event, type, bounds, displayId) => {
-        try {
-            // Hide the screenshot overlay window to exclude it from the capture
-            const senderWindow = BrowserWindow.fromWebContents(event.sender)
-            if (senderWindow) {
-                senderWindow.hide()
-            }
-
-            // A short delay to allow the window to disappear.
-            await new Promise((resolve) => setTimeout(resolve, 200))
-
-            // Get all displays
-            const displays = screen.getAllDisplays()
-            const primaryDisplay = screen.getPrimaryDisplay()
-
-            // Defensively handle null displayId by defaulting to the primary display
-            const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-
-            const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-            const source = await findSourceForDisplay(targetDisplay)
-
-            if (!source) {
-                throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-            }
-
-            // Get the image using the same logic as saving
-            const image = await takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-
-            // Create temporary directory for print file
-            const homeDir = os.homedir()
-            const tempDir = path.join(homeDir, 'tmp', 'snaplark')
-
-            // Ensure temp directory exists
-            if (!fs.existsSync(tempDir)) {
-                fs.mkdirSync(tempDir, { recursive: true })
-            }
-
-            // Generate temporary filename
-            const timestamp = new Date().getTime()
-            const tempFilename = `screenshot_print_${timestamp}.png`
-            const tempFilepath = path.join(tempDir, tempFilename)
-
-            // Save temporary file
-            fs.writeFileSync(tempFilepath, image.toPNG())
-
-            // Create a new window for printing
-            const printWindow = new BrowserWindow({
-                width: 800,
-                height: 600,
-                show: false,
-                webPreferences: {
-                    nodeIntegration: false,
-                    contextIsolation: true
-                }
-            })
-
-            // Load the image in the print window
-            const imageDataURL = `data:image/png;base64,${image.toPNG().toString('base64')}`
-            const printHTML = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Print Screenshot</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 20px;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-                background: white;
-              }
-              img {
-                max-width: 100%;
-                max-height: 100vh;
-                object-fit: contain;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-              }
-              @media print {
-                body { padding: 0; }
-                img { 
-                  max-width: 100%; 
-                  max-height: 100vh; 
-                  box-shadow: none;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <img src="${imageDataURL}" alt="Screenshot" />
-          </body>
-        </html>
-      `
-
-            printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(printHTML)}`)
-
-            // Wait for the window to load, then print
-            printWindow.webContents.once('did-finish-load', () => {
-                printWindow.webContents.print(
-                    {
-                        silent: false,
-                        printBackground: true,
-                        deviceName: ''
-                    },
-                    (success, failureReason) => {
-                        // Clean up temp file
-                        try {
-                            fs.unlinkSync(tempFilepath)
-                        } catch (cleanupError) {
-                            console.warn('Could not clean up temp file:', cleanupError)
-                        }
-
-                        // Close print window
-                        printWindow.close()
-
-                        if (!success) {
-                            console.error('Print failed:', failureReason)
-                        }
-                    }
-                )
-            })
-
-            // Cleanup screenshot mode
-            // No longer needed - using event-driven display tracking
-            windowManager.closeWindowsByType('screenshot')
-
-            return { success: true, message: 'Print dialog opened' }
-        } catch (error) {
-            console.error('Print screenshot error:', error)
-            return { success: false, error: error.message }
-        }
-    })
-
     ipcMain.on('cancel-screenshot-mode', () => {
         console.log('cancel-screenshot-mode called')
         // No longer needed - using event-driven display tracking
@@ -650,14 +513,15 @@ app.whenReady().then(() => {
     })
 
     // Handle screenshot capture
-    ipcMain.handle('take-screenshot', async (event, type, bounds, displayId) => {
-        try {
-            // const screenWin = windowManager.getWindow('screenshot')
-            // screenWin.webContents.openDevTools()
+    ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {
+        console.log('calling')
 
-            const senderWindow = BrowserWindow.fromWebContents(event.sender)
-            if (senderWindow) {
-                senderWindow.hide()
+        try {
+            if (closeWindow) {
+                const senderWindow = BrowserWindow.fromWebContents(event.sender)
+                if (senderWindow) {
+                    senderWindow.hide()
+                }
             }
 
             await new Promise((resolve) => setTimeout(resolve, 200))
@@ -695,14 +559,17 @@ app.whenReady().then(() => {
             const { size } = fs.statSync(filepath)
 
             // No longer needed - using event-driven display tracking
-            windowManager.closeWindowsByType('screenshot')
+            if (closeWindow) {
+                windowManager.closeWindowsByType('screenshot')
+            }
 
-            return { 
-                success: true, 
-                path: filepath, 
-                dataUrl: image.toDataURL(), 
+            return {
+                success: true,
+                path: filepath,
+                dataUrl: image.toDataURL(),
                 filename: filename,
                 size: size // in bytes
+                // image: image
             }
         } catch (error) {
             console.error('Screenshot error:', error)
@@ -813,7 +680,7 @@ app.whenReady().then(() => {
     // Store synchronization between windows
     ipcMain.on('store:sync', (event, { key, value }) => {
         // Broadcast store changes to all windows except the sender
-        windowManager.getAllWindows().forEach(window => {
+        windowManager.getAllWindows().forEach((window) => {
             if (window.webContents !== event.sender) {
                 window.webContents.send('store:update', { key, value })
             }
@@ -923,11 +790,11 @@ app.whenReady().then(() => {
         try {
             const currentWindow = BrowserWindow.fromWebContents(event.sender)
             const currentDisplayIdStr = currentDisplayId ? currentDisplayId.toString() : null
-            
+
             console.log(`closeOtherScreenshotWindows called - currentDisplayId: ${currentDisplayIdStr}`)
             console.log(`Current window exists: ${!!currentWindow}`)
             console.log(`Available windows:`, Array.from(windowManager.windows.keys()))
-            
+
             windowManager.windows.forEach((window, key) => {
                 if (key.startsWith('screenshot-')) {
                     console.log(`Checking window ${key}:`, {
@@ -935,14 +802,14 @@ app.whenReady().then(() => {
                         isSameWindow: window === currentWindow,
                         shouldSkip: currentDisplayIdStr && key === `screenshot-${currentDisplayIdStr}`
                     })
-                    
+
                     if (!window.isDestroyed() && window !== currentWindow) {
                         // Extra safety check - don't close windows for the same display
                         if (currentDisplayIdStr && key === `screenshot-${currentDisplayIdStr}`) {
                             console.log(`Skipping close of current display window: ${key}`)
                             return
                         }
-                        
+
                         console.log(`Closing other screenshot window: ${key}`)
                         window.close()
                     }
