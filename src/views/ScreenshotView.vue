@@ -367,7 +367,7 @@
         return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
     }
 
-    const captureAndUpload = async () => {
+    const captureAndUpload = async (searchSimilar = false) => {
         try {
             const notify = (payload) => window.electronNotifications?.notify(payload)
 
@@ -383,7 +383,8 @@
                         fileInfo: {
                             dataUrl: dataUrl,
                             fileName: fileName,
-                            fileSize: formatFileSize(file.size)
+                            fileSize: formatFileSize(file.size),
+                            searchSimilar: searchSimilar
                         }
                     })
 
@@ -400,7 +401,7 @@
                         path: result.path,
                         fileName: result.filename,
                         fileSize: formatFileSize(result.size),
-                        searchSimilar: false
+                        searchSimilar: searchSimilar
                     }
                 })
 
@@ -547,19 +548,7 @@
     }
 
     const searchSimilerImage = async () => {
-        try {
-            if (mode.value === 'edited') {
-                const dataUrl = getEditedDataUrl()
-                if (dataUrl) {
-                    window.open(dataUrl, '_blank')
-                    return
-                }
-            }
-            const result = await captureArea()
-            if (!result?.success) console.error('Screenshot failed:', result?.error)
-        } catch (error) {
-            console.error('Error capturing screenshot:', error)
-        }
+        captureAndUpload(true)
     }
 
     onMounted(async () => {
@@ -747,9 +736,7 @@
                     title="Upload"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
-                        class="group-hover:text-white"
-                        width="24"
-                        height="24"
+                        class="size-6 group-hover:text-white"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -765,9 +752,7 @@
                     title="Copy"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
-                        class="group-hover:text-white"
-                        width="24"
-                        height="24"
+                        class="size-6 group-hover:text-white"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -789,9 +774,7 @@
                     title="Save"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
-                        class="group-hover:text-white"
-                        width="24"
-                        height="24"
+                        class="size-6 group-hover:text-white"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -804,26 +787,33 @@
 
                 <button
                     @click="handleOCR"
-                    title="Print"
+                    title="OCR"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
-                        class="group-hover:text-white"
-                        width="24"
-                        height="24"
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="size-6 group-hover:text-white"
                         viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M7 5C7 3.34 8.34 2 10 2H14C15.66 2 17 3.34 17 5C17 5.55 16.55 6 16 6H8C7.45 6 7 5.55 7 5Z"
-                            fill="currentColor" />
-                        <path
-                            d="M17.75 15C17.75 15.41 17.41 15.75 17 15.75H16V19C16 20.66 14.66 22 13 22H11C9.34 22 8 20.66 8 19V15.75H7C6.59 15.75 6.25 15.41 6.25 15C6.25 14.59 6.59 14.25 7 14.25H17C17.41 14.25 17.75 14.59 17.75 15Z"
-                            fill="currentColor" />
-                        <path
-                            d="M18 7H6C4 7 3 8 3 10V15C3 17 4 18 6 18H6.375C6.72018 18 7 17.7202 7 17.375C7 17.0298 6.71131 16.7604 6.38841 16.6384C5.72619 16.3882 5.25 15.7453 5.25 15C5.25 14.04 6.04 13.25 7 13.25H17C17.96 13.25 18.75 14.04 18.75 15C18.75 15.7453 18.2738 16.3882 17.6116 16.6384C17.2887 16.7604 17 17.0298 17 17.375C17 17.7202 17.2798 18 17.625 18H18C20 18 21 17 21 15V10C21 8 20 7 18 7ZM10 11.75H7C6.59 11.75 6.25 11.41 6.25 11C6.25 10.59 6.59 10.25 7 10.25H10C10.41 10.25 10.75 10.59 10.75 11C10.75 11.41 10.41 11.75 10 11.75Z"
-                            fill="currentColor" />
+                        fill="currentColor">
+                        <g clip-path="url(#clip0_4418_8491)">
+                            <path
+                                d="M15.7999 2.21048C15.3899 1.80048 14.6799 2.08048 14.6799 2.65048V6.14048C14.6799 7.60048 15.9199 8.81048 17.4299 8.81048C18.3799 8.82048 19.6999 8.82048 20.8299 8.82048C21.3999 8.82048 21.6999 8.15048 21.2999 7.75048C19.8599 6.30048 17.2799 3.69048 15.7999 2.21048Z"
+                                fill="currentColor"
+                                style="fill: var(--fillg)" />
+                            <path
+                                d="M20.5 10.19H17.61C15.24 10.19 13.31 8.26 13.31 5.89V3C13.31 2.45 12.86 2 12.31 2H8.07C4.99 2 2.5 4 2.5 7.57V16.43C2.5 20 4.99 22 8.07 22H15.93C19.01 22 21.5 20 21.5 16.43V11.19C21.5 10.64 21.05 10.19 20.5 10.19ZM11.5 17.75H7.5C7.09 17.75 6.75 17.41 6.75 17C6.75 16.59 7.09 16.25 7.5 16.25H11.5C11.91 16.25 12.25 16.59 12.25 17C12.25 17.41 11.91 17.75 11.5 17.75ZM13.5 13.75H7.5C7.09 13.75 6.75 13.41 6.75 13C6.75 12.59 7.09 12.25 7.5 12.25H13.5C13.91 12.25 14.25 12.59 14.25 13C14.25 13.41 13.91 13.75 13.5 13.75Z"
+                                fill="currentColor"
+                                style="fill: var(--fillg)" />
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_4418_8491">
+                                <rect
+                                    width="24"
+                                    height="24"
+                                    fill="currentColor" />
+                            </clipPath>
+                        </defs>
                     </svg>
-                    <span class="hidden group-hover:block group-hover:text-white"> Print </span>
+                    <span class="hidden group-hover:block group-hover:text-white"> OCR </span>
                 </button>
 
                 <button
@@ -831,9 +821,7 @@
                     title="Search with Google Lens"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
-                        class="group-hover:text-white"
-                        width="24"
-                        height="24"
+                        class="size-6 group-hover:text-white"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -871,9 +859,7 @@
                     title="Edit"
                     class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                     <svg
-                        class="group-hover:text-white"
-                        width="24"
-                        height="24"
+                        class="size-6 group-hover:text-white"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -897,8 +883,7 @@
                     title="Cancel"
                     class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white">
                     <svg
-                        width="24"
-                        height="24"
+                        class="size-6"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
