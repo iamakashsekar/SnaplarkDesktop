@@ -643,56 +643,6 @@ app.whenReady().then(() => {
         }
     })
 
-    // Handle Google Image Search
-    ipcMain.handle('search-image-google', async (event, type, bounds, displayId) => {
-        try {
-            // Hide the screenshot overlay window to exclude it from the capture
-            const senderWindow = BrowserWindow.fromWebContents(event.sender)
-            if (senderWindow) {
-                senderWindow.hide()
-            }
-
-            // A short delay to allow the window to disappear.
-            await new Promise((resolve) => setTimeout(resolve, 200))
-
-            // Get all displays
-            const displays = screen.getAllDisplays()
-            const primaryDisplay = screen.getPrimaryDisplay()
-
-            // Defensively handle null displayId by defaulting to the primary display
-            const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-
-            const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-            const source = await findSourceForDisplay(targetDisplay)
-
-            if (!source) {
-                throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-            }
-
-            // Get the image using the same logic as saving
-            const image = await takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-
-            // Copy image to clipboard for easy paste into Google Images
-            clipboard.writeImage(image)
-
-            // Open Google Images in default browser
-            await shell.openExternal('https://images.google.com/')
-
-            // Cleanup screenshot mode
-            // No longer needed - using event-driven display tracking
-            windowManager.closeWindowsByType('screenshot')
-
-            return {
-                success: true,
-                message: 'Google Image Search opened automatically'
-            }
-        } catch (error) {
-            console.error('Google Image Search error:', error)
-            return { success: false, error: error.message }
-        }
-    })
-
     ipcMain.on('cancel-screenshot-mode', () => {
         console.log('cancel-screenshot-mode called')
         // No longer needed - using event-driven display tracking

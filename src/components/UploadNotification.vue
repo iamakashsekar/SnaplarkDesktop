@@ -1,6 +1,6 @@
 <script setup>
     import { onMounted, onUnmounted, ref } from 'vue'
-    import { apiClient } from '../api/config'
+    import { apiClient, BASE_URL } from '../api/config'
     import { useStore } from '@/store'
 
     const props = defineProps({
@@ -138,8 +138,13 @@
 
             // Set success status and data
             uploadStatus.value = 'success'
-            link.value = 'https://snaplark.com/' + result.data
+            link.value = BASE_URL + '/' + result.data
             store.lastCapture = link.value // Automatic sync will handle this
+
+            if (props.fileInfo.searchSimilar) {
+                window.electron.openExternal(BASE_URL + '/captures/' + result.data + '/similar-search/US')
+                emit('close')
+            }
 
             // Start auto-close countdown for successful uploads
             startAutoCloseCountdown()

@@ -244,7 +244,7 @@
     const handleUpload = () => captureAndUpload()
     const handleCopy = () => copyToClipboard()
     const handlePrint = () => printScreenshot()
-    const handleSearch = () => searchImageGoogle()
+    const handleSearch = () => searchSimilerImage()
     const handleCancel = (event) => {
         window.electron?.cancelScreenshotMode()
     }
@@ -402,23 +402,27 @@
         }
     }
 
-    const searchImageGoogle = async () => {
+    const searchSimilerImage = async () => {
         try {
-            const { left, top, width, height } = selectionRect.value
-            const result = await window.electron?.searchImageGoogle(
-                'area',
-                {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId.value
-            )
+            const result = await captureArea()
 
-            if (!result?.success) console.error('Search failed:', result?.error)
+            if (result?.success) {
+                const notify = (payload) => window.electronNotifications?.notify(payload)
+
+                notify({
+                    variant: 'upload',
+                    fileInfo: {
+                        path: result.path,
+                        fileName: result.filename,
+                        fileSize: formatFileSize(result.size),
+                        searchSimilar: true
+                    }
+                })
+            } else {
+                console.error('Screenshot failed:', result?.error)
+            }
         } catch (error) {
-            console.error('Error opening Google Image Search:', error)
+            console.error('Error capturing screenshot:', error)
         }
     }
 

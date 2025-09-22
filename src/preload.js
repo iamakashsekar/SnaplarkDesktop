@@ -11,7 +11,6 @@ contextBridge.exposeInMainWorld('electron', {
     takeScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('take-screenshot', type, bounds, displayId),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
     printScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('print-screenshot', type, bounds, displayId),
-    searchImageGoogle: (type, bounds, displayId) => ipcRenderer.invoke('search-image-google', type, bounds, displayId),
     readFileAsBuffer: (filePath) => ipcRenderer.invoke('read-file-as-buffer', filePath),
     startScreenshotMode: () => ipcRenderer.invoke('start-screenshot-mode'),
     cancelScreenshotMode: () => ipcRenderer.send('cancel-screenshot-mode'),
