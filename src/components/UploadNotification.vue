@@ -22,6 +22,16 @@
         return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
     }
 
+    const dataUrlToFile = (dataUrl, fileName) => {
+        const data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+        const bytes = new Uint8Array(
+            atob(data)
+                .split('')
+                .map((c) => c.charCodeAt(0))
+        )
+        return new File([new Blob([bytes], { type: 'image/png' })], fileName, { type: 'image/png' })
+    }
+
     const animateProgressTo = (targetProgress) => {
         const currentProgress = uploadProgress.value
         const difference = targetProgress - currentProgress
@@ -97,16 +107,22 @@
             uploadProgress.value = 0
             let currentAnimationInterval = null
 
-            const buffer = await window.electron.readFileAsBuffer(props.fileInfo.path)
-            const blobFile = bufferToFile(buffer, props.fileInfo.fileName)
-
             const formData = new FormData()
-            formData.append('capture', blobFile)
+
+            if (props.fileInfo.path) {
+                const buffer = await window.electron.readFileAsBuffer(props.fileInfo.path)
+                const blobFile = bufferToFile(buffer, props.fileInfo.fileName)
+                formData.append('capture', blobFile)
+            } else if (props.fileInfo.dataUrl) {
+                const blobFile = dataUrlToFile(props.fileInfo.dataUrl, props.fileInfo.fileName)
+                formData.append('capture', blobFile)
+            } else {
+                throw new Error('No valid file source (path or dataUrl)')
+            }
 
             const result = await apiClient.post('/media/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 onUploadProgress: (progressEvent) => {
-                    console.log('progressEvent', progressEvent)
                     if (progressEvent.lengthComputable) {
                         const percentCompleted = Math.min(
                             Math.round((progressEvent.loaded * 100) / progressEvent.total),
@@ -160,8 +176,6 @@
     // Automatically start upload when component mounts
     onMounted(() => {
         uploadFile()
-
-        console.log(props.fileInfo?.fileSize)
     })
 
     // Clean up timer when component is unmounted

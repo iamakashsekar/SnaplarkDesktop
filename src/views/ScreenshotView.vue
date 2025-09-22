@@ -293,9 +293,11 @@
         if (mode.value === 'edited') {
             const dataUrl = getEditedDataUrl()
             if (dataUrl) {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0]
+                const fileName = `screenshot_edited_${timestamp}.png`
                 const a = document.createElement('a')
                 a.href = dataUrl
-                a.download = 'screenshot_edited.png'
+                a.download = fileName
                 document.body.appendChild(a)
                 a.click()
                 document.body.removeChild(a)
@@ -354,17 +356,40 @@
 
     const captureAndUpload = async () => {
         try {
+            const notify = (payload) => window.electronNotifications?.notify(payload)
+
             if (mode.value === 'edited') {
                 const dataUrl = getEditedDataUrl()
                 if (dataUrl) {
-                    const file = base64ToFile(dataUrl, 'screenshot_edited.png')
-                    // Handle upload notification here if needed
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0]
+                    const fileName = `screenshot_${timestamp}.png`
+                    const file = base64ToFile(dataUrl, fileName)
+
+                    notify({
+                        variant: 'upload',
+                        fileInfo: {
+                            dataUrl: dataUrl,
+                            fileName: fileName,
+                            fileSize: formatFileSize(file.size)
+                        }
+                    })
+
                     handleCancel()
                     return
                 }
             }
+
             const result = await captureArea()
             if (result?.success) {
+                notify({
+                    variant: 'upload',
+                    fileInfo: {
+                        path: result.path,
+                        fileName: result.filename,
+                        fileSize: formatFileSize(result.size)
+                    }
+                })
+
                 handleCancel()
             } else {
                 console.error('Screenshot failed:', result?.error)
