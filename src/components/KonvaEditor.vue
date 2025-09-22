@@ -19,7 +19,8 @@
     const props = defineProps({
         toolbarStyle: Object,
         selectionRect: Object,
-        editable: Boolean
+        editable: Boolean,
+        backgroundSrc: String
     })
 
     let stage = null
@@ -153,7 +154,12 @@
 
     // Expose methods for parent component
     defineExpose({
-        clearBlurAreas
+        clearBlurAreas,
+        exportPNG: (options = {}) =>
+            stage
+                ? stage.toDataURL({ pixelRatio: window.devicePixelRatio || 1, mimeType: 'image/png', ...options })
+                : null,
+        getBlurAreas: () => blurAreas.value.slice()
     })
 
     function showTextEditorAt(position, opts = {}) {
@@ -349,6 +355,8 @@
         pushHistory({ type: 'node_add', node: textNode, parent: layer, zIndex: textNode.zIndex() })
     }
 
+    let bgImageObj = null
+
     onMounted(() => {
         stage = new Konva.Stage({
             container: 'selected-area',
@@ -358,6 +366,23 @@
 
         layer = new Konva.Layer()
         stage.add(layer)
+
+        if (props.backgroundSrc) {
+            bgImageObj = new Image()
+            bgImageObj.onload = () => {
+                const bg = new Konva.Image({
+                    image: bgImageObj,
+                    x: 0,
+                    y: 0,
+                    width: stage.width(),
+                    height: stage.height()
+                })
+                layer.add(bg)
+                bg.moveToBottom()
+                layer.batchDraw()
+            }
+            bgImageObj.src = props.backgroundSrc
+        }
         transformer = new Konva.Transformer({
             rotateEnabled: false,
             enabledAnchors: [
@@ -592,23 +617,45 @@
         stage.on('mouseup', () => {
             if (!props.editable) return
             if (drawing && activeTool.value === 'blur' && currentShape) {
-                // Create a CSS blur area
                 const rect = currentShape.getClientRect()
-                if (rect.width > 5 && rect.height > 5) {
-                    // Only create if area is significant
-                    const blurObj = {
-                        id: Date.now(), // Simple ID
-                        x: rect.x,
-                        y: rect.y,
-                        width: rect.width,
-                        height: rect.height
-                    }
-                    blurAreas.value.push(blurObj)
-                    pushHistory({ type: 'blur_add', blur: blurObj, index: blurAreas.value.length - 1 })
-                }
                 // Remove the temporary rectangle
                 currentShape.destroy()
-                layer.batchDraw()
+
+                if (bgImageObj && rect.width > 5 && rect.height > 5) {
+                    const blurred = new Konva.Image({
+                        image: bgImageObj,
+                        x: Math.round(rect.x),
+                        y: Math.round(rect.y),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height),
+                        crop: {
+                            x: Math.round(rect.x),
+                            y: Math.round(rect.y),
+                            width: Math.round(rect.width),
+                            height: Math.round(rect.height)
+                        }
+                    })
+                    blurred.cache()
+                    blurred.filters([Konva.Filters.Blur])
+                    blurred.blurRadius(10)
+                    layer.add(blurred)
+                    pushHistory({ type: 'node_add', node: blurred, parent: layer, zIndex: blurred.zIndex() })
+                    layer.batchDraw()
+                } else {
+                    // Fallback to CSS blur area
+                    if (rect.width > 5 && rect.height > 5) {
+                        const blurObj = {
+                            id: Date.now(),
+                            x: rect.x,
+                            y: rect.y,
+                            width: rect.width,
+                            height: rect.height
+                        }
+                        blurAreas.value.push(blurObj)
+                        pushHistory({ type: 'blur_add', blur: blurObj, index: blurAreas.value.length - 1 })
+                    }
+                    layer.batchDraw()
+                }
             } else if (drawing && activeTool.value === 'text' && currentShape) {
                 const rect = currentShape.getClientRect()
                 const width = Math.max(240, Math.round(rect.width))
@@ -729,7 +776,8 @@
             width: `${props.selectionRect.width}px`,
             height: `${props.selectionRect.height}px`,
             top: `${props.selectionRect.top}px`,
-            left: `${props.selectionRect.left}px`
+            left: `${props.selectionRect.left}px`,
+            zIndex: 99
         }"
         class="fixed"
         id="selected-area"></div>

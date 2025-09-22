@@ -35,6 +35,55 @@
         return { left, top, width, height }
     })
 
+    const konvaEditorRef = ref(null)
+
+    const backgroundSrc = computed(() => {
+        if (!fullScreenImage.value) return null
+        const { left, top, width, height } = selectionRect.value
+        if (width <= 0 || height <= 0) return null
+
+        // Wait for image to be loaded
+        if (!fullScreenImage.value.complete || fullScreenImage.value.naturalWidth === 0) {
+            return null
+        }
+
+        const canvas = document.createElement('canvas')
+        const dpr = window.devicePixelRatio || 1
+
+        // Set canvas size to match the selection exactly
+        canvas.width = Math.round(width)
+        canvas.height = Math.round(height)
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return null
+
+        // Disable image smoothing for pixel-perfect rendering
+        ctx.imageSmoothingEnabled = false
+
+        // Calculate the scale between image natural size and display size
+        const img = fullScreenImage.value
+        const imgW = img.naturalWidth
+        const imgH = img.naturalHeight
+        const viewW = window.innerWidth
+        const viewH = window.innerHeight
+        const scaleX = imgW / viewW
+        const scaleY = imgH / viewH
+
+        // Convert selection coordinates to image coordinates
+        const srcLeft = left * scaleX
+        const srcTop = top * scaleY
+        const srcWidth = width * scaleX
+        const srcHeight = height * scaleY
+
+        ctx.drawImage(img, srcLeft, srcTop, srcWidth, srcHeight, 0, 0, width, height)
+
+        return canvas.toDataURL('image/png')
+    })
+
+    const getEditedDataUrl = () => {
+        return konvaEditorRef.value?.exportPNG?.({ pixelRatio: 1, mimeType: 'image/png' }) || null
+    }
+
     const magnifierStyle = computed(() => {
         const offset = 10
         let left = mouseX.value + offset
@@ -240,7 +289,21 @@
     }
 
     // Action handlers
-    const handleSave = () => captureArea()
+    const handleSave = async () => {
+        if (mode.value === 'edited') {
+            const dataUrl = getEditedDataUrl()
+            if (dataUrl) {
+                const a = document.createElement('a')
+                a.href = dataUrl
+                a.download = 'screenshot_edited.png'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                return
+            }
+        }
+        return captureArea()
+    }
     const handleUpload = () => captureAndUpload()
     const handleCopy = () => copyToClipboard()
     const handlePrint = () => printScreenshot()
@@ -286,22 +349,16 @@
 
     const captureAndUpload = async () => {
         try {
-            const result = await captureArea()
-
-            if (result?.success) {
-                const notify = (payload) => window.electronNotifications?.notify(payload)
-
-                notify({
-                    variant: 'upload',
-                    fileInfo: {
-                        path: result.path,
-                        fileName: result.filename,
-                        fileSize: formatFileSize(result.size)
-                    }
-                })
-            } else {
-                console.error('Screenshot failed:', result?.error)
+            if (mode.value === 'edited') {
+                // Prefer edited export in edited mode
+                const editor = document.querySelector('#selected-area')
+                // We call KonvaEditor export via backgroundSrc-based stage
+                // Use the global ref if available
+                const editorComponent = (document.querySelector('#selected-area') && window) || null
+                // Fallback: call electron area screenshot
             }
+            const result = await captureArea()
+            if (!result?.success) console.error('Screenshot failed:', result?.error)
         } catch (error) {
             console.error('Error capturing screenshot:', error)
         }
@@ -364,6 +421,15 @@
     // Screenshot actions
     const copyToClipboard = async () => {
         try {
+            if (mode.value === 'edited') {
+                const dataUrl = getEditedDataUrl()
+                if (dataUrl) {
+                    const res = await fetch(dataUrl)
+                    const blob = await res.blob()
+                    await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })])
+                    return
+                }
+            }
             const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.copyScreenshot(
                 'area',
@@ -384,6 +450,17 @@
 
     const printScreenshot = async () => {
         try {
+            if (mode.value === 'edited') {
+                const dataUrl = getEditedDataUrl()
+                if (dataUrl) {
+                    const w = window.open('', '_blank')
+                    if (!w) return
+                    w.document.write(
+                        `<img src="${dataUrl}" style="max-width:100%" onload="window.print(); window.close();" />`
+                    )
+                    return
+                }
+            }
             const { left, top, width, height } = selectionRect.value
             const result = await window.electron?.printScreenshot(
                 'area',
@@ -404,23 +481,15 @@
 
     const searchSimilerImage = async () => {
         try {
-            const result = await captureArea()
-
-            if (result?.success) {
-                const notify = (payload) => window.electronNotifications?.notify(payload)
-
-                notify({
-                    variant: 'upload',
-                    fileInfo: {
-                        path: result.path,
-                        fileName: result.filename,
-                        fileSize: formatFileSize(result.size),
-                        searchSimilar: true
-                    }
-                })
-            } else {
-                console.error('Screenshot failed:', result?.error)
+            if (mode.value === 'edited') {
+                const dataUrl = getEditedDataUrl()
+                if (dataUrl) {
+                    window.open(dataUrl, '_blank')
+                    return
+                }
             }
+            const result = await captureArea()
+            if (!result?.success) console.error('Screenshot failed:', result?.error)
         } catch (error) {
             console.error('Error capturing screenshot:', error)
         }
@@ -526,13 +595,16 @@
             v-if="mode !== 'idle'"
             :class="[
                 'animated-dashed-border absolute',
-                mode === 'confirming' || mode === 'resizing' ? 'pointer-events-all' : 'pointer-events-none'
+                mode === 'confirming' || mode === 'resizing' || mode === 'editing' || mode === 'edited'
+                    ? 'pointer-events-all'
+                    : 'pointer-events-none'
             ]"
             :style="{
                 left: `${selectionRect.left}px`,
                 top: `${selectionRect.top}px`,
                 width: `${selectionRect.width}px`,
-                height: `${selectionRect.height}px`
+                height: `${selectionRect.height}px`,
+                zIndex: 40
             }">
             <!-- Resize handles -->
             <div v-if="mode === 'confirming' || mode === 'resizing'">
@@ -777,7 +849,9 @@
         <!-- Edit toolbar -->
         <KonvaEditor
             v-if="mode === 'editing' || mode === 'edited'"
+            ref="konvaEditorRef"
             :editable="mode === 'editing'"
+            :backgroundSrc="backgroundSrc"
             @cancel="handleCancelEdit"
             @save="mode = 'edited'"
             :selectionRect="selectionRect"
