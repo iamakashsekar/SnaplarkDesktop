@@ -299,10 +299,15 @@
                 document.body.appendChild(a)
                 a.click()
                 document.body.removeChild(a)
+                handleCancel()
                 return
             }
         }
-        return captureArea()
+        const result = await captureArea()
+        if (result?.success) {
+            handleCancel()
+        }
+        return result
     }
     const handleUpload = () => captureAndUpload()
     const handleCopy = () => copyToClipboard()
@@ -350,15 +355,20 @@
     const captureAndUpload = async () => {
         try {
             if (mode.value === 'edited') {
-                // Prefer edited export in edited mode
-                const editor = document.querySelector('#selected-area')
-                // We call KonvaEditor export via backgroundSrc-based stage
-                // Use the global ref if available
-                const editorComponent = (document.querySelector('#selected-area') && window) || null
-                // Fallback: call electron area screenshot
+                const dataUrl = getEditedDataUrl()
+                if (dataUrl) {
+                    const file = base64ToFile(dataUrl, 'screenshot_edited.png')
+                    // Handle upload notification here if needed
+                    handleCancel()
+                    return
+                }
             }
             const result = await captureArea()
-            if (!result?.success) console.error('Screenshot failed:', result?.error)
+            if (result?.success) {
+                handleCancel()
+            } else {
+                console.error('Screenshot failed:', result?.error)
+            }
         } catch (error) {
             console.error('Error capturing screenshot:', error)
         }
@@ -427,6 +437,7 @@
                     const res = await fetch(dataUrl)
                     const blob = await res.blob()
                     await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })])
+                    handleCancel()
                     return
                 }
             }
@@ -442,7 +453,11 @@
                 displayId.value
             )
 
-            if (!result?.success) console.error('Copy failed:', result?.error)
+            if (result?.success) {
+                handleCancel()
+            } else {
+                console.error('Copy failed:', result?.error)
+            }
         } catch (error) {
             console.error('Error copying screenshot:', error)
         }
