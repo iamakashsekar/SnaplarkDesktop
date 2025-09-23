@@ -728,7 +728,7 @@
         <!-- Action Toolbar -->
         <div
             v-if="mode === 'confirming' || mode === 'edited'"
-            class="absolute flex items-center gap-4"
+            class="absolute z-50 flex items-center gap-4"
             :style="toolbarStyle">
             <div class="flex items-center rounded-full bg-white/90">
                 <button
