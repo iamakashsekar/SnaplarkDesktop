@@ -57,15 +57,25 @@
         const canvas = document.createElement('canvas')
         const dpr = window.devicePixelRatio || 1
 
-        // Set canvas size to match the selection exactly
-        canvas.width = Math.round(width)
-        canvas.height = Math.round(height)
+        // Set canvas buffer size accounting for device pixel ratio for high quality
+        const bufferWidth = Math.round(width * dpr)
+        const bufferHeight = Math.round(height * dpr)
+        canvas.width = bufferWidth
+        canvas.height = bufferHeight
+
+        // Set CSS size to display size
+        canvas.style.width = `${width}px`
+        canvas.style.height = `${height}px`
 
         const ctx = canvas.getContext('2d')
         if (!ctx) return null
 
-        // Disable image smoothing for pixel-perfect rendering
-        ctx.imageSmoothingEnabled = false
+        // Scale context to account for device pixel ratio
+        ctx.scale(dpr, dpr)
+
+        // Enable high-quality image smoothing
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
 
         // Calculate the scale between image natural size and display size
         const img = fullScreenImage.value
@@ -88,7 +98,8 @@
     })
 
     const getEditedDataUrl = () => {
-        return konvaEditorRef.value?.exportPNG?.({ pixelRatio: 1, mimeType: 'image/png' }) || null
+        const dpr = window.devicePixelRatio || 1
+        return konvaEditorRef.value?.exportPNG?.({ pixelRatio: dpr, mimeType: 'image/png' }) || null
     }
 
     const magnifierStyle = computed(() => {

@@ -155,10 +155,14 @@
     // Expose methods for parent component
     defineExpose({
         clearBlurAreas,
-        exportPNG: (options = {}) =>
-            stage
-                ? stage.toDataURL({ pixelRatio: window.devicePixelRatio || 1, mimeType: 'image/png', ...options })
-                : null,
+        exportPNG: (options = {}) => {
+            if (!stage) return null
+            const defaultOptions = {
+                pixelRatio: window.devicePixelRatio || 1,
+                mimeType: 'image/png'
+            }
+            return stage.toDataURL({ ...defaultOptions, ...options })
+        },
         getBlurAreas: () => blurAreas.value.slice()
     })
 
