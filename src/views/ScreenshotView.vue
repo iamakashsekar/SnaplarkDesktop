@@ -14,8 +14,14 @@
     const mouseX = ref(0)
     const mouseY = ref(0)
     const displayId = ref(null)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing'
+    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving'
     const resizingHandle = ref(null)
+
+    // Dragging state
+    const dragStartMouseX = ref(0)
+    const dragStartMouseY = ref(0)
+    const dragStartSelectionX = ref(0)
+    const dragStartSelectionY = ref(0)
 
     // Magnifier state
     const magnifierActive = ref(false) // Start inactive, will be activated by mouse position
@@ -156,7 +162,18 @@
     const handleResizeHandleMouseDown = (e, handle) => {
         e.stopPropagation()
         mode.value = 'resizing'
+        magnifierActive.value = true
         resizingHandle.value = handle
+    }
+
+    const handleSelectionMouseDown = (e) => {
+        if (mode.value !== 'confirming') return
+        e.stopPropagation()
+        mode.value = 'moving'
+        dragStartMouseX.value = e.clientX
+        dragStartMouseY.value = e.clientY
+        dragStartSelectionX.value = Math.min(startX.value, endX.value)
+        dragStartSelectionY.value = Math.min(startY.value, endY.value)
     }
 
     const handleMouseMove = (e) => {
@@ -172,6 +189,23 @@
             if (handle.includes('right')) endX.value = e.clientX
             if (handle.includes('top')) startY.value = e.clientY
             if (handle.includes('bottom')) endY.value = e.clientY
+        } else if (mode.value === 'moving') {
+            const deltaX = e.clientX - dragStartMouseX.value
+            const deltaY = e.clientY - dragStartMouseY.value
+            const width = Math.abs(endX.value - startX.value)
+            const height = Math.abs(endY.value - startY.value)
+
+            const newLeft = dragStartSelectionX.value + deltaX
+            const newTop = dragStartSelectionY.value + deltaY
+
+            // Keep selection within window bounds
+            const constrainedLeft = Math.max(0, Math.min(newLeft, window.innerWidth - width))
+            const constrainedTop = Math.max(0, Math.min(newTop, window.innerHeight - height))
+
+            startX.value = constrainedLeft
+            startY.value = constrainedTop
+            endX.value = constrainedLeft + width
+            endY.value = constrainedTop + height
         }
 
         // Only update magnifier if this window is active
@@ -193,8 +227,12 @@
             }
             mode.value = 'confirming'
         } else if (mode.value === 'resizing') {
+            magnifierActive.value = false
             mode.value = 'confirming'
             resizingHandle.value = null
+        } else if (mode.value === 'moving') {
+            magnifierActive.value = false
+            mode.value = 'confirming'
         }
     }
 
@@ -664,9 +702,14 @@
                 'absolute',
                 mode === 'selecting'
                     ? 'animated-dashed-border-selecting pointer-events-none'
-                    : mode === 'confirming' || mode === 'resizing' || mode === 'editing' || mode === 'edited'
+                    : mode === 'confirming' ||
+                        mode === 'resizing' ||
+                        mode === 'editing' ||
+                        mode === 'edited' ||
+                        mode === 'moving'
                       ? 'animated-dashed-border pointer-events-all'
-                      : 'animated-dashed-border pointer-events-none'
+                      : 'animated-dashed-border pointer-events-none',
+                mode === 'confirming' ? 'cursor-move' : ''
             ]"
             :style="{
                 left: `${selectionRect.left}px`,
@@ -674,7 +717,8 @@
                 width: `${selectionRect.width}px`,
                 height: `${selectionRect.height}px`,
                 zIndex: 40
-            }">
+            }"
+            @mousedown="handleSelectionMouseDown">
             <!-- Resize handles -->
             <div v-if="mode === 'confirming' || mode === 'resizing'">
                 <div
