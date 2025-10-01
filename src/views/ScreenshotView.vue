@@ -225,9 +225,33 @@
                 endX.value = window.innerWidth
                 endY.value = window.innerHeight
             }
+
+            // Normalize coordinates so start is always top-left and end is always bottom-right
+            const normalizedLeft = Math.min(startX.value, endX.value)
+            const normalizedTop = Math.min(startY.value, endY.value)
+            const normalizedRight = Math.max(startX.value, endX.value)
+            const normalizedBottom = Math.max(startY.value, endY.value)
+
+            startX.value = normalizedLeft
+            startY.value = normalizedTop
+            endX.value = normalizedRight
+            endY.value = normalizedBottom
+
             mode.value = 'confirming'
         } else if (mode.value === 'resizing') {
             magnifierActive.value = false
+
+            // Normalize coordinates after resizing to prevent flipped state issues
+            const normalizedLeft = Math.min(startX.value, endX.value)
+            const normalizedTop = Math.min(startY.value, endY.value)
+            const normalizedRight = Math.max(startX.value, endX.value)
+            const normalizedBottom = Math.max(startY.value, endY.value)
+
+            startX.value = normalizedLeft
+            startY.value = normalizedTop
+            endX.value = normalizedRight
+            endY.value = normalizedBottom
+
             mode.value = 'confirming'
             resizingHandle.value = null
         } else if (mode.value === 'moving') {
