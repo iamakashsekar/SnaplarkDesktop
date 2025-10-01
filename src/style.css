@@ -85,6 +85,36 @@ body {
     }
 }
 
+.animated-dashed-border-selecting {
+    --dash: 5px;
+    --thickness: 1px;
+    --speed: 0.5s;
+    --color1: black;
+    --color2: white;
+
+    background:
+            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* top */
+            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* left */
+
+    background-size:
+            calc(var(--dash) * 2) var(--thickness),
+            var(--thickness) calc(var(--dash) * 2);
+
+    background-position:
+            0 0,
+            0 0;
+
+    animation: border-dance-selecting var(--speed) linear infinite;
+}
+
+@keyframes border-dance-selecting {
+    to {
+        background-position:
+                calc(var(--dash) * -2) 0,        /* top moves left */
+                0 calc(var(--dash) * 2);         /* left moves down */
+    }
+}
+
 /* Single animated dashed line — horizontal (centered vertically) */
 .animated-dashed-line-h {
     --dash: 5px;

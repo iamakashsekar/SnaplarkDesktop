@@ -661,10 +661,12 @@
         <div
             v-if="mode !== 'idle'"
             :class="[
-                'animated-dashed-border absolute',
-                mode === 'confirming' || mode === 'resizing' || mode === 'editing' || mode === 'edited'
-                    ? 'pointer-events-all'
-                    : 'pointer-events-none'
+                'absolute',
+                mode === 'selecting'
+                    ? 'animated-dashed-border-selecting pointer-events-none'
+                    : mode === 'confirming' || mode === 'resizing' || mode === 'editing' || mode === 'edited'
+                      ? 'animated-dashed-border pointer-events-all'
+                      : 'animated-dashed-border pointer-events-none'
             ]"
             :style="{
                 left: `${selectionRect.left}px`,
