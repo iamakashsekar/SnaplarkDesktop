@@ -158,7 +158,9 @@
             store.lastCapture = link.value // Automatic sync will handle this
 
             if (props.fileInfo.searchSimilar) {
-                window.electron.openExternal(BASE_URL + '/captures/' + result.data + '/similar-search/US')
+                window.electron.openExternal(
+                    BASE_URL + '/captures/' + result.data + '/similar-search/' + store.user.similar_search_provider
+                )
                 emit('close')
             }
 
