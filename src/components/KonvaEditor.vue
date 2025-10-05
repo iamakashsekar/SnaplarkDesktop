@@ -626,6 +626,10 @@
                 currentShape.destroy()
 
                 if (bgImageObj && rect.width > 5 && rect.height > 5) {
+                    // Calculate the scale factor between the background image and the stage
+                    const scaleX = bgImageObj.naturalWidth / stage.width()
+                    const scaleY = bgImageObj.naturalHeight / stage.height()
+
                     const blurred = new Konva.Image({
                         image: bgImageObj,
                         x: Math.round(rect.x),
@@ -633,10 +637,10 @@
                         width: Math.round(rect.width),
                         height: Math.round(rect.height),
                         crop: {
-                            x: Math.round(rect.x),
-                            y: Math.round(rect.y),
-                            width: Math.round(rect.width),
-                            height: Math.round(rect.height)
+                            x: Math.round(rect.x * scaleX),
+                            y: Math.round(rect.y * scaleY),
+                            width: Math.round(rect.width * scaleX),
+                            height: Math.round(rect.height * scaleY)
                         }
                     })
                     blurred.cache()
