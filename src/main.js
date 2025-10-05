@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, screen, desktopCapturer, protocol, clipboard } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, screen, desktopCapturer, protocol, clipboard, dialog } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import started from 'electron-squirrel-startup'
@@ -512,10 +512,8 @@ app.whenReady().then(() => {
         windowManager.closeWindowsByType('screenshot')
     })
 
-    // Handle screenshot capture
+    // Handle screenshot capture (temporarily saves for processing, e.g., OCR)
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {
-        console.log('calling')
-
         try {
             if (closeWindow) {
                 const senderWindow = BrowserWindow.fromWebContents(event.sender)
@@ -573,6 +571,99 @@ app.whenReady().then(() => {
             }
         } catch (error) {
             console.error('Screenshot error:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
+    // Handle save screenshot with dialog
+    ipcMain.handle('save-screenshot-with-dialog', async (event, options) => {
+        try {
+            const { type, bounds, displayId, defaultFilename, dataUrl } = options
+
+            // Hide all screenshot windows before capturing/showing dialog
+            const screenshotWindows = []
+            windowManager.windows.forEach((window, key) => {
+                if (key.startsWith('screenshot-') && !window.isDestroyed()) {
+                    screenshotWindows.push(window)
+                    window.hide()
+                }
+            })
+
+            // Wait for windows to disappear
+            await new Promise((resolve) => setTimeout(resolve, 200))
+
+            let imageBuffer
+
+            // If dataUrl is provided (edited image), use it directly
+            if (dataUrl) {
+                const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+                imageBuffer = Buffer.from(base64Data, 'base64')
+            } else {
+                // Otherwise, capture a fresh screenshot (for non-edited images)
+                const displays = screen.getAllDisplays()
+                const primaryDisplay = screen.getPrimaryDisplay()
+                const displayIdStr = (displayId ?? primaryDisplay.id).toString()
+                const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
+
+                const source = await findSourceForDisplay(targetDisplay)
+                if (!source) {
+                    throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
+                }
+
+                const image = await takeScreenshotForDisplay(source, type, bounds, targetDisplay)
+                imageBuffer = image.toPNG()
+            }
+
+            const homeDir = os.homedir()
+            const defaultPath = path.join(
+                homeDir,
+                process.platform === 'darwin' ? 'Pictures' : 'Pictures',
+                defaultFilename
+            )
+
+            const result = await dialog.showSaveDialog({
+                title: 'Save Screenshot',
+                defaultPath: defaultPath,
+                filters: [
+                    { name: 'PNG Image', extensions: ['png'] },
+                    { name: 'All Files', extensions: ['*'] }
+                ],
+                properties: ['createDirectory', 'showOverwriteConfirmation']
+            })
+
+            if (result.canceled || !result.filePath) {
+                // User canceled, show the screenshot windows again
+                screenshotWindows.forEach((window) => {
+                    if (!window.isDestroyed()) {
+                        window.show()
+                    }
+                })
+                return { success: false, canceled: true }
+            }
+
+            // Save the image buffer
+            fs.writeFileSync(result.filePath, imageBuffer)
+
+            // Get file size in bytes
+            const { size } = fs.statSync(result.filePath)
+
+            // Close all screenshot windows after successful save
+            windowManager.closeWindowsByType('screenshot')
+
+            return {
+                success: true,
+                path: result.filePath,
+                filename: path.basename(result.filePath),
+                size: size
+            }
+        } catch (error) {
+            console.error('Save screenshot with dialog error:', error)
+            // Show the screenshot windows again on error
+            windowManager.windows.forEach((window, key) => {
+                if (key.startsWith('screenshot-') && !window.isDestroyed()) {
+                    window.show()
+                }
+            })
             return { success: false, error: error.message }
         }
     })

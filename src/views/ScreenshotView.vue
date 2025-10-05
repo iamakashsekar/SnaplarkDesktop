@@ -370,26 +370,49 @@
 
     // Action handlers
     const handleSave = async () => {
-        if (mode.value === 'edited') {
-            const dataUrl = getEditedDataUrl()
-            if (dataUrl) {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0]
-                const fileName = `screenshot_edited_${timestamp}.png`
-                const a = document.createElement('a')
-                a.href = dataUrl
-                a.download = fileName
-                document.body.appendChild(a)
-                a.click()
-                document.body.removeChild(a)
-                handleCancel()
-                return
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0]
+            const { left, top, width, height } = selectionRect.value
+
+            const options = {
+                type: 'area',
+                bounds: {
+                    x: Math.round(left),
+                    y: Math.round(top),
+                    width: Math.round(width),
+                    height: Math.round(height)
+                },
+                displayId: displayId.value
             }
+
+            if (mode.value === 'edited') {
+                const dataUrl = getEditedDataUrl()
+                if (!dataUrl) {
+                    console.error('Failed to get edited data URL')
+                    return
+                }
+                options.dataUrl = dataUrl
+                options.defaultFilename = `screenshot_edited_${timestamp}.png`
+            } else {
+                options.defaultFilename = `Screenshot_${timestamp}.png`
+            }
+
+            const saveResult = await window.electron?.invoke('save-screenshot-with-dialog', options)
+
+            if (saveResult?.success) {
+                // Window is closed by the main process after successful save
+                console.log('Screenshot saved successfully:', saveResult.path)
+            } else if (saveResult?.canceled) {
+                // User canceled, windows are shown again by main process
+                console.log('Save canceled by user')
+            } else {
+                console.error('Save failed:', saveResult?.error)
+            }
+
+            return saveResult
+        } catch (error) {
+            console.error('Error saving screenshot:', error)
         }
-        const result = await captureArea()
-        if (result?.success) {
-            handleCancel()
-        }
-        return result
     }
     const handleUpload = () => captureAndUpload()
     const handleCopy = () => copyToClipboard()
