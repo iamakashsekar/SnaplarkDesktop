@@ -124,7 +124,21 @@
         return { left: `${left}px`, top: `${top}px` }
     })
 
+    // Toolbar dragging state
+    const customToolbarPosition = ref(null)
+    const isDraggingToolbar = ref(false)
+    const toolbarDragStart = ref({ x: 0, y: 0 })
+
     const toolbarStyle = computed(() => {
+        // If user has custom position, use that
+        if (customToolbarPosition.value) {
+            return {
+                left: `${customToolbarPosition.value.x}px`,
+                top: `${customToolbarPosition.value.y}px`
+            }
+        }
+
+        // Otherwise, use automatic positioning
         const { left, top, width, height } = selectionRect.value
         const toolbarWidth = 400
         const margin = 10
@@ -711,6 +725,44 @@
     const handleCancelEdit = () => {
         mode.value = 'confirming'
     }
+
+    // Toolbar dragging handlers
+    const handleToolbarDragStart = (e) => {
+        e.stopPropagation()
+        isDraggingToolbar.value = true
+
+        // Get current toolbar position
+        const toolbar = e.currentTarget.closest('.toolbar-container')
+        const rect = toolbar.getBoundingClientRect()
+
+        // Store the offset from mouse to toolbar top-left
+        toolbarDragStart.value = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        }
+    }
+
+    const handleToolbarDragMove = (e) => {
+        if (!isDraggingToolbar.value) return
+
+        // Calculate new position
+        let newX = e.clientX - toolbarDragStart.value.x
+        let newY = e.clientY - toolbarDragStart.value.y
+
+        // Keep toolbar within viewport bounds (with some padding)
+        const margin = 10
+        const toolbarWidth = 400
+        const toolbarHeight = 60
+
+        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
+        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
+
+        customToolbarPosition.value = { x: newX, y: newY }
+    }
+
+    const handleToolbarDragEnd = () => {
+        isDraggingToolbar.value = false
+    }
 </script>
 
 <template>
@@ -724,8 +776,18 @@
             backgroundRepeat: 'no-repeat'
         }"
         @mousedown="handleMouseDown"
-        @mousemove="handleMouseMove"
-        @mouseup="handleMouseUp">
+        @mousemove="
+            (e) => {
+                handleMouseMove(e)
+                handleToolbarDragMove(e)
+            }
+        "
+        @mouseup="
+            (e) => {
+                handleMouseUp(e)
+                handleToolbarDragEnd()
+            }
+        ">
         <!-- Dark overlay for everything outside the selection -->
         <div
             v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"
@@ -832,8 +894,34 @@
         <!-- Action Toolbar -->
         <div
             v-if="mode === 'confirming' || mode === 'edited'"
-            class="absolute z-50 flex items-center gap-4"
+            class="toolbar-container absolute z-50 flex items-center gap-4 transition-shadow"
+            :class="{ 'shadow-2xl': isDraggingToolbar }"
             :style="toolbarStyle">
+            <!-- Drag Handle -->
+            <div
+                class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
+                @mousedown="handleToolbarDragStart"
+                title="Drag to move toolbar">
+                <svg
+                    class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <circle
+                        cx="12"
+                        cy="5"
+                        r="2" />
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="2" />
+                    <circle
+                        cx="12"
+                        cy="19"
+                        r="2" />
+                </svg>
+            </div>
+
             <div class="flex items-center rounded-full bg-white/90">
                 <button
                     @click="handleUpload"
