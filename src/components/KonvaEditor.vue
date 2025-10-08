@@ -1,6 +1,6 @@
 <script setup>
     import Konva from 'konva'
-    import { onMounted, ref } from 'vue'
+    import { onMounted, onUnmounted, ref, computed } from 'vue'
     import ColorPalette from './ColorPalette.vue'
     import UndoIcon from './icons/UndoIcon.vue'
     import RedoIcon from './icons/RedoIcon.vue'
@@ -44,6 +44,11 @@
     const blurAreas = ref([]) // Store blur areas for CSS blur effect
     const canUndo = ref(false)
     const canRedo = ref(false)
+
+    // Toolbar dragging state
+    const customToolbarPosition = ref(null)
+    const isDraggingToolbar = ref(false)
+    const toolbarDragStart = ref({ x: 0, y: 0 })
 
     // history stacks
     const history = []
@@ -150,6 +155,72 @@
 
     const clearBlurAreas = () => {
         blurAreas.value = []
+    }
+
+    // Computed toolbar style with custom position support
+    const computedToolbarStyle = computed(() => {
+        // If user has custom position, use that
+        if (customToolbarPosition.value) {
+            return {
+                left: `${customToolbarPosition.value.x}px`,
+                top: `${customToolbarPosition.value.y}px`
+            }
+        }
+        // Otherwise, use the prop's toolbar style
+        return props.toolbarStyle
+    })
+
+    // Toolbar dragging handlers
+    const handleToolbarDragStart = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+
+        isDraggingToolbar.value = true
+
+        // Get current toolbar position
+        const toolbar = e.currentTarget.closest('.toolbar-container')
+        const rect = toolbar.getBoundingClientRect()
+
+        // Store the offset from mouse to toolbar top-left
+        toolbarDragStart.value = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        }
+
+        // Add document-level listeners for smooth dragging
+        document.addEventListener('mousemove', handleToolbarDragMove)
+        document.addEventListener('mouseup', handleToolbarDragEnd)
+    }
+
+    const handleToolbarDragMove = (e) => {
+        if (!isDraggingToolbar.value) return
+
+        e.preventDefault()
+
+        // Calculate new position
+        let newX = e.clientX - toolbarDragStart.value.x
+        let newY = e.clientY - toolbarDragStart.value.y
+
+        // Keep toolbar within viewport bounds (with some padding)
+        const margin = 10
+        const toolbarWidth = 520
+        const toolbarHeight = 50
+
+        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
+        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
+
+        customToolbarPosition.value = { x: newX, y: newY }
+    }
+
+    const handleToolbarDragEnd = (e) => {
+        if (!isDraggingToolbar.value) return
+
+        e?.preventDefault()
+        isDraggingToolbar.value = false
+
+        // Remove document-level listeners
+        document.removeEventListener('mousemove', handleToolbarDragMove)
+        document.removeEventListener('mouseup', handleToolbarDragEnd)
     }
 
     // Expose methods for parent component
@@ -775,6 +846,12 @@
             currentShape = null
         })
     })
+
+    onUnmounted(() => {
+        // Clean up document-level event listeners if component unmounts during drag
+        document.removeEventListener('mousemove', handleToolbarDragMove)
+        document.removeEventListener('mouseup', handleToolbarDragEnd)
+    })
 </script>
 
 <template>
@@ -811,8 +888,34 @@
     <!-- Toolbar -->
     <div
         v-if="props.editable"
-        :style="toolbarStyle"
-        class="fixed z-50 -ml-12 flex gap-4">
+        :style="computedToolbarStyle"
+        class="toolbar-container fixed z-[102] -ml-12 flex gap-4 transition-shadow"
+        :class="{ 'shadow-2xl': isDraggingToolbar }">
+        <!-- Drag Handle -->
+        <div
+            class="flex cursor-move items-center rounded-full bg-white px-2 py-1.5 transition-colors hover:bg-gray-100"
+            @mousedown="handleToolbarDragStart"
+            title="Drag to move toolbar">
+            <svg
+                class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg">
+                <circle
+                    cx="12"
+                    cy="5"
+                    r="2" />
+                <circle
+                    cx="12"
+                    cy="12"
+                    r="2" />
+                <circle
+                    cx="12"
+                    cy="19"
+                    r="2" />
+            </svg>
+        </div>
+
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
             <button
                 :class="{ 'cursor-not-allowed opacity-40': !canUndo }"
