@@ -512,6 +512,170 @@ app.whenReady().then(() => {
         windowManager.closeWindowsByType('screenshot')
     })
 
+    // ==================== VIDEO RECORDING HANDLERS ====================
+
+    ipcMain.handle('start-recording-mode', async () => {
+        try {
+            const mainWindow = windowManager.getWindow('main')
+            if (mainWindow) {
+                mainWindow.hide()
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 100))
+
+            windowManager.closeWindowsByType('recording')
+
+            const allDisplays = screen.getAllDisplays()
+            console.log(`Found ${allDisplays.length} display(s) for recording`)
+
+            const recordingPromises = allDisplays.map(async (display) => {
+                try {
+                    const source = await findSourceForDisplay(display)
+                    if (!source) {
+                        console.error(`Could not find screen source for displayId: ${display.id}`)
+                        return null
+                    }
+
+                    const image = await takeScreenshotForDisplay(source, 'fullscreen', null, display)
+                    const dataURL = image.toDataURL()
+
+                    const cursorPos = screen.getCursorScreenPoint()
+                    let mouseX = cursorPos.x - display.bounds.x
+                    let mouseY = cursorPos.y - display.bounds.y
+                    mouseX = Math.max(0, Math.min(mouseX, display.bounds.width))
+                    mouseY = Math.max(0, Math.min(mouseY, display.bounds.height))
+
+                    const timestamp = Date.now()
+                    const windowType = `recording-${display.id}-${timestamp}`
+                    const win = windowManager.createWindow(windowType, {
+                        x: display.bounds.x,
+                        y: display.bounds.y,
+                        width: display.bounds.width,
+                        height: display.bounds.height,
+                        params: {
+                            displayId: display.id,
+                            timestamp: timestamp,
+                            initialMouseX: mouseX,
+                            initialMouseY: mouseY
+                        }
+                    })
+
+                    console.log(`Recording window ${windowType} created successfully`)
+
+                    win.screenshotData = dataURL
+                    win.displayInfo = display
+
+                    win.setBounds({
+                        x: display.bounds.x,
+                        y: display.bounds.y,
+                        width: display.bounds.width,
+                        height: display.bounds.height
+                    })
+
+                    const handlerKey = `get-initial-magnifier-data-${display.id}-${timestamp}`
+                    ipcMain.handleOnce(handlerKey, (event) => {
+                        if (event.sender === win.webContents) {
+                            return dataURL
+                        }
+                        return null
+                    })
+
+                    if (process.platform === 'darwin') {
+                        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+                        win.setAlwaysOnTop(true, 'screen-saver', 1)
+                    } else if (process.platform === 'win32') {
+                        win.setAlwaysOnTop(true, 'screen-saver')
+                        win.setSkipTaskbar(true)
+
+                        if (display.primary) {
+                            win.setKiosk(true)
+                        } else {
+                            win.setFullScreen(true)
+                        }
+                    }
+
+                    win.once('ready-to-show', () => {
+                        win.show()
+                        win.focus()
+                    })
+
+                    return { success: true, displayId: display.id, windowType }
+                } catch (error) {
+                    console.error(`Error creating recording window for display ${display.id}:`, error)
+                    return null
+                }
+            })
+
+            const results = await Promise.all(recordingPromises)
+            const successfulWindows = results.filter((r) => r !== null)
+
+            if (successfulWindows.length === 0) {
+                throw new Error('Failed to create any recording windows')
+            }
+
+            return { success: true, windows: successfulWindows }
+        } catch (error) {
+            console.error('Error starting recording mode:', error)
+            windowManager.closeWindowsByType('recording')
+            return { success: false, error: error.message }
+        }
+    })
+
+    ipcMain.on('cancel-recording-mode', () => {
+        console.log('cancel-recording-mode called')
+        windowManager.closeWindowsByType('recording')
+    })
+
+    ipcMain.handle('save-recording', async (event, options) => {
+        try {
+            const { filename, buffer } = options
+
+            const homeDir = os.homedir()
+            const recordingsDir = path.join(
+                homeDir,
+                process.platform === 'darwin' ? 'Movies/Snaplark' : 'Videos/Snaplark'
+            )
+
+            if (!fs.existsSync(recordingsDir)) {
+                fs.mkdirSync(recordingsDir, { recursive: true })
+            }
+
+            const filepath = path.join(recordingsDir, filename)
+            const bufferData = Buffer.from(buffer)
+            fs.writeFileSync(filepath, bufferData)
+
+            const { size } = fs.statSync(filepath)
+
+            windowManager.closeWindowsByType('recording')
+
+            return {
+                success: true,
+                filepath: filepath,
+                filename: filename,
+                size: size
+            }
+        } catch (error) {
+            console.error('Save recording error:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
+    ipcMain.handle('close-other-recording-windows', async (event, currentDisplayId) => {
+        try {
+            windowManager.windows.forEach((window, key) => {
+                if (key.startsWith('recording-') && !window.isDestroyed()) {
+                    if (window.displayInfo && window.displayInfo.id !== currentDisplayId) {
+                        window.close()
+                    }
+                }
+            })
+            return { success: true }
+        } catch (error) {
+            console.error('Error closing other recording windows:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
     // Handle screenshot capture (temporarily saves for processing, e.g., OCR)
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {
         try {

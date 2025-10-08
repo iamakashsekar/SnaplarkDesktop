@@ -111,15 +111,53 @@ class WindowManager {
                     nodeIntegration: false,
                     contextIsolation: true
                 }
+            },
+            recording: {
+                frame: false,
+                transparent: true,
+                alwaysOnTop: true,
+                skipTaskbar: true,
+                movable: false,
+                resizable: false,
+                hasShadow: false,
+                show: false,
+                enableLargerThanScreen: true,
+                fullscreenable: false,
+                fullscreen: false,
+                kiosk: true,
+                focusable: true,
+                acceptFirstMouse: true,
+                disableAutoHideCursor: true,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true
+                }
+            },
+            'recording-preview': {
+                width: 1200,
+                height: 800,
+                resizable: true,
+                frame: false,
+                transparent: true,
+                alwaysOnTop: false,
+                skipTaskbar: false,
+                title: 'Video Preview',
+                show: false,
+                modal: false,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true
+                }
             }
         }
     }
 
     createWindow(type, options = {}) {
-        // For screenshot windows, allow multiple instances
+        // For screenshot and recording windows, allow multiple instances
         const isScreenshotWindow = type.startsWith('screenshot')
-        
-        if (!isScreenshotWindow && this.windows.has(type)) {
+        const isRecordingWindow = type.startsWith('recording') && !type.includes('preview')
+
+        if (!isScreenshotWindow && !isRecordingWindow && this.windows.has(type)) {
             // If window already exists and it's not a screenshot window, focus it
             const existingWindow = this.windows.get(type)
             if (!existingWindow.isDestroyed()) {
@@ -131,8 +169,11 @@ class WindowManager {
             }
         }
 
-        // Get base config for screenshot windows
-        const baseType = isScreenshotWindow ? 'screenshot' : type
+        // Get base config for screenshot and recording windows
+        let baseType = type
+        if (isScreenshotWindow) baseType = 'screenshot'
+        if (isRecordingWindow) baseType = 'recording'
+
         const config = { ...this.windowConfigs[baseType], ...options }
         const parentWindow = this.windows.get('main') || null
 
@@ -142,9 +183,10 @@ class WindowManager {
             y: config.y,
             width: config.width,
             height: config.height,
-            isScreenshot: isScreenshotWindow
+            isScreenshot: isScreenshotWindow,
+            isRecording: isRecordingWindow
         })
-        
+
         const window = new BrowserWindow({
             ...config,
             parent: config.modal && parentWindow ? parentWindow : null,
@@ -158,8 +200,8 @@ class WindowManager {
 
         // Set macOS specific properties
         if (process.platform === 'darwin' && config.alwaysOnTop) {
-            if (isScreenshotWindow) {
-                // For screenshot windows, use highest level to appear above fullscreen apps
+            if (isScreenshotWindow || isRecordingWindow) {
+                // For screenshot and recording windows, use highest level to appear above fullscreen apps
                 window.setAlwaysOnTop(true, 'screen-saver')
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                 window.setFullScreenable(false)
@@ -186,8 +228,8 @@ class WindowManager {
         // Store the window
         this.windows.set(type, window)
 
-        if (type !== 'main' && !isScreenshotWindow) {
-            // Show the window immediately after creation (except for screenshot windows)
+        if (type !== 'main' && !isScreenshotWindow && !isRecordingWindow) {
+            // Show the window immediately after creation (except for screenshot and recording windows)
             window.show()
             window.focus()
         }
@@ -196,8 +238,11 @@ class WindowManager {
     }
 
     loadWindowContent(window, type, params = {}) {
-        // For screenshot windows, use 'screenshot' as the window type for routing
-        const windowType = type.startsWith('screenshot') ? 'screenshot' : type
+        // For screenshot and recording windows, use appropriate window type for routing
+        let windowType = type
+        if (type.startsWith('screenshot')) windowType = 'screenshot'
+        if (type.startsWith('recording') && !type.includes('preview')) windowType = 'recording'
+
         const urlParams = new URLSearchParams({ window: windowType, ...params })
 
         if (this.viteDevServerUrl) {
