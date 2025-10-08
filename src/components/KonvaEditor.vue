@@ -867,6 +867,17 @@
         class="fixed"
         id="selected-area"></div>
 
+    <!-- Animated Border Around Canvas -->
+    <div
+        :style="{
+            width: `${props.selectionRect.width}px`,
+            height: `${props.selectionRect.height}px`,
+            top: `${props.selectionRect.top}px`,
+            left: `${props.selectionRect.left}px`,
+            zIndex: 100
+        }"
+        class="animated-dashed-border pointer-events-none fixed"></div>
+
     <!-- CSS Blur Areas -->
     <div
         v-for="blur in blurAreas"
