@@ -929,155 +929,251 @@
     <div
         v-if="props.editable"
         :style="computedToolbarStyle"
-        class="toolbar-container fixed z-[102] -ml-12 flex gap-4 transition-shadow"
+        class="toolbar-container fixed z-[102] -ml-12 flex justify-center gap-4 transition-shadow"
         :class="{ 'shadow-2xl': isDraggingToolbar }">
         <!-- Drag Handle -->
-        <div
-            class="flex cursor-move items-center rounded-full bg-white px-2 py-1.5 transition-colors hover:bg-gray-100"
-            @mousedown.stop.prevent="handleToolbarDragStart"
-            title="Drag to move toolbar">
-            <svg
-                class="pointer-events-none size-5 text-gray-600 transition-colors hover:text-gray-800"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                xmlns="http://www.w3.org/2000/svg">
-                <circle
-                    cx="12"
-                    cy="5"
-                    r="2" />
-                <circle
-                    cx="12"
-                    cy="12"
-                    r="2" />
-                <circle
-                    cx="12"
-                    cy="19"
-                    r="2" />
-            </svg>
+        <div class="group relative">
+            <div
+                class="flex cursor-move items-center rounded-full bg-white p-2 transition-colors hover:bg-gray-100"
+                @mousedown="handleToolbarDragStart"
+                title="Drag to move toolbar">
+                <svg
+                    class="pointer-events-none size-5 text-gray-600 transition-colors hover:text-gray-800"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <circle
+                        cx="12"
+                        cy="5"
+                        r="2" />
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="2" />
+                    <circle
+                        cx="12"
+                        cy="19"
+                        r="2" />
+                </svg>
+            </div>
+
+            <span
+                class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                Move
+            </span>
         </div>
 
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
-            <button
-                :class="{
-                    'cursor-not-allowed opacity-40': !canUndo,
-                    'hover:text-primary-blue cursor-pointer': canUndo
-                }"
-                @click="undo"
-                :disabled="!canUndo">
-                <UndoIcon />
-            </button>
-            <button
-                :class="{
-                    'cursor-not-allowed opacity-40': !canRedo,
-                    'hover:text-primary-blue cursor-pointer': canRedo
-                }"
-                @click="redo"
-                :disabled="!canRedo">
-                <RedoIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex"
+                    :class="{
+                        'cursor-not-allowed opacity-40': !canUndo,
+                        'hover:text-primary-blue cursor-pointer': canUndo
+                    }"
+                    @click="undo"
+                    :disabled="!canUndo">
+                    <UndoIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Undo
+                </span>
+            </div>
+
+            <div class="group relative">
+                <button
+                    class="flex"
+                    :class="{
+                        'cursor-not-allowed opacity-40': !canRedo,
+                        'hover:text-primary-blue cursor-pointer': canRedo
+                    }"
+                    @click="redo"
+                    :disabled="!canRedo">
+                    <RedoIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Redo
+                </span>
+            </div>
         </div>
 
         <div class="flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
             <!-- Line -->
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('line')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'line',
-                    'hover:text-primary-blue': activeTool !== 'line'
-                }">
-                <LineIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('line')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'line',
+                        'hover:text-primary-blue': activeTool !== 'line'
+                    }">
+                    <LineIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Line
+                </span>
+            </div>
 
             <!-- Arrow -->
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('arrow')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'arrow',
-                    'hover:text-primary-blue': activeTool !== 'arrow'
-                }">
-                <ArrowIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('arrow')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'arrow',
+                        'hover:text-primary-blue': activeTool !== 'arrow'
+                    }">
+                    <ArrowIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Arrow
+                </span>
+            </div>
 
             <!-- Circle -->
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('ellipse')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'ellipse',
-                    'hover:text-primary-blue': activeTool !== 'ellipse'
-                }">
-                <EllipseIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('ellipse')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'ellipse',
+                        'hover:text-primary-blue': activeTool !== 'ellipse'
+                    }">
+                    <EllipseIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Circle
+                </span>
+            </div>
 
             <!-- Rectangle -->
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('rect')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'rect',
-                    'hover:text-primary-blue': activeTool !== 'rect'
-                }">
-                <RectangleIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('rect')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'rect',
+                        'hover:text-primary-blue': activeTool !== 'rect'
+                    }">
+                    <RectangleIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Rectangle
+                </span>
+            </div>
 
             <!-- Pencil -->
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('pencil')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'pencil',
-                    'hover:text-primary-blue': activeTool !== 'pencil'
-                }">
-                <PencilIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('pencil')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'pencil',
+                        'hover:text-primary-blue': activeTool !== 'pencil'
+                    }">
+                    <PencilIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Pencil
+                </span>
+            </div>
 
             <!-- Highlight -->
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('highlighter')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'highlighter',
-                    'hover:text-primary-blue': activeTool !== 'highlighter'
-                }">
-                <HighlighterIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('highlighter')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'highlighter',
+                        'hover:text-primary-blue': activeTool !== 'highlighter'
+                    }">
+                    <HighlighterIcon />
+                </button>
 
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('eraser')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'eraser',
-                    'hover:text-primary-blue': activeTool !== 'eraser'
-                }">
-                <EraserIcon />
-            </button>
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('blur')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'blur',
-                    'hover:text-primary-blue': activeTool !== 'blur'
-                }">
-                <BlurIcon />
-            </button>
-            <button
-                class="flex size-6 cursor-pointer items-center justify-center rounded"
-                @click="selectTool('text')"
-                :class="{
-                    'bg-primary-blue text-white': activeTool === 'text',
-                    'hover:text-primary-blue': activeTool !== 'text'
-                }">
-                <TextIcon />
-            </button>
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Highlight
+                </span>
+            </div>
+
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('eraser')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'eraser',
+                        'hover:text-primary-blue': activeTool !== 'eraser'
+                    }">
+                    <EraserIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Eraser
+                </span>
+            </div>
+
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('blur')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'blur',
+                        'hover:text-primary-blue': activeTool !== 'blur'
+                    }">
+                    <BlurIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Blur
+                </span>
+            </div>
+
+            <div class="group relative">
+                <button
+                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    @click="selectTool('text')"
+                    :class="{
+                        'bg-primary-blue text-white': activeTool === 'text',
+                        'hover:text-primary-blue': activeTool !== 'text'
+                    }">
+                    <TextIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Text
+                </span>
+            </div>
 
             <!-- Color Picker -->
             <div class="relative size-5">
-                <button
-                    @click="showColorPicker = true"
-                    class="relative size-5 cursor-pointer rounded-full border transition hover:scale-105"
-                    :style="{ background: selectedColor }"></button>
+                <div class="group relative">
+                    <button
+                        @click="showColorPicker = true"
+                        class="relative size-5 cursor-pointer rounded-full border transition hover:scale-105"
+                        :style="{ background: selectedColor }"></button>
+
+                    <span
+                        class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                        Color
+                    </span>
+                </div>
                 <ColorPalette
                     v-if="showColorPicker"
                     :selected="selectedColor"
@@ -1086,16 +1182,31 @@
         </div>
 
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
-            <button
-                @click="$emit('cancel')"
-                class="cursor-pointer text-red-500 hover:text-red-600">
-                <DeleteIcon />
-            </button>
-            <button
-                @click="$emit('save')"
-                class="cursor-pointer text-green-500 hover:text-green-600">
-                <CheckIcon />
-            </button>
+            <div class="group relative">
+                <button
+                    @click="$emit('cancel')"
+                    class="flex cursor-pointer text-red-500 hover:text-red-600">
+                    <DeleteIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Delete
+                </span>
+            </div>
+
+            <div class="group relative">
+                <button
+                    @click="$emit('save')"
+                    class="flex cursor-pointer text-green-500 hover:text-green-600">
+                    <CheckIcon />
+                </button>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Done
+                </span>
+            </div>
         </div>
     </div>
 </template>
