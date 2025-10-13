@@ -710,7 +710,7 @@ app.whenReady().then(() => {
                 fs.mkdirSync(screenshotsDir, { recursive: true })
             }
 
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
             const filename = `Screenshot_${timestamp}.png`
             const filepath = path.join(screenshotsDir, filename)
 

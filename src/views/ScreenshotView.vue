@@ -385,7 +385,7 @@
     // Action handlers
     const handleSave = async () => {
         try {
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0]
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
             const { left, top, width, height } = selectionRect.value
 
             const options = {
@@ -484,7 +484,7 @@
             if (mode.value === 'edited') {
                 const dataUrl = getEditedDataUrl()
                 if (dataUrl) {
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('.')[0]
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
                     const fileName = `screenshot_${timestamp}.png`
                     const file = base64ToFile(dataUrl, fileName)
 
