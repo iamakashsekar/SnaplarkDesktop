@@ -958,13 +958,19 @@
 
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
             <button
-                :class="{ 'cursor-not-allowed opacity-40': !canUndo }"
+                :class="{
+                    'cursor-not-allowed opacity-40': !canUndo,
+                    'hover:text-primary-blue cursor-pointer': canUndo
+                }"
                 @click="undo"
                 :disabled="!canUndo">
                 <UndoIcon />
             </button>
             <button
-                :class="{ 'cursor-not-allowed opacity-40': !canRedo }"
+                :class="{
+                    'cursor-not-allowed opacity-40': !canRedo,
+                    'hover:text-primary-blue cursor-pointer': canRedo
+                }"
                 @click="redo"
                 :disabled="!canRedo">
                 <RedoIcon />
@@ -974,68 +980,95 @@
         <div class="flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
             <!-- Line -->
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('line')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'line' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'line',
+                    'hover:text-primary-blue': activeTool !== 'line'
+                }">
                 <LineIcon />
             </button>
 
             <!-- Arrow -->
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('arrow')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'arrow' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'arrow',
+                    'hover:text-primary-blue': activeTool !== 'arrow'
+                }">
                 <ArrowIcon />
             </button>
 
             <!-- Circle -->
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('ellipse')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'ellipse' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'ellipse',
+                    'hover:text-primary-blue': activeTool !== 'ellipse'
+                }">
                 <EllipseIcon />
             </button>
 
             <!-- Rectangle -->
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('rect')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'rect' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'rect',
+                    'hover:text-primary-blue': activeTool !== 'rect'
+                }">
                 <RectangleIcon />
             </button>
 
             <!-- Pencil -->
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('pencil')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'pencil' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'pencil',
+                    'hover:text-primary-blue': activeTool !== 'pencil'
+                }">
                 <PencilIcon />
             </button>
 
             <!-- Highlight -->
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('highlighter')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'highlighter' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'highlighter',
+                    'hover:text-primary-blue': activeTool !== 'highlighter'
+                }">
                 <HighlighterIcon />
             </button>
 
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('eraser')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'eraser' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'eraser',
+                    'hover:text-primary-blue': activeTool !== 'eraser'
+                }">
                 <EraserIcon />
             </button>
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('blur')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'blur' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'blur',
+                    'hover:text-primary-blue': activeTool !== 'blur'
+                }">
                 <BlurIcon />
             </button>
             <button
-                class="flex size-6 items-center justify-center rounded"
+                class="flex size-6 cursor-pointer items-center justify-center rounded"
                 @click="selectTool('text')"
-                :class="{ 'bg-primary-blue text-white': activeTool === 'text' }">
+                :class="{
+                    'bg-primary-blue text-white': activeTool === 'text',
+                    'hover:text-primary-blue': activeTool !== 'text'
+                }">
                 <TextIcon />
             </button>
 
@@ -1043,7 +1076,7 @@
             <div class="relative size-5">
                 <button
                     @click="showColorPicker = true"
-                    class="relative size-5 rounded-full border transition hover:scale-105"
+                    class="relative size-5 cursor-pointer rounded-full border transition hover:scale-105"
                     :style="{ background: selectedColor }"></button>
                 <ColorPalette
                     v-if="showColorPicker"
@@ -1055,12 +1088,12 @@
         <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
             <button
                 @click="$emit('cancel')"
-                class="text-red-500">
+                class="cursor-pointer text-red-500 hover:text-red-600">
                 <DeleteIcon />
             </button>
             <button
                 @click="$emit('save')"
-                class="text-green-600">
+                class="cursor-pointer text-green-500 hover:text-green-600">
                 <CheckIcon />
             </button>
         </div>

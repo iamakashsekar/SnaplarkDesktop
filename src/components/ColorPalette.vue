@@ -21,7 +21,7 @@
             v-for="color in colors"
             :key="color"
             @click="selectColor(color)"
-            class="h-6 w-6 rounded-full border border-gray-500 transition hover:scale-105"
+            class="h-6 w-6 cursor-pointer rounded-full border border-gray-500 transition hover:scale-105"
             :style="{ backgroundColor: color }"></button>
     </div>
 </template>
