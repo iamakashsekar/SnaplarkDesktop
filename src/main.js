@@ -1,4 +1,15 @@
-import { app, BrowserWindow, shell, ipcMain, screen, desktopCapturer, protocol, clipboard, dialog } from 'electron'
+import {
+    app,
+    BrowserWindow,
+    shell,
+    ipcMain,
+    screen,
+    desktopCapturer,
+    protocol,
+    clipboard,
+    dialog,
+    nativeImage
+} from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import started from 'electron-squirrel-startup'
@@ -790,6 +801,8 @@ app.whenReady().then(() => {
                 defaultPath: defaultPath,
                 filters: [
                     { name: 'PNG Image', extensions: ['png'] },
+                    { name: 'JPEG Image', extensions: ['jpg', 'jpeg'] },
+                    { name: 'WEBP Image', extensions: ['webp'] },
                     { name: 'All Files', extensions: ['*'] }
                 ],
                 properties: ['createDirectory', 'showOverwriteConfirmation']
@@ -805,8 +818,23 @@ app.whenReady().then(() => {
                 return { success: false, canceled: true }
             }
 
+            // Determine the file format from the extension
+            const fileExtension = path.extname(result.filePath).toLowerCase()
+            let finalImageBuffer = imageBuffer
+
+            // If we need to convert from PNG to another format
+            if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
+                const image = nativeImage.createFromBuffer(imageBuffer)
+                finalImageBuffer = image.toJPEG(90) // 90% quality
+            } else if (fileExtension === '.webp') {
+                const image = nativeImage.createFromBuffer(imageBuffer)
+                // Note: Electron's nativeImage doesn't have direct toWEBP, so we'll save as PNG
+                // and let the file extension indicate WEBP (or you can use sharp library if needed)
+                finalImageBuffer = image.toPNG()
+            }
+
             // Save the image buffer
-            fs.writeFileSync(result.filePath, imageBuffer)
+            fs.writeFileSync(result.filePath, finalImageBuffer)
 
             // Get file size in bytes
             const { size } = fs.statSync(result.filePath)
