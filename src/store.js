@@ -20,7 +20,7 @@ export const useStore = defineStore('main', {
         isOnline: connectivityService.isOnline,
 
         // Upload State
-        lastCapture:null,
+        lastCapture: null
     }),
 
     persist: {
@@ -72,7 +72,7 @@ export const useStore = defineStore('main', {
                 // Store tokens
                 if (access_token) {
                     TokenManager.setToken(access_token)
-                    console.log("Token set: ", access_token)
+                    console.log('Token set: ', access_token)
                 }
                 try {
                     const response = await apiClient.get('/user')
@@ -97,7 +97,7 @@ export const useStore = defineStore('main', {
         },
 
         handleAuthError(error) {
-           this.logout(error)
+            this.logout(error)
         },
 
         // Logout
@@ -128,7 +128,7 @@ export const useStore = defineStore('main', {
         initializeStoreSync() {
             // Track previous state to detect actual changes
             let previousState = {}
-            
+
             // Listen for updates from other windows
             if (window.electronStore?.onUpdate) {
                 window.electronStore.onUpdate((key, value) => {
@@ -143,7 +143,7 @@ export const useStore = defineStore('main', {
 
             // Initialize previous state
             const syncableKeys = ['lastCapture', 'user', 'isAuthenticated', 'isDarkMode', 'welcomeCompleted']
-            syncableKeys.forEach(key => {
+            syncableKeys.forEach((key) => {
                 previousState[key] = this[key]
             })
 
@@ -154,21 +154,26 @@ export const useStore = defineStore('main', {
 
                 // Check which syncable properties actually changed
                 const changedKeys = []
-                syncableKeys.forEach(key => {
+                syncableKeys.forEach((key) => {
                     if (state[key] !== previousState[key]) {
                         changedKeys.push(key)
                         previousState[key] = state[key]
                     }
                 })
-                
+
                 // Only sync if there are actual changes to syncable properties
                 if (changedKeys.length > 0 && window.electronStore?.sync) {
                     console.log('Syncing changed keys to other windows:', changedKeys)
-                    changedKeys.forEach(key => {
+                    changedKeys.forEach((key) => {
                         window.electronStore.sync(key, state[key])
                     })
                 }
             })
+        },
+
+        // Utility Actions
+        getOs() {
+            return window.electron.platform
         }
     }
 })

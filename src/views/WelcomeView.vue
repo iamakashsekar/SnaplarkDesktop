@@ -1,6 +1,9 @@
 <script setup>
     import { onMounted, ref } from 'vue'
     import { useWindows } from '../composables/useWindows'
+    import { useStore } from '../store'
+
+    const store = useStore()
 
     const { closeWindow, sizerRef, sizerData, centerWindow, resizeWindowTo } = useWindows()
 
@@ -17,7 +20,7 @@
         {
             id: 1,
             title: 'Click on widget',
-            image: window.electron.platform === 'darwin' ? '1-step-mac.png' : '1-step-win.png'
+            image: store.getOs === 'darwin' ? '1-step-mac.png' : '1-step-win.png'
         },
         {
             id: 2,
@@ -27,7 +30,7 @@
         {
             id: 3,
             title: 'Right click widget for all the menu options',
-            image: window.electron.platform === 'darwin' ? '3-step-mac.png' : '3-step-win.png'
+            image: store.getOs === 'darwin' ? '3-step-mac.png' : '3-step-win.png'
         }
     ])
 
@@ -72,7 +75,9 @@
 </script>
 
 <template>
-    <div class="welcome-window shadow-md">
+    <div
+        :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
+        class="welcome-window">
         <transition
             name="slide-fade"
             mode="out-in">

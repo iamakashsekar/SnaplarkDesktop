@@ -97,7 +97,8 @@
 
 <template>
     <div
-        class="login-container min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md select-none">
+        :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
+        class="login-container min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 select-none">
         <div class="dark:bg-dark-blue space-y-6 rounded-2xl bg-white px-2 py-3">
             <div class="mx-auto w-3/4 space-y-6">
                 <div class="pt-7 text-center">

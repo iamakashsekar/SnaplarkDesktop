@@ -127,15 +127,12 @@
         await resizeWindowTo('main', 264, 550)
         console.log('Main window resized')
     })
-
-    const getOs = () => {
-        return window.electron.platform === 'darwin' ? 'mac' : 'win'
-    }
 </script>
 
 <template>
     <div
-        class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 shadow-md select-none">
+        :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
+        class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
         <!-- Capture Actions -->
         <div class="space-y-4">
             <button
@@ -361,7 +358,7 @@
                 </svg>
 
                 <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
-                    {{ getOs() === 'mac' ? 'Quit' : 'Close' }}
+                    {{ store.getOs() === 'darwin' ? 'Quit' : 'Close' }}
                 </p>
             </button>
 
