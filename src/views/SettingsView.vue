@@ -1,296 +1,409 @@
-<template>
-  <div class="settings-window">
-    <div class="settings-header">
-      <h1>Settings</h1>
-      <button @click="closeWindow" class="close-btn">×</button>
-    </div>
-
-    <div class="settings-content">
-      <div class="settings-section">
-        <h2>General</h2>
-        <div class="setting-item">
-          <label class="setting-label">
-            <input type="checkbox" v-model="settings.autoStart" />
-            Start with system
-          </label>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">
-            <input type="checkbox" v-model="settings.showNotifications" />
-            Show notifications
-          </label>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h2>Appearance</h2>
-        <div class="setting-item">
-          <label class="setting-label">
-            <input type="checkbox" v-model="settings.darkMode" />
-            Dark mode
-          </label>
-        </div>
-        <div class="setting-item">
-          <label>Theme</label>
-          <select v-model="settings.theme" class="setting-select">
-            <option value="auto">Auto</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="settings-section">
-        <h2>Screenshots</h2>
-        <div class="setting-item">
-          <label>Default format</label>
-          <select v-model="settings.defaultFormat" class="setting-select">
-            <option value="png">PNG</option>
-            <option value="jpg">JPG</option>
-            <option value="gif">GIF</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label>Save location</label>
-          <div class="file-input">
-            <input type="text" v-model="settings.saveLocation" readonly />
-            <button @click="browseSaveLocation" class="browse-btn">
-              Browse
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="settings-footer">
-      <button @click="resetSettings" class="secondary-btn">
-        Reset to Defaults
-      </button>
-      <div class="footer-actions">
-        <button @click="cancelChanges" class="secondary-btn">Cancel</button>
-        <button @click="saveSettings" class="primary-btn">Save</button>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
-import { ref, reactive, onMounted } from "vue";
-import { useStore } from "@/store";
+    import { reactive, onMounted, ref } from 'vue'
 
-const store = useStore();
+    const defaultSettings = {
+        // General
+        launchAtStartup: false,
+        language: 'en',
+        defaultSaveFolder: '~/Pictures/Snaplark',
 
-const settings = reactive({
-  autoStart: false,
-  showNotifications: true,
-  darkMode: false,
-  theme: "auto",
-  defaultFormat: "png",
-  saveLocation: "~/Pictures/Snaplark",
-});
+        // Hotkeys
+        hotkeyScreenshot: 'Shift + Cmd + S',
+        hotkeyRecording: 'Shift + Cmd + R',
+        hotkeyQuickMenu: 'Ctrl + Alt + S',
 
-onMounted(() => {
-  loadSettings();
-});
+        // Capture
+        uploadQuality: 'high',
+        showMagnifier: true,
+        showGrid: false,
+        showCursor: true,
 
-const closeWindow = () => {
-  if (window.electronWindows) {
-    window.electronWindows.closeWindow("settings");
-  }
-};
-
-const loadSettings = () => {
-  // Load settings from store or electron store
-  try {
-    const savedSettings = window.electronStore?.get("settings");
-    if (savedSettings) {
-      Object.assign(settings, savedSettings);
+        // Recording
+        flipCamera: false,
+        recordAudioMono: false,
+        recordingCountdown: true
     }
-  } catch (error) {
-    console.error("Error loading settings:", error);
-  }
-};
 
-const saveSettings = () => {
-  try {
-    window.electronStore?.set("settings", settings);
-    console.log("Settings saved successfully");
-    closeWindow();
-  } catch (error) {
-    console.error("Error saving settings:", error);
-  }
-};
+    const settings = reactive({ ...defaultSettings })
+    const activeTab = ref('general')
 
-const cancelChanges = () => {
-  loadSettings(); // Reload original settings
-  closeWindow();
-};
+    const mainTabs = [
+        { id: 'general', label: 'General' },
+        { id: 'hotkeys', label: 'Hotkeys' },
+        { id: 'capture', label: 'Capture' },
+        { id: 'recording', label: 'Recording' }
+    ]
 
-const resetSettings = () => {
-  if (confirm("Are you sure you want to reset all settings to defaults?")) {
-    Object.assign(settings, {
-      autoStart: false,
-      showNotifications: true,
-      darkMode: false,
-      theme: "auto",
-      defaultFormat: "png",
-      saveLocation: "~/Pictures/Snaplark",
-    });
-  }
-};
+    onMounted(() => {
+        loadSettings()
+    })
 
-const browseSaveLocation = () => {
-  // In a real implementation, you'd use electron's dialog API
-  console.log("Browse for save location");
-};
+    const closeWindow = () => {
+        if (window.electronWindows) {
+            window.electronWindows.closeWindow('settings')
+        }
+    }
+
+    const loadSettings = () => {
+        try {
+            const savedSettings = window.electronStore?.get('settings')
+            Object.assign(settings, { ...defaultSettings, ...(savedSettings ?? {}) })
+        } catch (error) {
+            console.error('Error loading settings:', error)
+        }
+    }
+
+    const saveSettings = () => {
+        try {
+            const payload = JSON.parse(JSON.stringify(settings))
+            window.electronStore?.set('settings', payload)
+
+            // Emit event to notify app of settings change
+            if (window.electron?.ipcRenderer) {
+                window.electron.ipcRenderer.send('settings:updated', payload)
+            }
+
+            console.log('Settings saved successfully')
+            closeWindow()
+        } catch (error) {
+            console.error('Error saving settings:', error)
+        }
+    }
+
+    const cancelChanges = () => {
+        loadSettings()
+        closeWindow()
+    }
+
+    const browseSaveFolder = () => {
+        if (window.electron?.ipcRenderer) {
+            window.electron.ipcRenderer.invoke('dialog:openDirectory').then((result) => {
+                if (!result.canceled && result.filePaths.length > 0) {
+                    settings.defaultSaveFolder = result.filePaths[0]
+                }
+            })
+        }
+    }
+
+    const recordHotkey = (field, event) => {
+        event.preventDefault()
+        const keys = []
+
+        if (event.ctrlKey) keys.push('Ctrl')
+        if (event.altKey) keys.push('Alt')
+        if (event.shiftKey) keys.push('Shift')
+        if (event.metaKey) keys.push('Cmd')
+
+        const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
+        if (!['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) {
+            keys.push(key)
+        }
+
+        settings[field] = keys.join(' + ')
+    }
 </script>
 
-<style scoped>
-.settings-window {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
+<template>
+    <section
+        class="relative w-full rounded-3xl bg-white shadow-[0_30px_80px_rgba(17,32,67,0.12)] ring-1 ring-slate-100/80">
+        <button
+            @click="closeWindow"
+            class="no-drag absolute top-6 right-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-semibold text-slate-500 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-300 focus:outline-none"
+            aria-label="Close settings">
+            ×
+        </button>
 
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid #e5e5e5;
-  background: #f8f9fa;
-}
+        <div class="space-y-6 px-8 pt-8">
+            <div class="space-y-2">
+                <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
+                <p class="text-sm text-slate-500">Configure Snaplark to your preferences</p>
+            </div>
 
-.settings-header h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
+            <nav
+                v-if="mainTabs.length > 1"
+                class="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
+                <button
+                    v-for="tab in mainTabs"
+                    :key="tab.id"
+                    @click="activeTab = tab.id"
+                    type="button"
+                    :class="[
+                        'rounded-lg border px-4 py-2 text-sm font-semibold transition',
+                        tab.id === activeTab
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    ]">
+                    {{ tab.label }}
+                </button>
+            </nav>
+        </div>
 
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: #666;
-}
+        <div class="px-8 pt-4 pb-8">
+            <transition
+                enter-active-class="transition-all duration-300 ease-out"
+                enter-from-class="opacity-0 translate-y-4 scale-[0.99]"
+                enter-to-class="opacity-100 translate-y-0 scale-100"
+                leave-active-class="transition-all duration-250 ease-in"
+                leave-from-class="opacity-100 translate-y-0 scale-100"
+                leave-to-class="opacity-0 translate-y-4 scale-[0.99]">
+                <div
+                    :key="activeTab"
+                    class="space-y-6">
+                    <!-- GENERAL TAB -->
+                    <template v-if="activeTab === 'general'">
+                        <!-- Launch at Startup -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <div class="mb-4 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">Launch at Startup</h3>
+                                    <p class="text-sm text-slate-500">Start Snaplark when your system boots</p>
+                                </div>
+                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.launchAtStartup"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                </label>
+                            </div>
+                        </div>
 
-.close-btn:hover {
-  background: #e5e5e5;
-}
+                        <!-- Language Selection -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <label class="mb-4 block">
+                                <h3 class="font-semibold text-slate-900">Language</h3>
+                                <p class="text-sm text-slate-500">Choose your preferred language</p>
+                                <select
+                                    v-model="settings.language"
+                                    class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                                    <option value="en">English</option>
+                                    <option value="es">Español</option>
+                                    <option value="fr">Français</option>
+                                    <option value="de">Deutsch</option>
+                                    <option value="it">Italiano</option>
+                                    <option value="pt">Português</option>
+                                    <option value="ja">日本語</option>
+                                    <option value="zh">中文</option>
+                                </select>
+                            </label>
+                        </div>
 
-.settings-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-}
+                        <!-- Default Save Folder -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <label class="block">
+                                <h3 class="font-semibold text-slate-900">Default Save Folder</h3>
+                                <p class="text-sm text-slate-500">Where screenshots and recordings are saved</p>
+                                <div class="mt-3 flex gap-2">
+                                    <input
+                                        type="text"
+                                        :value="settings.defaultSaveFolder"
+                                        readonly
+                                        class="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600" />
+                                    <button
+                                        type="button"
+                                        @click="browseSaveFolder"
+                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/20">
+                                        Browse
+                                    </button>
+                                </div>
+                            </label>
+                        </div>
+                    </template>
 
-.settings-section {
-  margin-bottom: 32px;
-}
+                    <!-- HOTKEYS TAB -->
+                    <template v-else-if="activeTab === 'hotkeys'">
+                        <div
+                            class="space-y-4 rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">Screenshot</h3>
+                                    <p class="text-sm text-slate-500">Capture screen area</p>
+                                </div>
+                                <input
+                                    type="text"
+                                    v-model="settings.hotkeyScreenshot"
+                                    placeholder="Click to set"
+                                    @keydown.prevent="recordHotkey('hotkeyScreenshot', $event)"
+                                    class="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" />
+                            </div>
 
-.settings-section h2 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">Recording</h3>
+                                    <p class="text-sm text-slate-500">Start screen recording</p>
+                                </div>
+                                <input
+                                    type="text"
+                                    v-model="settings.hotkeyRecording"
+                                    placeholder="Click to set"
+                                    @keydown.prevent="recordHotkey('hotkeyRecording', $event)"
+                                    class="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" />
+                            </div>
 
-.setting-item {
-  margin-bottom: 16px;
-}
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">Quick Menu</h3>
+                                    <p class="text-sm text-slate-500">Open quick menu</p>
+                                </div>
+                                <input
+                                    type="text"
+                                    v-model="settings.hotkeyQuickMenu"
+                                    placeholder="Click to set"
+                                    @keydown.prevent="recordHotkey('hotkeyQuickMenu', $event)"
+                                    class="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" />
+                            </div>
+                        </div>
+                    </template>
 
-.setting-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
+                    <!-- CAPTURE TAB -->
+                    <template v-else-if="activeTab === 'capture'">
+                        <!-- Upload Quality -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <label class="block">
+                                <h3 class="font-semibold text-slate-900">Upload Quality</h3>
+                                <p class="text-sm text-slate-500">File size vs quality balance</p>
+                                <select
+                                    v-model="settings.uploadQuality"
+                                    class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                                    <option value="low">Low (Smaller files)</option>
+                                    <option value="medium">Medium (Balanced)</option>
+                                    <option value="high">High (Best quality)</option>
+                                </select>
+                            </label>
+                        </div>
 
-.setting-label input[type="checkbox"] {
-  margin: 0;
-}
+                        <!-- Crop Tools -->
+                        <div
+                            class="space-y-3 rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <h3 class="font-semibold text-slate-900">Crop Screen Tools</h3>
+                            <p class="text-sm text-slate-500">Enable additional capture tools</p>
 
-.setting-select {
-  width: 200px;
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-700">Show Magnifier</label>
+                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.showMagnifier"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
+                                </label>
+                            </div>
 
-.file-input {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-700">Show Grid</label>
+                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.showGrid"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
+                                </label>
+                            </div>
 
-.file-input input {
-  flex: 1;
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-700">Show Cursor</label>
+                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.showCursor"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </template>
 
-.browse-btn {
-  padding: 6px 12px;
-  background: #f1f3f4;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
+                    <!-- RECORDING TAB -->
+                    <template v-else-if="activeTab === 'recording'">
+                        <!-- Flip Camera -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">Mirror Webcam</h3>
+                                    <p class="text-sm text-slate-500">Flip camera feed horizontally</p>
+                                </div>
+                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.flipCamera"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                </label>
+                            </div>
+                        </div>
 
-.browse-btn:hover {
-  background: #e8eaed;
-}
+                        <!-- Record Audio in Mono -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">Record Audio in Mono</h3>
+                                    <p class="text-sm text-slate-500">Single channel audio (smaller file)</p>
+                                </div>
+                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.recordAudioMono"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                </label>
+                            </div>
+                        </div>
 
-.settings-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  border-top: 1px solid #e5e5e5;
-  background: #f8f9fa;
-}
+                        <!-- Recording Countdown -->
+                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-semibold text-slate-900">3 Second Countdown</h3>
+                                    <p class="text-sm text-slate-500">Delay before recording starts</p>
+                                </div>
+                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.recordingCountdown"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </transition>
+        </div>
 
-.footer-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.primary-btn {
-  padding: 8px 16px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.primary-btn:hover {
-  background: #0056b3;
-}
-
-.secondary-btn {
-  padding: 8px 16px;
-  background: #f1f3f4;
-  color: #333;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.secondary-btn:hover {
-  background: #e8eaed;
-}
-</style>
+        <footer class="flex items-center justify-end gap-3 border-t border-slate-100 px-8 py-4">
+            <button
+                type="button"
+                @click="cancelChanges"
+                class="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+                Cancel
+            </button>
+            <button
+                type="button"
+                @click="saveSettings"
+                class="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl">
+                Save Changes
+            </button>
+        </footer>
+    </section>
+</template>
