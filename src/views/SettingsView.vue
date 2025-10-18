@@ -1,5 +1,5 @@
 <script setup>
-    import { reactive, onMounted, ref } from 'vue'
+    import { reactive, onMounted, ref, watch, nextTick } from 'vue'
 
     const defaultSettings = {
         // General
@@ -26,6 +26,7 @@
 
     const settings = reactive({ ...defaultSettings })
     const activeTab = ref('general')
+    const contentRef = ref(null)
 
     const mainTabs = [
         { id: 'general', label: 'General' },
@@ -36,7 +37,22 @@
 
     onMounted(() => {
         loadSettings()
+        setTimeout(resizeWindow, 350)
     })
+
+    watch(activeTab, async () => {
+        // Wait for DOM to update before resizing
+        await nextTick()
+        setTimeout(resizeWindow, 350)
+    })
+
+    const resizeWindow = () => {
+        if (contentRef.value && window.electron?.ipcRenderer) {
+            // Measure the actual content height
+            const height = contentRef.value.scrollHeight + 80 // Add buffer for window chrome and spacing
+            window.electron.ipcRenderer.send('window:resize', { height, width: 600 })
+        }
+    }
 
     const closeWindow = () => {
         if (window.electronWindows) {
@@ -105,17 +121,18 @@
 
 <template>
     <section
-        class="relative w-full rounded-3xl bg-white shadow-[0_30px_80px_rgba(17,32,67,0.12)] ring-1 ring-slate-100/80">
+        ref="contentRef"
+        class="relative w-full rounded-2xl bg-white shadow-[0_20px_60px_rgba(17,32,67,0.1)] ring-1 ring-slate-100/80">
         <button
             @click="closeWindow"
-            class="no-drag absolute top-6 right-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-2xl font-semibold text-slate-500 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-300 focus:outline-none"
+            class="no-drag absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg font-semibold text-slate-500 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-300 focus:outline-none"
             aria-label="Close settings">
             ×
         </button>
 
-        <div class="space-y-6 px-8 pt-8">
+        <div class="space-y-5 px-7 pt-7">
             <div class="space-y-2">
-                <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
+                <h1 class="text-xl font-bold text-slate-900">Settings</h1>
                 <p class="text-sm text-slate-500">Configure Snaplark to your preferences</p>
             </div>
 
@@ -128,7 +145,7 @@
                     @click="activeTab = tab.id"
                     type="button"
                     :class="[
-                        'rounded-lg border px-4 py-2 text-sm font-semibold transition',
+                        'rounded-lg border px-4 py-2 text-sm font-semibold transition focus:ring-2 focus:ring-blue-500/30 focus:outline-none',
                         tab.id === activeTab
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
                             : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
@@ -138,25 +155,25 @@
             </nav>
         </div>
 
-        <div class="px-8 pt-4 pb-8">
+        <div class="px-7 pt-4 pb-7">
             <transition
                 enter-active-class="transition-all duration-300 ease-out"
-                enter-from-class="opacity-0 translate-y-4 scale-[0.99]"
+                enter-from-class="opacity-0 translate-y-2 scale-[0.99]"
                 enter-to-class="opacity-100 translate-y-0 scale-100"
                 leave-active-class="transition-all duration-250 ease-in"
                 leave-from-class="opacity-100 translate-y-0 scale-100"
-                leave-to-class="opacity-0 translate-y-4 scale-[0.99]">
+                leave-to-class="opacity-0 translate-y-2 scale-[0.99]">
                 <div
                     :key="activeTab"
-                    class="space-y-6">
+                    class="space-y-4">
                     <!-- GENERAL TAB -->
                     <template v-if="activeTab === 'general'">
                         <!-- Launch at Startup -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
-                            <div class="mb-4 flex items-center justify-between">
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">Launch at Startup</h3>
-                                    <p class="text-sm text-slate-500">Start Snaplark when your system boots</p>
+                                    <h3 class="text-base font-semibold text-slate-900">Launch at Startup</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Start Snaplark when your system boots</p>
                                 </div>
                                 <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
                                     <input
@@ -172,10 +189,10 @@
                         </div>
 
                         <!-- Language Selection -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
-                            <label class="mb-4 block">
-                                <h3 class="font-semibold text-slate-900">Language</h3>
-                                <p class="text-sm text-slate-500">Choose your preferred language</p>
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            <label class="block">
+                                <h3 class="text-base font-semibold text-slate-900">Language</h3>
+                                <p class="mt-1 text-sm text-slate-500">Choose your preferred language</p>
                                 <select
                                     v-model="settings.language"
                                     class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
@@ -192,20 +209,20 @@
                         </div>
 
                         <!-- Default Save Folder -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <label class="block">
-                                <h3 class="font-semibold text-slate-900">Default Save Folder</h3>
-                                <p class="text-sm text-slate-500">Where screenshots and recordings are saved</p>
+                                <h3 class="text-base font-semibold text-slate-900">Default Save Folder</h3>
+                                <p class="mt-1 text-sm text-slate-500">Where screenshots and recordings are saved</p>
                                 <div class="mt-3 flex gap-2">
                                     <input
                                         type="text"
                                         :value="settings.defaultSaveFolder"
                                         readonly
-                                        class="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600" />
+                                        class="flex-1 truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600" />
                                     <button
                                         type="button"
                                         @click="browseSaveFolder"
-                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/20">
+                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/20 focus:ring-2 focus:ring-blue-500/30 focus:outline-none">
                                         Browse
                                     </button>
                                 </div>
@@ -216,11 +233,11 @@
                     <!-- HOTKEYS TAB -->
                     <template v-else-if="activeTab === 'hotkeys'">
                         <div
-                            class="space-y-4 rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                            class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">Screenshot</h3>
-                                    <p class="text-sm text-slate-500">Capture screen area</p>
+                                    <h3 class="text-base font-semibold text-slate-900">Screenshot</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Capture screen area</p>
                                 </div>
                                 <input
                                     type="text"
@@ -232,8 +249,8 @@
 
                             <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">Recording</h3>
-                                    <p class="text-sm text-slate-500">Start screen recording</p>
+                                    <h3 class="text-base font-semibold text-slate-900">Recording</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Start screen recording</p>
                                 </div>
                                 <input
                                     type="text"
@@ -245,8 +262,8 @@
 
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">Quick Menu</h3>
-                                    <p class="text-sm text-slate-500">Open quick menu</p>
+                                    <h3 class="text-base font-semibold text-slate-900">Quick Menu</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Open quick menu</p>
                                 </div>
                                 <input
                                     type="text"
@@ -261,10 +278,10 @@
                     <!-- CAPTURE TAB -->
                     <template v-else-if="activeTab === 'capture'">
                         <!-- Upload Quality -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <label class="block">
-                                <h3 class="font-semibold text-slate-900">Upload Quality</h3>
-                                <p class="text-sm text-slate-500">File size vs quality balance</p>
+                                <h3 class="text-base font-semibold text-slate-900">Upload Quality</h3>
+                                <p class="mt-1 text-sm text-slate-500">File size vs quality balance</p>
                                 <select
                                     v-model="settings.uploadQuality"
                                     class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
@@ -277,11 +294,13 @@
 
                         <!-- Crop Tools -->
                         <div
-                            class="space-y-3 rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
-                            <h3 class="font-semibold text-slate-900">Crop Screen Tools</h3>
-                            <p class="text-sm text-slate-500">Enable additional capture tools</p>
+                            class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            <div>
+                                <h3 class="text-base font-semibold text-slate-900">Crop Screen Tools</h3>
+                                <p class="mt-1 text-sm text-slate-500">Enable additional capture tools</p>
+                            </div>
 
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between pt-2">
                                 <label class="text-sm font-medium text-slate-700">Show Magnifier</label>
                                 <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
@@ -328,11 +347,11 @@
                     <!-- RECORDING TAB -->
                     <template v-else-if="activeTab === 'recording'">
                         <!-- Flip Camera -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">Mirror Webcam</h3>
-                                    <p class="text-sm text-slate-500">Flip camera feed horizontally</p>
+                                    <h3 class="text-base font-semibold text-slate-900">Mirror Webcam</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Flip camera feed horizontally</p>
                                 </div>
                                 <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
                                     <input
@@ -348,11 +367,11 @@
                         </div>
 
                         <!-- Record Audio in Mono -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">Record Audio in Mono</h3>
-                                    <p class="text-sm text-slate-500">Single channel audio (smaller file)</p>
+                                    <h3 class="text-base font-semibold text-slate-900">Record Audio in Mono</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Single channel audio (smaller file)</p>
                                 </div>
                                 <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
                                     <input
@@ -368,11 +387,11 @@
                         </div>
 
                         <!-- Recording Countdown -->
-                        <div class="rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-6">
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-slate-900">3 Second Countdown</h3>
-                                    <p class="text-sm text-slate-500">Delay before recording starts</p>
+                                    <h3 class="text-base font-semibold text-slate-900">3 Second Countdown</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Delay before recording starts</p>
                                 </div>
                                 <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
                                     <input
@@ -391,18 +410,18 @@
             </transition>
         </div>
 
-        <footer class="flex items-center justify-end gap-3 border-t border-slate-100 px-8 py-4">
+        <footer class="flex items-center justify-end gap-3 border-t border-slate-100 px-7 py-4">
             <button
                 type="button"
                 @click="cancelChanges"
-                class="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200">
+                class="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-200 focus:outline-none">
                 Cancel
             </button>
             <button
                 type="button"
                 @click="saveSettings"
-                class="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl">
-                Save Changes
+                class="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl focus:ring-2 focus:ring-blue-500/50 focus:outline-none">
+                Save
             </button>
         </footer>
     </section>

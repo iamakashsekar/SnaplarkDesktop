@@ -22,7 +22,7 @@ class WindowManager {
                 fullscreenable: false
             },
             settings: {
-                width: 800,
+                width: 600,
                 height: 600,
                 resizable: true,
                 frame: true,
