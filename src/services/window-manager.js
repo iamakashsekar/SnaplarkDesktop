@@ -19,7 +19,14 @@ class WindowManager {
                 show: false,
                 focusable: true,
                 acceptFirstMouse: true,
-                fullscreenable: false
+                fullscreenable: false,
+                autoHideMenuBar: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false,
+                    type: 'toolbar'
+                })
             },
             settings: {
                 width: 600,
@@ -43,7 +50,14 @@ class WindowManager {
                 skipTaskbar: false,
                 title: 'Welcome to Snaplark',
                 show: false,
-                modal: false
+                modal: false,
+                autoHideMenuBar: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false,
+                    type: 'toolbar'
+                })
             },
             tour: {
                 width: 600,
@@ -73,6 +87,11 @@ class WindowManager {
                 focusable: true,
                 acceptFirstMouse: true,
                 disableAutoHideCursor: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false
+                }),
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true
@@ -89,6 +108,13 @@ class WindowManager {
                 title: 'Snaplark Design Workspace',
                 show: false,
                 modal: false,
+                autoHideMenuBar: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false,
+                    type: 'toolbar'
+                }),
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true
@@ -103,10 +129,17 @@ class WindowManager {
                 alwaysOnTop: true,
                 skipTaskbar: true,
                 show: false,
-                focusable: true,
+                focusable: false,
                 fullscreenable: false,
                 hasShadow: false,
                 roundedCorners: true,
+                autoHideMenuBar: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false,
+                    type: 'toolbar'
+                }),
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true
@@ -128,6 +161,11 @@ class WindowManager {
                 focusable: true,
                 acceptFirstMouse: true,
                 disableAutoHideCursor: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false
+                }),
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true
@@ -144,6 +182,13 @@ class WindowManager {
                 title: 'Video Preview',
                 show: false,
                 modal: false,
+                autoHideMenuBar: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false,
+                    type: 'toolbar'
+                }),
                 webPreferences: {
                     nodeIntegration: false,
                     contextIsolation: true

@@ -901,6 +901,12 @@ app.whenReady().then(() => {
                 win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
             }
 
+            // Windows: prevent title bar from appearing
+            if (process.platform === 'win32') {
+                win.setMenu(null)
+                win.setAlwaysOnTop(true, 'screen-saver')
+            }
+
             // Ensure correct initial position
             positionNotificationsWindow(win)
             if (typeof win.showInactive === 'function') {

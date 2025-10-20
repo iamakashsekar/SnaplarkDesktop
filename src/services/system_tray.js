@@ -51,6 +51,9 @@ class SystemTray {
                 visibleOnFullScreen: true
             })
             this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+        } else if (process.platform === 'win32') {
+            this.mainWindow.setMenu(null)
+            this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
         }
     }
 
