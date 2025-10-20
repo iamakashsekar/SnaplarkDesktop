@@ -85,7 +85,9 @@ body {
     }
 }
 
-.animated-dashed-border-selecting {
+/* Selection border variants based on drag direction */
+/* When dragging right-down: show top and left borders (hide right and bottom where crosshair is) */
+.animated-dashed-border-selecting-top-left {
     --dash: 5px;
     --thickness: 1px;
     --speed: 0.5s;
@@ -104,14 +106,107 @@ body {
             0 0,
             0 0;
 
-    animation: border-dance-selecting var(--speed) linear infinite;
+    animation: border-dance-selecting-top-left var(--speed) linear infinite;
 }
 
-@keyframes border-dance-selecting {
+@keyframes border-dance-selecting-top-left {
     to {
         background-position:
                 calc(var(--dash) * -2) 0,        /* top moves left */
                 0 calc(var(--dash) * 2);         /* left moves down */
+    }
+}
+
+/* When dragging left-down: show top and right borders (hide left and bottom where crosshair is) */
+.animated-dashed-border-selecting-top-right {
+    --dash: 5px;
+    --thickness: 1px;
+    --speed: 0.5s;
+    --color1: black;
+    --color2: white;
+
+    background:
+            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* top */
+            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+
+    background-size:
+            calc(var(--dash) * 2) var(--thickness),
+            var(--thickness) calc(var(--dash) * 2);
+
+    background-position:
+            0 0,
+            100% 0;
+
+    animation: border-dance-selecting-top-right var(--speed) linear infinite;
+}
+
+@keyframes border-dance-selecting-top-right {
+    to {
+        background-position:
+                calc(var(--dash) * -2) 0,        /* top moves left */
+                100% calc(var(--dash) * 2);      /* right moves down */
+    }
+}
+
+/* When dragging right-up: show bottom and left borders (hide right and top where crosshair is) */
+.animated-dashed-border-selecting-bottom-left {
+    --dash: 5px;
+    --thickness: 1px;
+    --speed: 0.5s;
+    --color1: black;
+    --color2: white;
+
+    background:
+            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* bottom */
+            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* left */
+
+    background-size:
+            calc(var(--dash) * 2) var(--thickness),
+            var(--thickness) calc(var(--dash) * 2);
+
+    background-position:
+            0 100%,
+            0 0;
+
+    animation: border-dance-selecting-bottom-left var(--speed) linear infinite;
+}
+
+@keyframes border-dance-selecting-bottom-left {
+    to {
+        background-position:
+                calc(var(--dash) * 2) 100%,      /* bottom moves right */
+                0 calc(var(--dash) * 2);         /* left moves down */
+    }
+}
+
+/* When dragging left-up: show bottom and right borders (hide left and top where crosshair is) */
+.animated-dashed-border-selecting-bottom-right {
+    --dash: 5px;
+    --thickness: 1px;
+    --speed: 0.5s;
+    --color1: black;
+    --color2: white;
+
+    background:
+            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* bottom */
+            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+
+    background-size:
+            calc(var(--dash) * 2) var(--thickness),
+            var(--thickness) calc(var(--dash) * 2);
+
+    background-position:
+            0 100%,
+            100% 0;
+
+    animation: border-dance-selecting-bottom-right var(--speed) linear infinite;
+}
+
+@keyframes border-dance-selecting-bottom-right {
+    to {
+        background-position:
+                calc(var(--dash) * 2) 100%,      /* bottom moves right */
+                100% calc(var(--dash) * -2);     /* right moves up */
     }
 }
 

@@ -48,6 +48,28 @@
         return { left, top, width, height }
     })
 
+    const selectionBorderClass = computed(() => {
+        if (mode.value !== 'selecting') return 'animated-dashed-border'
+
+        // Determine drag direction to hide borders where crosshair is located
+        const draggingRight = endX.value >= startX.value
+        const draggingDown = endY.value >= startY.value
+
+        if (draggingRight && draggingDown) {
+            // Mouse at bottom-right, hide right and bottom borders
+            return 'animated-dashed-border-selecting-top-left'
+        } else if (!draggingRight && draggingDown) {
+            // Mouse at bottom-left, hide left and bottom borders
+            return 'animated-dashed-border-selecting-top-right'
+        } else if (draggingRight && !draggingDown) {
+            // Mouse at top-right, hide right and top borders
+            return 'animated-dashed-border-selecting-bottom-left'
+        } else {
+            // Mouse at top-left, hide left and top borders
+            return 'animated-dashed-border-selecting-bottom-right'
+        }
+    })
+
     const konvaEditorRef = ref(null)
 
     const backgroundSrc = computed(() => {
@@ -810,7 +832,7 @@
             :class="[
                 'absolute',
                 mode === 'selecting'
-                    ? 'animated-dashed-border-selecting pointer-events-none'
+                    ? `${selectionBorderClass} pointer-events-none`
                     : mode === 'confirming' ||
                         mode === 'resizing' ||
                         mode === 'editing' ||
