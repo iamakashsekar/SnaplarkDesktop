@@ -30,15 +30,22 @@ class WindowManager {
             },
             settings: {
                 width: 600,
-                height: 600,
+                height: 700,
                 resizable: true,
-                frame: true,
-                transparent: false,
+                frame: false,
+                transparent: true,
                 alwaysOnTop: false,
-                skipTaskbar: false,
+                skipTaskbar: true,
                 title: 'Snaplark Settings',
                 show: false,
-                modal: true
+                modal: false,
+                autoHideMenuBar: true,
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false,
+                    type: 'toolbar'
+                })
             },
             welcome: {
                 width: 450,

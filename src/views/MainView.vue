@@ -14,6 +14,7 @@
     }
 
     const openSettings = async () => {
+        hideWindow('main')
         await createWindow('settings')
     }
 

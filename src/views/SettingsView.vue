@@ -1,5 +1,7 @@
 <script setup>
     import { reactive, onMounted, ref, watch, nextTick } from 'vue'
+    import { useWindows } from '@/composables/useWindows'
+    const { resizeWindowTo } = useWindows()
 
     const defaultSettings = {
         // General
@@ -29,30 +31,15 @@
     const contentRef = ref(null)
 
     const mainTabs = [
-        { id: 'general', label: 'General' },
-        { id: 'hotkeys', label: 'Hotkeys' },
-        { id: 'capture', label: 'Capture' },
-        { id: 'recording', label: 'Recording' }
+        { id: 'general', label: 'General', height: 700 },
+        { id: 'hotkeys', label: 'Hotkeys', height: 525 },
+        { id: 'capture', label: 'Capture', height: 670 },
+        { id: 'recording', label: 'Recording', height: 600 }
     ]
 
     onMounted(() => {
         loadSettings()
-        setTimeout(resizeWindow, 350)
     })
-
-    watch(activeTab, async () => {
-        // Wait for DOM to update before resizing
-        await nextTick()
-        setTimeout(resizeWindow, 350)
-    })
-
-    const resizeWindow = () => {
-        if (contentRef.value && window.electron?.ipcRenderer) {
-            // Measure the actual content height
-            const height = contentRef.value.scrollHeight + 80 // Add buffer for window chrome and spacing
-            window.electron.ipcRenderer.send('window:resize', { height, width: 600 })
-        }
-    }
 
     const closeWindow = () => {
         if (window.electronWindows) {
@@ -117,12 +104,17 @@
 
         settings[field] = keys.join(' + ')
     }
+
+    const changeTab = (tab) => {
+        activeTab.value = tab.id
+        resizeWindowTo('settings', 600, tab.height)
+    }
 </script>
 
 <template>
     <section
         ref="contentRef"
-        class="relative w-full rounded-2xl bg-white shadow-[0_20px_60px_rgba(17,32,67,0.1)] ring-1 ring-slate-100/80">
+        class="drag relative w-full rounded-2xl bg-white shadow-[0_20px_60px_rgba(17,32,67,0.1)] ring-1 ring-slate-100/80">
         <button
             @click="closeWindow"
             class="no-drag absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg font-semibold text-slate-500 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-300 focus:outline-none"
@@ -138,11 +130,11 @@
 
             <nav
                 v-if="mainTabs.length > 1"
-                class="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
+                class="no-drag flex flex-wrap gap-2 border-b border-slate-100 pb-4">
                 <button
                     v-for="tab in mainTabs"
                     :key="tab.id"
-                    @click="activeTab = tab.id"
+                    @click="changeTab(tab)"
                     type="button"
                     :class="[
                         'rounded-lg border px-4 py-2 text-sm font-semibold transition focus:ring-2 focus:ring-blue-500/30 focus:outline-none',
@@ -155,7 +147,7 @@
             </nav>
         </div>
 
-        <div class="px-7 pt-4 pb-7">
+        <div class="no-drag px-7 pt-4 pb-7">
             <transition
                 enter-active-class="transition-all duration-300 ease-out"
                 enter-from-class="opacity-0 translate-y-2 scale-[0.99]"
@@ -410,7 +402,7 @@
             </transition>
         </div>
 
-        <footer class="flex items-center justify-end gap-3 border-t border-slate-100 px-7 py-4">
+        <footer class="no-drag flex items-center justify-end gap-3 border-t border-slate-100 px-7 py-4">
             <button
                 type="button"
                 @click="cancelChanges"
