@@ -40,12 +40,7 @@ class SystemTray {
 
         this.mainWindow.trayPosition = trayCenter
 
-        if (typeof this.mainWindow.showInactive === 'function') {
-            this.mainWindow.showInactive()
-        } else {
-            this.mainWindow.show()
-        }
-
+        // Set platform-specific properties BEFORE showing the window to prevent flashing
         if (process.platform === 'darwin') {
             this.mainWindow.setVisibleOnAllWorkspaces(true, {
                 visibleOnFullScreen: true
@@ -55,6 +50,9 @@ class SystemTray {
             this.mainWindow.setMenu(null)
             this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
         }
+
+        // Now show the window after all properties are set
+        this.mainWindow.show()
     }
 
     onTrayClick(event, bounds) {
