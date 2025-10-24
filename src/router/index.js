@@ -8,8 +8,6 @@ import LoginView from '../views/LoginView.vue'
 import ScreenshotView from '../views/ScreenshotView.vue'
 import DesignView from '../views/DesignView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
-import RecordingView from '../views/RecordingView.vue'
-import RecordingPreview from '../views/RecordingPreview.vue'
 import { useStore } from '../store'
 
 const routes = [
@@ -60,18 +58,6 @@ const routes = [
         name: 'notifications',
         component: NotificationsView,
         meta: { windowType: 'notifications' }
-    },
-    {
-        path: '/recording',
-        name: 'recording',
-        component: RecordingView,
-        meta: { windowType: 'recording' }
-    },
-    {
-        path: '/recording-preview',
-        name: 'recording-preview',
-        component: RecordingPreview,
-        meta: { windowType: 'recording-preview' }
     }
 ]
 

@@ -14,8 +14,6 @@ contextBridge.exposeInMainWorld('electron', {
     readFileAsBuffer: (filePath) => ipcRenderer.invoke('read-file-as-buffer', filePath),
     startScreenshotMode: () => ipcRenderer.invoke('start-screenshot-mode'),
     cancelScreenshotMode: () => ipcRenderer.send('cancel-screenshot-mode'),
-    startRecordingMode: () => ipcRenderer.invoke('start-recording-mode'),
-    cancelRecordingMode: () => ipcRenderer.send('cancel-recording-mode'),
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
 })
@@ -32,8 +30,6 @@ contextBridge.exposeInMainWorld('electronWindows', {
     closeWindowsByType: (type) => ipcRenderer.invoke('close-windows-by-type', type),
     closeOtherScreenshotWindows: (currentDisplayId) =>
         ipcRenderer.invoke('close-other-screenshot-windows', currentDisplayId),
-    closeOtherRecordingWindows: (currentDisplayId) =>
-        ipcRenderer.invoke('close-other-recording-windows', currentDisplayId),
     onDisplayChanged: (callback) => {
         ipcRenderer.on('display-changed', (event, displayId) => callback(displayId))
     },

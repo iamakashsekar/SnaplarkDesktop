@@ -80,13 +80,6 @@ async function takeScreenshotForDisplay(source, type, bounds, display) {
     return image
 }
 
-/**
- * Finds the correct desktopCapturer source for a given Electron screen display object.
- * This is necessary because the `display_id` from desktopCapturer can be inconsistent
- * across different platforms and versions, especially on macOS and Linux.
- * @param {Electron.Display} display The display object from `screen.getDisplayNearestPoint()`.
- * @returns {Promise<Electron.DesktopCapturerSource | null>} The matching source or null.
- */
 async function findSourceForDisplay(display) {
     if (!display) return null
 
@@ -101,30 +94,7 @@ async function findSourceForDisplay(display) {
         fetchWindowIcons: false
     })
 
-    if (sources.length === 0) return null
-
-    // Method 1: Exact display ID match (most reliable when it works).
-    let source = sources.find((s) => s.display_id === displayIdStr)
-    if (source) return source
-
-    // Method 2: If exact match fails, try position-based matching.
-    const displays = screen.getAllDisplays()
-    if (sources.length === displays.length) {
-        const sortedDisplays = [...displays].sort((a, b) => {
-            if (a.bounds.y !== b.bounds.y) return a.bounds.y - b.bounds.y
-            return a.bounds.x - b.bounds.x
-        })
-        const sortedSources = [...sources].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-
-        const targetIndex = sortedDisplays.findIndex((d) => d.id === display.id)
-        if (targetIndex !== -1 && sortedSources[targetIndex]) {
-            return sortedSources[targetIndex]
-        }
-    }
-
-    // Method 3: As a last resort, fallback to the first available source.
-    console.error(`Could not reliably find screen source for displayId: ${display.id}. Falling back to first source.`)
-    return sources[0]
+    return sources.find((s) => s.display_id === displayIdStr) || sources[0] || null
 }
 
 const createWindow = () => {
@@ -232,15 +202,17 @@ app.whenReady().then(() => {
                 mainWindow.hide()
             }
 
-            // A short delay to allow the window to disappear.
-            await new Promise((resolve) => setTimeout(resolve, 100))
+            // A short delay to allow the window to disappear (macOS only).
+            if (process.platform === 'darwin') {
+                await new Promise((resolve) => setTimeout(resolve, 500))
+            }
 
             // Close any existing screenshot windows
             windowManager.closeWindowsByType('screenshot')
 
             // Get all available displays
             const allDisplays = screen.getAllDisplays()
-            console.log(`Found ${allDisplays.length} display(s)`)
+            // console.log(`Found ${allDisplays.length} display(s)`)
 
             // Create screenshots and windows for each display
             const screenshotPromises = allDisplays.map(async (display) => {
@@ -291,11 +263,6 @@ app.whenReady().then(() => {
                 // Create unique window type for each display to avoid conflicts
                 const windowType = `screenshot-${display.id}`
 
-                console.log(`Creating window ${windowType} for display ${display.id}:`, {
-                    bounds: display.bounds,
-                    primary: display.primary
-                })
-
                 const win = windowManager.createWindow(windowType, {
                     ...display.bounds,
                     x: display.bounds.x,
@@ -308,8 +275,6 @@ app.whenReady().then(() => {
                         initialMouseY: mouseY
                     }
                 })
-
-                console.log(`Window ${windowType} created successfully`)
 
                 // Store the screenshot data for this specific window
                 win.screenshotData = dataURL
@@ -373,7 +338,6 @@ app.whenReady().then(() => {
                         mouseY: initialCursorPos.y - display.bounds.y
                     }
                     win.webContents.send('display-activation-changed', activationData)
-                    console.log(`Initial activation sent to window ${windowType}:`, activationData.isActive)
                 })
 
                 // Explicitly show the window
@@ -395,8 +359,6 @@ app.whenReady().then(() => {
                         }
                     }, 200)
                 }
-
-                console.log(`Window ${windowType} shown on display ${display.id}`)
 
                 // Clean up handler when window closes
                 win.on('closed', () => {
@@ -444,11 +406,6 @@ app.whenReady().then(() => {
             // Start mouse tracking with reduced frequency (every 100ms)
             mouseTrackingInterval = setInterval(updateActiveWindow, 100)
 
-            // Set initial active window with multiple attempts to ensure delivery
-            setTimeout(() => updateActiveWindow(true), 100)
-            setTimeout(() => updateActiveWindow(true), 300)
-            setTimeout(() => updateActiveWindow(true), 500)
-
             // Clean up when any screenshot window closes
             const originalCleanup = () => {
                 if (mouseTrackingInterval) {
@@ -476,38 +433,27 @@ app.whenReady().then(() => {
     // Handle copy screenshot to clipboard
     ipcMain.handle('copy-screenshot', async (event, type, bounds, displayId) => {
         try {
-            // Hide the screenshot overlay window to exclude it from the capture
             const senderWindow = BrowserWindow.fromWebContents(event.sender)
             if (senderWindow) {
                 senderWindow.hide()
             }
 
-            // A short delay to allow the window to disappear.
             await new Promise((resolve) => setTimeout(resolve, 200))
 
-            // Get all displays
             const displays = screen.getAllDisplays()
             const primaryDisplay = screen.getPrimaryDisplay()
-
-            // Defensively handle null displayId by defaulting to the primary display
             const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-
             const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
             const source = await findSourceForDisplay(targetDisplay)
-
             if (!source) {
                 throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
             }
 
-            // Get the image using the same logic as saving
             const image = await takeScreenshotForDisplay(source, type, bounds, targetDisplay)
 
-            // Copy image to clipboard
             clipboard.writeImage(image)
 
-            // Cleanup screenshot mode
-            // No longer needed - using event-driven display tracking
             windowManager.closeWindowsByType('screenshot')
 
             return { success: true, message: 'Screenshot copied to clipboard' }
@@ -523,170 +469,6 @@ app.whenReady().then(() => {
         windowManager.closeWindowsByType('screenshot')
     })
 
-    // ==================== VIDEO RECORDING HANDLERS ====================
-
-    ipcMain.handle('start-recording-mode', async () => {
-        try {
-            const mainWindow = windowManager.getWindow('main')
-            if (mainWindow) {
-                mainWindow.hide()
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, 100))
-
-            windowManager.closeWindowsByType('recording')
-
-            const allDisplays = screen.getAllDisplays()
-            console.log(`Found ${allDisplays.length} display(s) for recording`)
-
-            const recordingPromises = allDisplays.map(async (display) => {
-                try {
-                    const source = await findSourceForDisplay(display)
-                    if (!source) {
-                        console.error(`Could not find screen source for displayId: ${display.id}`)
-                        return null
-                    }
-
-                    const image = await takeScreenshotForDisplay(source, 'fullscreen', null, display)
-                    const dataURL = image.toDataURL()
-
-                    const cursorPos = screen.getCursorScreenPoint()
-                    let mouseX = cursorPos.x - display.bounds.x
-                    let mouseY = cursorPos.y - display.bounds.y
-                    mouseX = Math.max(0, Math.min(mouseX, display.bounds.width))
-                    mouseY = Math.max(0, Math.min(mouseY, display.bounds.height))
-
-                    const timestamp = Date.now()
-                    const windowType = `recording-${display.id}-${timestamp}`
-                    const win = windowManager.createWindow(windowType, {
-                        x: display.bounds.x,
-                        y: display.bounds.y,
-                        width: display.bounds.width,
-                        height: display.bounds.height,
-                        params: {
-                            displayId: display.id,
-                            timestamp: timestamp,
-                            initialMouseX: mouseX,
-                            initialMouseY: mouseY
-                        }
-                    })
-
-                    console.log(`Recording window ${windowType} created successfully`)
-
-                    win.screenshotData = dataURL
-                    win.displayInfo = display
-
-                    win.setBounds({
-                        x: display.bounds.x,
-                        y: display.bounds.y,
-                        width: display.bounds.width,
-                        height: display.bounds.height
-                    })
-
-                    const handlerKey = `get-initial-magnifier-data-${display.id}-${timestamp}`
-                    ipcMain.handleOnce(handlerKey, (event) => {
-                        if (event.sender === win.webContents) {
-                            return dataURL
-                        }
-                        return null
-                    })
-
-                    if (process.platform === 'darwin') {
-                        win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-                        win.setAlwaysOnTop(true, 'screen-saver', 1)
-                    } else if (process.platform === 'win32') {
-                        win.setAlwaysOnTop(true, 'screen-saver')
-                        win.setSkipTaskbar(true)
-
-                        if (display.primary) {
-                            win.setKiosk(true)
-                        } else {
-                            win.setFullScreen(true)
-                        }
-                    }
-
-                    win.once('ready-to-show', () => {
-                        win.show()
-                        win.focus()
-                    })
-
-                    return { success: true, displayId: display.id, windowType }
-                } catch (error) {
-                    console.error(`Error creating recording window for display ${display.id}:`, error)
-                    return null
-                }
-            })
-
-            const results = await Promise.all(recordingPromises)
-            const successfulWindows = results.filter((r) => r !== null)
-
-            if (successfulWindows.length === 0) {
-                throw new Error('Failed to create any recording windows')
-            }
-
-            return { success: true, windows: successfulWindows }
-        } catch (error) {
-            console.error('Error starting recording mode:', error)
-            windowManager.closeWindowsByType('recording')
-            return { success: false, error: error.message }
-        }
-    })
-
-    ipcMain.on('cancel-recording-mode', () => {
-        console.log('cancel-recording-mode called')
-        windowManager.closeWindowsByType('recording')
-    })
-
-    ipcMain.handle('save-recording', async (event, options) => {
-        try {
-            const { filename, buffer } = options
-
-            const homeDir = os.homedir()
-            const recordingsDir = path.join(
-                homeDir,
-                process.platform === 'darwin' ? 'Movies/Snaplark' : 'Videos/Snaplark'
-            )
-
-            if (!fs.existsSync(recordingsDir)) {
-                fs.mkdirSync(recordingsDir, { recursive: true })
-            }
-
-            const filepath = path.join(recordingsDir, filename)
-            const bufferData = Buffer.from(buffer)
-            fs.writeFileSync(filepath, bufferData)
-
-            const { size } = fs.statSync(filepath)
-
-            windowManager.closeWindowsByType('recording')
-
-            return {
-                success: true,
-                filepath: filepath,
-                filename: filename,
-                size: size
-            }
-        } catch (error) {
-            console.error('Save recording error:', error)
-            return { success: false, error: error.message }
-        }
-    })
-
-    ipcMain.handle('close-other-recording-windows', async (event, currentDisplayId) => {
-        try {
-            windowManager.windows.forEach((window, key) => {
-                if (key.startsWith('recording-') && !window.isDestroyed()) {
-                    if (window.displayInfo && window.displayInfo.id !== currentDisplayId) {
-                        window.close()
-                    }
-                }
-            })
-            return { success: true }
-        } catch (error) {
-            console.error('Error closing other recording windows:', error)
-            return { success: false, error: error.message }
-        }
-    })
-
     // Handle screenshot capture (temporarily saves for processing, e.g., OCR)
     ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {
         try {
@@ -695,9 +477,8 @@ app.whenReady().then(() => {
                 if (senderWindow) {
                     senderWindow.hide()
                 }
+                await new Promise((resolve) => setTimeout(resolve, 200))
             }
-
-            await new Promise((resolve) => setTimeout(resolve, 200))
 
             const displays = screen.getAllDisplays()
             const primaryDisplay = screen.getPrimaryDisplay()
@@ -711,15 +492,8 @@ app.whenReady().then(() => {
 
             const image = await takeScreenshotForDisplay(source, type, bounds, targetDisplay)
 
-            const homeDir = os.homedir()
-            const screenshotsDir = path.join(
-                homeDir,
-                process.platform === 'darwin' ? 'Pictures/Snaplark' : 'Pictures/Snaplark'
-            )
-
-            if (!fs.existsSync(screenshotsDir)) {
-                fs.mkdirSync(screenshotsDir, { recursive: true })
-            }
+            const screenshotsDir = path.join(os.homedir(), 'Pictures', 'Snaplark')
+            fs.mkdirSync(screenshotsDir, { recursive: true })
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
             const filename = `Screenshot_${timestamp}.png`
@@ -728,10 +502,8 @@ app.whenReady().then(() => {
             const imageBuffer = image.toPNG()
             fs.writeFileSync(filepath, imageBuffer)
 
-            // Get file size in bytes
             const { size } = fs.statSync(filepath)
 
-            // No longer needed - using event-driven display tracking
             if (closeWindow) {
                 windowManager.closeWindowsByType('screenshot')
             }
@@ -741,8 +513,7 @@ app.whenReady().then(() => {
                 path: filepath,
                 dataUrl: image.toDataURL(),
                 filename: filename,
-                size: size // in bytes
-                // image: image
+                size: size
             }
         } catch (error) {
             console.error('Screenshot error:', error)
@@ -755,7 +526,6 @@ app.whenReady().then(() => {
         try {
             const { type, bounds, displayId, defaultFilename, dataUrl } = options
 
-            // Hide all screenshot windows before capturing/showing dialog
             const screenshotWindows = []
             windowManager.windows.forEach((window, key) => {
                 if (key.startsWith('screenshot-') && !window.isDestroyed()) {
@@ -764,17 +534,14 @@ app.whenReady().then(() => {
                 }
             })
 
-            // Wait for windows to disappear
             await new Promise((resolve) => setTimeout(resolve, 200))
 
             let imageBuffer
 
-            // If dataUrl is provided (edited image), use it directly
             if (dataUrl) {
                 const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
                 imageBuffer = Buffer.from(base64Data, 'base64')
             } else {
-                // Otherwise, capture a fresh screenshot (for non-edited images)
                 const displays = screen.getAllDisplays()
                 const primaryDisplay = screen.getPrimaryDisplay()
                 const displayIdStr = (displayId ?? primaryDisplay.id).toString()
@@ -789,12 +556,7 @@ app.whenReady().then(() => {
                 imageBuffer = image.toPNG()
             }
 
-            const homeDir = os.homedir()
-            const defaultPath = path.join(
-                homeDir,
-                process.platform === 'darwin' ? 'Pictures' : 'Pictures',
-                defaultFilename
-            )
+            const defaultPath = path.join(os.homedir(), 'Pictures', defaultFilename)
 
             const result = await dialog.showSaveDialog({
                 title: 'Save Screenshot',
