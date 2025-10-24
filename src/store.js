@@ -2,52 +2,15 @@ import { defineStore } from 'pinia'
 import { TokenManager, apiClient } from './api/config.js'
 import connectivityService from './services/connectivity.js'
 import router from './router'
-
-// Keys that should NOT be persisted (runtime-only state)
-const excludeFromPersist = ['isLoading', 'isOnline', 'authError']
+import { defaultState, excludeFromPersist } from './store-defaults.js'
 
 export const useStore = defineStore('main', {
     state: () => ({
-        // UI State
-        isDarkMode: false,
+        ...defaultState,
+        // Runtime-only state (not persisted)
         isLoading: false,
-
-        // Auth State
         authError: null,
-        user: null,
-        isAuthenticated: false,
-
-        welcomeCompleted: false,
-
-        // Connectivity State (synced with global service)
-        isOnline: connectivityService.isOnline,
-
-        // Upload State
-        lastCapture: null,
-
-        // App Settings
-        settings: {
-            // General
-            launchAtStartup: false,
-            language: 'en',
-            defaultSaveFolder: '~/Pictures/Snaplark',
-
-            // Hotkeys
-            hotkeyScreenshot: 'Shift + Cmd + S',
-            hotkeyRecording: 'Shift + Cmd + R',
-            hotkeyQuickMenu: 'Ctrl + Alt + S',
-
-            // Capture
-            uploadQuality: 'high',
-            showMagnifier: true,
-            showGrid: false,
-            showCursor: true,
-
-            // Recording
-            flipCamera: false,
-            recordAudioMono: false,
-            recordingCountdown: true
-        }
+        isOnline: connectivityService.isOnline
     }),
 
     persist: {
@@ -176,62 +139,10 @@ export const useStore = defineStore('main', {
 
         async updateSetting(key, value) {
             this.settings[key] = value
-
-            // Sync launch at startup with OS
-            if (key === 'launchAtStartup') {
-                await this.syncLaunchAtStartup(value)
-            }
-        },
-
-        async syncLaunchAtStartup(enabled) {
-            try {
-                console.log(`Syncing launch at startup to OS: ${enabled}`)
-                const result = await window.electron.setLaunchAtStartup(enabled)
-                if (result.success) {
-                    console.log(`Successfully set launch at startup to: ${enabled}`)
-                } else {
-                    console.error('Failed to set launch at startup:', result.error)
-                }
-            } catch (error) {
-                console.error('Error syncing launch at startup:', error)
-            }
-        },
-
-        async initializeLaunchAtStartup() {
-            try {
-                // Get the actual OS setting
-                const result = await window.electron.getLaunchAtStartup()
-                if (result.success) {
-                    // If store setting differs from OS, sync store setting TO OS
-                    // This ensures user's saved preference takes precedence
-                    if (this.settings.launchAtStartup !== result.enabled) {
-                        console.log(
-                            `Launch at startup mismatch. Store: ${this.settings.launchAtStartup}, OS: ${result.enabled}. Syncing to OS...`
-                        )
-                        await this.syncLaunchAtStartup(this.settings.launchAtStartup)
-                    }
-                }
-            } catch (error) {
-                console.error('Error initializing launch at startup:', error)
-            }
         },
 
         resetSettings() {
-            this.settings = {
-                launchAtStartup: false,
-                language: 'en',
-                defaultSaveFolder: '~/Pictures/Snaplark',
-                hotkeyScreenshot: 'Shift + Cmd + S',
-                hotkeyRecording: 'Shift + Cmd + R',
-                hotkeyQuickMenu: 'Ctrl + Alt + S',
-                uploadQuality: 'high',
-                showMagnifier: true,
-                showGrid: false,
-                showCursor: true,
-                flipCamera: false,
-                recordAudioMono: false,
-                recordingCountdown: true
-            }
+            this.settings = { ...defaultState.settings }
         },
 
         initializeConnectivity() {

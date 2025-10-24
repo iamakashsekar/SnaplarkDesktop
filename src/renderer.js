@@ -18,9 +18,9 @@ const appInstance = app.mount('#app')
 
 // Initialize store and services after app is mounted
 const store = useStore()
+store.settings.language = 'bn'
 store.initializeAuth()
 store.initializeConnectivity()
-store.initializeLaunchAtStartup()
 store.initializeStoreSync()
 
 // Listen for auth events from the HTTP client

@@ -22,10 +22,6 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.invoke('take-screenshot', type, bounds, displayId, closeWindow),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
 
-    // Settings
-    setLaunchAtStartup: (enabled) => ipcRenderer.invoke('set-launch-at-startup', enabled),
-    getLaunchAtStartup: () => ipcRenderer.invoke('get-launch-at-startup'),
-
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)

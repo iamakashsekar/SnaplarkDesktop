@@ -9,10 +9,13 @@ import WindowManager from './services/window-manager.js'
 import ScreenshotService from './services/screenshot-service.js'
 import NotificationService from './services/notification-service.js'
 import StoreService from './services/store-service.js'
+import { getPersistableDefaults } from './store-defaults.js'
 
 // ==================== CONFIGURATION & INITIALIZATION ====================
 
-const store = new Store()
+const store = new Store({
+    defaults: getPersistableDefaults()
+})
 
 if (started) {
     app.quit()
@@ -88,6 +91,20 @@ app.whenReady().then(() => {
     setupProtocolHandlers()
     setupIPCHandlers()
 
+    // Update electron store with Pinia store state
+
+    // Set launch at startup based on stored settings
+    try {
+        const launchAtStartup = store.get('settings.launchAtStartup')
+        app.setLoginItemSettings({
+            openAtLogin: launchAtStartup,
+            openAsHidden: true
+        })
+        console.log(`Login item settings configured: openAtLogin=${launchAtStartup}`)
+    } catch (error) {
+        console.error('Failed to set login item settings:', error)
+    }
+
     if (process.platform === 'darwin') {
         app.dock.hide()
     }
@@ -137,30 +154,6 @@ function setupIPCHandlers() {
 
     ipcMain.handle('open-external', (event, url) => {
         shell.openExternal(url)
-    })
-
-    // Settings handlers
-    ipcMain.handle('set-launch-at-startup', (event, enabled) => {
-        try {
-            app.setLoginItemSettings({
-                openAtLogin: enabled,
-                openAsHidden: false
-            })
-            return { success: true }
-        } catch (error) {
-            console.error('Error setting launch at startup:', error)
-            return { success: false, error: error.message }
-        }
-    })
-
-    ipcMain.handle('get-launch-at-startup', () => {
-        try {
-            const settings = app.getLoginItemSettings()
-            return { success: true, enabled: settings.openAtLogin }
-        } catch (error) {
-            console.error('Error getting launch at startup:', error)
-            return { success: false, error: error.message }
-        }
     })
 
     // File system handlers

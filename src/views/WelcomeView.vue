@@ -5,7 +5,7 @@
 
     const store = useStore()
 
-    const { closeWindow, sizerRef, sizerData, centerWindow, resizeWindowTo } = useWindows()
+    const { closeWindow, centerWindow, resizeWindowTo } = useWindows()
 
     onMounted(async () => {
         await resizeWindowTo('welcome', 450, 455)
@@ -42,7 +42,7 @@
 
     const finishSetup = () => {
         try {
-            window.electronStore?.set('welcomeCompleted', true)
+            store.welcomeCompleted = true
             window.electron.showMainAtTray({ force: true, gap: 0 })
         } catch (error) {
             console.error('Error saving welcome completion status:', error)
