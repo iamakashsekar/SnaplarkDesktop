@@ -139,6 +139,30 @@ function setupIPCHandlers() {
         shell.openExternal(url)
     })
 
+    // Settings handlers
+    ipcMain.handle('set-launch-at-startup', (event, enabled) => {
+        try {
+            app.setLoginItemSettings({
+                openAtLogin: enabled,
+                openAsHidden: false
+            })
+            return { success: true }
+        } catch (error) {
+            console.error('Error setting launch at startup:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
+    ipcMain.handle('get-launch-at-startup', () => {
+        try {
+            const settings = app.getLoginItemSettings()
+            return { success: true, enabled: settings.openAtLogin }
+        } catch (error) {
+            console.error('Error getting launch at startup:', error)
+            return { success: false, error: error.message }
+        }
+    })
+
     // File system handlers
     ipcMain.handle('read-file-as-buffer', async (event, filePath) => {
         try {

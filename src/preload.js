@@ -22,6 +22,10 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.invoke('take-screenshot', type, bounds, displayId, closeWindow),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
 
+    // Settings
+    setLaunchAtStartup: (enabled) => ipcRenderer.invoke('set-launch-at-startup', enabled),
+    getLaunchAtStartup: () => ipcRenderer.invoke('get-launch-at-startup'),
+
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
@@ -82,6 +86,7 @@ contextBridge.exposeInMainWorld('electronNotifications', {
 
 contextBridge.exposeInMainWorld('electronStore', {
     get: (key) => storeSend('get', key),
+    getAll: () => storeSend('get'),
     set: (key, value) => storeSend('set', key, value),
     sync: (key, value) => ipcRenderer.send('store:sync', { key, value }),
     onUpdate: (callback) => ipcRenderer.on('store:update', (event, { key, value }) => callback(key, value))
