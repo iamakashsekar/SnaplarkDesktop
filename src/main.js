@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, screen } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, protocol, screen, net } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -10,11 +10,15 @@ import ScreenshotService from './services/screenshot-service.js'
 import NotificationService from './services/notification-service.js'
 import StoreService from './services/store-service.js'
 
+// ==================== CONFIGURATION & INITIALIZATION ====================
+
 const store = new Store()
 
 if (started) {
     app.quit()
 }
+
+// ==================== SINGLE INSTANCE LOCK ====================
 
 const gotTheLock = app.requestSingleInstanceLock()
 
@@ -36,6 +40,8 @@ if (!gotTheLock) {
     })
 }
 
+// ==================== PROTOCOL CLIENT SETUP ====================
+
 if (process.defaultApp) {
     if (process.argv.length >= 2) {
         app.setAsDefaultProtocolClient('snaplark', process.execPath, [path.resolve(process.argv[1])])
@@ -44,11 +50,15 @@ if (process.defaultApp) {
     app.setAsDefaultProtocolClient('snaplark')
 }
 
+// ==================== GLOBAL STATE ====================
+
 let windowManager
 let tray
 let screenshotService
 let notificationService
 let storeService
+
+// ==================== WINDOW CREATION ====================
 
 const createWindow = () => {
     windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME)
@@ -62,8 +72,6 @@ const createWindow = () => {
         return { action: 'deny' }
     })
 
-    mainWindow.once('ready-to-show', () => {})
-
     const welcomeCompleted = store.get('welcomeCompleted')
     if (!welcomeCompleted) {
         windowManager.createWindow('welcome')
@@ -74,21 +82,51 @@ const createWindow = () => {
     storeService = new StoreService(windowManager, store)
 }
 
+// ==================== APP LIFECYCLE ====================
+
 app.whenReady().then(() => {
-    protocol.registerFileProtocol('screenshot-image', (request, callback) => {
-        try {
-            const url = request.url.replace(/^screenshot-image:\/\//, '')
-            const decodedPath = decodeURIComponent(url)
-            callback({ path: path.normalize(decodedPath) })
-        } catch (error) {
-            console.error('Failed to handle screenshot-image protocol request', error)
-        }
-    })
+    setupProtocolHandlers()
+    setupIPCHandlers()
 
     if (process.platform === 'darwin') {
         app.dock.hide()
     }
 
+    createWindow()
+
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+            createWindow()
+        }
+    })
+})
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit()
+    }
+})
+
+// ==================== PROTOCOL HANDLERS ====================
+
+function setupProtocolHandlers() {
+    protocol.handle('screenshot-image', (request) => {
+        try {
+            const url = request.url.replace(/^screenshot-image:\/\//, '')
+            const decodedPath = decodeURIComponent(url)
+            const filePath = path.normalize(decodedPath)
+            return net.fetch(`file://${filePath}`)
+        } catch (error) {
+            console.error('Failed to handle screenshot-image protocol request', error)
+            return new Response('File not found', { status: 404 })
+        }
+    })
+}
+
+// ==================== IPC HANDLERS ====================
+
+function setupIPCHandlers() {
+    // System handlers
     ipcMain.on('quit-app', () => {
         app.quit()
     })
@@ -97,6 +135,11 @@ app.whenReady().then(() => {
         return os.hostname()
     })
 
+    ipcMain.handle('open-external', (event, url) => {
+        shell.openExternal(url)
+    })
+
+    // File system handlers
     ipcMain.handle('read-file-as-buffer', async (event, filePath) => {
         try {
             const allowedDir = os.homedir()
@@ -114,6 +157,7 @@ app.whenReady().then(() => {
         }
     })
 
+    // Tray handlers
     ipcMain.handle('show-main-at-tray', (event, options = {}) => {
         try {
             if (tray && typeof tray.showMainAtTray === 'function') {
@@ -127,10 +171,7 @@ app.whenReady().then(() => {
         }
     })
 
-    ipcMain.handle('open-external', (event, url) => {
-        shell.openExternal(url)
-    })
-
+    // Connectivity handlers
     ipcMain.on('connectivity-status', (event, data) => {
         console.log(`[Main] Connectivity status received: ${data.status} (${data.isOnline ? 'Online' : 'Offline'})`)
 
@@ -145,15 +186,9 @@ app.whenReady().then(() => {
             ...data
         })
     })
+}
 
-    createWindow()
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow()
-        }
-    })
-})
+// ==================== DEEP LINK HANDLERS ====================
 
 const handleProtocolUrl = (url) => {
     console.log('Protocol URL received:', url)
@@ -202,9 +237,3 @@ if (process.argv.length >= 2) {
         })
     }
 }
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit()
-    }
-})
