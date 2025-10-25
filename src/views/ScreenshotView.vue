@@ -4,6 +4,9 @@
     import axios from 'axios'
     import KonvaEditor from '../components/KonvaEditor.vue'
     import { createWorker } from 'tesseract.js'
+    import { useStore } from '@/store'
+
+    const store = useStore()
 
     const loading = ref(false)
     // Core selection state
@@ -433,7 +436,14 @@
                 options.defaultFilename = `Screenshot_${timestamp}.png`
             }
 
-            const saveResult = await window.electron?.invoke('save-screenshot-with-dialog', options)
+            const promptForSaveLocation = store.settings.promptForSaveLocation
+
+            let saveResult
+            if (promptForSaveLocation) {
+                saveResult = await window.electron?.invoke('save-screenshot-with-dialog', options)
+            } else {
+                saveResult = await window.electron?.invoke('save-screenshot-directly', options)
+            }
 
             if (saveResult?.success) {
                 // Window is closed by the main process after successful save

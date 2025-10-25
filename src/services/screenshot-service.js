@@ -4,8 +4,9 @@ import os from 'node:os'
 import fs from 'node:fs'
 
 class ScreenshotService {
-    constructor(windowManager) {
+    constructor(windowManager, store) {
         this.windowManager = windowManager
+        this.store = store
         this.mouseTrackingInterval = null
         this.setupHandlers()
     }
@@ -44,9 +45,15 @@ class ScreenshotService {
     }
 
     ensureScreenshotsDirectory() {
-        const screenshotsDir = path.join(os.homedir(), 'Pictures', 'Snaplark')
-        fs.mkdirSync(screenshotsDir, { recursive: true })
-        return screenshotsDir
+        const settings = this.store.get('settings') || {}
+        let defaultSaveFolder = settings.defaultSaveFolder || '~/Pictures/Snaplark'
+
+        if (defaultSaveFolder.startsWith('~')) {
+            defaultSaveFolder = defaultSaveFolder.replace('~', os.homedir())
+        }
+
+        fs.mkdirSync(defaultSaveFolder, { recursive: true })
+        return defaultSaveFolder
     }
 
     setupHandlers() {
@@ -282,6 +289,61 @@ class ScreenshotService {
 
         ipcMain.on('cancel-screenshot-mode', () => {
             this.windowManager.closeWindowsByType('screenshot')
+        })
+
+        ipcMain.handle('save-screenshot-directly', async (event, options) => {
+            try {
+                const { type, bounds, displayId, dataUrl, defaultFilename } = options
+
+                const senderWindow = BrowserWindow.fromWebContents(event.sender)
+                if (senderWindow) {
+                    senderWindow.hide()
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 200))
+
+                let imageBuffer
+
+                if (dataUrl) {
+                    const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+                    imageBuffer = Buffer.from(base64Data, 'base64')
+                } else {
+                    const displays = screen.getAllDisplays()
+                    const primaryDisplay = screen.getPrimaryDisplay()
+                    const displayIdStr = (displayId ?? primaryDisplay.id).toString()
+                    const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
+
+                    const source = await this.findSourceForDisplay(targetDisplay)
+                    if (!source) {
+                        throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
+                    }
+
+                    const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
+                    imageBuffer = image.toPNG()
+                }
+
+                const screenshotsDir = this.ensureScreenshotsDirectory()
+
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
+                const filename = defaultFilename || `Screenshot_${timestamp}.png`
+                const filepath = path.join(screenshotsDir, filename)
+
+                fs.writeFileSync(filepath, imageBuffer)
+
+                const { size } = fs.statSync(filepath)
+
+                this.windowManager.closeWindowsByType('screenshot')
+
+                return {
+                    success: true,
+                    path: filepath,
+                    filename: filename,
+                    size: size
+                }
+            } catch (error) {
+                console.error('Save screenshot directly error:', error)
+                return { success: false, error: error.message }
+            }
         })
 
         ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {

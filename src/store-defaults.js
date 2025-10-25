@@ -20,6 +20,7 @@ export const defaultState = {
         launchAtStartup: false,
         language: 'en',
         defaultSaveFolder: '~/Pictures/Snaplark',
+        promptForSaveLocation: false,
 
         // Hotkeys
         hotkeyScreenshot: 'Shift + Cmd + S',

@@ -19,41 +19,18 @@
         { id: 'recording', label: 'Recording', height: 600 }
     ]
 
-    // Watch for launch at startup changes and sync with OS
-    watch(
-        () => settings.launchAtStartup,
-        (newValue) => {
-            store.syncLaunchAtStartup(newValue)
-        }
-    )
-
     const closeWindow = () => {
         if (window.electronWindows) {
             window.electronWindows.closeWindow('settings')
         }
     }
 
-    const saveSettings = () => {
-        // Settings are automatically synced via Pinia persist
-        // Just close the window
-        console.log('Settings saved successfully')
-        closeWindow()
-    }
-
-    const cancelChanges = () => {
-        // Reload settings from store to discard changes
-        // Note: In a real app, you'd want to keep a copy and restore it
-        // For now, just close since changes are auto-saved
-        closeWindow()
-    }
-
-    const browseSaveFolder = () => {
-        if (window.electron?.ipcRenderer) {
-            window.electron.ipcRenderer.invoke('dialog:openDirectory').then((result) => {
-                if (!result.canceled && result.filePaths.length > 0) {
-                    store.updateSetting('defaultSaveFolder', result.filePaths[0])
-                }
-            })
+    const browseSaveFolder = async () => {
+        if (window.electron?.invoke) {
+            const result = await window.electron.invoke('dialog:openDirectory')
+            if (!result.canceled && result.filePaths.length > 0) {
+                store.updateSetting('defaultSaveFolder', result.filePaths[0])
+            }
         }
     }
 
@@ -158,22 +135,40 @@
                                     v-model="settings.language"
                                     class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
                                     <option value="en">English</option>
-                                    <option value="es">Español</option>
-                                    <option value="fr">Français</option>
-                                    <option value="de">Deutsch</option>
-                                    <option value="it">Italiano</option>
-                                    <option value="pt">Português</option>
-                                    <option value="ja">日本語</option>
-                                    <option value="zh">中文</option>
+                                    <option value="ru">Russian</option>
                                 </select>
                             </label>
                         </div>
 
-                        <!-- Default Save Folder -->
+                        <!-- Save Location Behavior -->
                         <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-base font-semibold text-slate-900">Prompt for Save Location</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Ask where to save each screenshot</p>
+                                </div>
+                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.promptForSaveLocation"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Default Save Folder -->
+                        <div
+                            v-if="!settings.promptForSaveLocation"
+                            class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <label class="block">
                                 <h3 class="text-base font-semibold text-slate-900">Default Save Folder</h3>
-                                <p class="mt-1 text-sm text-slate-500">Where screenshots and recordings are saved</p>
+                                <p class="mt-1 text-sm text-slate-500">
+                                    Where screenshots and recordings are saved automatically
+                                </p>
                                 <div class="mt-3 flex gap-2">
                                     <input
                                         type="text"
@@ -370,20 +365,5 @@
                 </div>
             </transition>
         </div>
-
-        <footer class="no-drag flex items-center justify-end gap-3 border-t border-slate-100 px-7 py-4">
-            <button
-                type="button"
-                @click="cancelChanges"
-                class="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-200 focus:outline-none">
-                Cancel
-            </button>
-            <button
-                type="button"
-                @click="saveSettings"
-                class="rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl focus:ring-2 focus:ring-blue-500/50 focus:outline-none">
-                Save
-            </button>
-        </footer>
     </section>
 </template>

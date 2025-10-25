@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, screen, net } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, protocol, screen, net, dialog } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -80,7 +80,7 @@ const createWindow = () => {
         windowManager.createWindow('welcome')
     }
 
-    screenshotService = new ScreenshotService(windowManager)
+    screenshotService = new ScreenshotService(windowManager, store)
     notificationService = new NotificationService(windowManager)
     storeService = new StoreService(windowManager, store)
 }
@@ -91,16 +91,12 @@ app.whenReady().then(() => {
     setupProtocolHandlers()
     setupIPCHandlers()
 
-    // Update electron store with Pinia store state
-
     // Set launch at startup based on stored settings
     try {
-        const launchAtStartup = store.get('settings.launchAtStartup')
         app.setLoginItemSettings({
-            openAtLogin: launchAtStartup,
+            openAtLogin: store.get('settings.launchAtStartup'),
             openAsHidden: true
         })
-        console.log(`Login item settings configured: openAtLogin=${launchAtStartup}`)
     } catch (error) {
         console.error('Failed to set login item settings:', error)
     }
@@ -172,6 +168,14 @@ function setupIPCHandlers() {
             console.error('Error reading file in main process:', error)
             throw error
         }
+    })
+
+    // Dialog handlers
+    ipcMain.handle('dialog:openDirectory', async () => {
+        const result = await dialog.showOpenDialog({
+            properties: ['openDirectory', 'createDirectory']
+        })
+        return result
     })
 
     // Tray handlers
