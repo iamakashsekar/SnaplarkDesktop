@@ -56,6 +56,21 @@ class ScreenshotService {
         return defaultSaveFolder
     }
 
+    applyQualitySettings(image) {
+        const settings = this.store.get('settings') || {}
+        const quality = settings.uploadQuality || 'high'
+
+        switch (quality) {
+            case 'low':
+                return { buffer: image.toJPEG(75), extension: '.jpg' }
+            case 'medium':
+                return { buffer: image.toJPEG(90), extension: '.jpg' }
+            case 'high':
+            default:
+                return { buffer: image.toPNG(), extension: '.png' }
+        }
+    }
+
     setupHandlers() {
         ipcMain.handle('start-screenshot-mode', async () => {
             try {
@@ -303,10 +318,15 @@ class ScreenshotService {
                 await new Promise((resolve) => setTimeout(resolve, 200))
 
                 let imageBuffer
+                let extension = '.png'
 
                 if (dataUrl) {
                     const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-                    imageBuffer = Buffer.from(base64Data, 'base64')
+                    const rawBuffer = Buffer.from(base64Data, 'base64')
+                    const image = nativeImage.createFromBuffer(rawBuffer)
+                    const qualityResult = this.applyQualitySettings(image)
+                    imageBuffer = qualityResult.buffer
+                    extension = qualityResult.extension
                 } else {
                     const displays = screen.getAllDisplays()
                     const primaryDisplay = screen.getPrimaryDisplay()
@@ -319,13 +339,23 @@ class ScreenshotService {
                     }
 
                     const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-                    imageBuffer = image.toPNG()
+                    const qualityResult = this.applyQualitySettings(image)
+                    imageBuffer = qualityResult.buffer
+                    extension = qualityResult.extension
                 }
 
                 const screenshotsDir = this.ensureScreenshotsDirectory()
 
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-                const filename = defaultFilename || `Screenshot_${timestamp}.png`
+                let filename = defaultFilename || `Screenshot_${timestamp}.png`
+
+                // Update extension based on quality setting
+                if (defaultFilename) {
+                    filename = defaultFilename.replace(/\.(png|jpg|jpeg)$/i, extension)
+                } else {
+                    filename = `Screenshot_${timestamp}${extension}`
+                }
+
                 const filepath = path.join(screenshotsDir, filename)
 
                 fs.writeFileSync(filepath, imageBuffer)
@@ -371,11 +401,11 @@ class ScreenshotService {
                 const screenshotsDir = this.ensureScreenshotsDirectory()
 
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-                const filename = `Screenshot_${timestamp}.png`
+                const qualityResult = this.applyQualitySettings(image)
+                const filename = `Screenshot_${timestamp}${qualityResult.extension}`
                 const filepath = path.join(screenshotsDir, filename)
 
-                const imageBuffer = image.toPNG()
-                fs.writeFileSync(filepath, imageBuffer)
+                fs.writeFileSync(filepath, qualityResult.buffer)
 
                 const { size } = fs.statSync(filepath)
 
@@ -410,11 +440,12 @@ class ScreenshotService {
 
                 await new Promise((resolve) => setTimeout(resolve, 200))
 
-                let imageBuffer
+                let nativeImageObj
 
                 if (dataUrl) {
                     const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-                    imageBuffer = Buffer.from(base64Data, 'base64')
+                    const rawBuffer = Buffer.from(base64Data, 'base64')
+                    nativeImageObj = nativeImage.createFromBuffer(rawBuffer)
                 } else {
                     const displays = screen.getAllDisplays()
                     const primaryDisplay = screen.getPrimaryDisplay()
@@ -426,11 +457,14 @@ class ScreenshotService {
                         throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
                     }
 
-                    const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-                    imageBuffer = image.toPNG()
+                    nativeImageObj = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
                 }
 
-                const defaultPath = path.join(os.homedir(), 'Pictures', defaultFilename)
+                // Remove extension from filename to avoid double extensions
+                // The dialog will add the extension based on the user's selected filter
+                const filenameWithoutExt = defaultFilename.replace(/\.(png|jpg|jpeg|webp)$/i, '')
+
+                const defaultPath = path.join(os.homedir(), 'Pictures', filenameWithoutExt)
 
                 const result = await dialog.showSaveDialog({
                     title: 'Save Screenshot',
@@ -454,14 +488,23 @@ class ScreenshotService {
                 }
 
                 const fileExtension = path.extname(result.filePath).toLowerCase()
-                let finalImageBuffer = imageBuffer
+                let finalImageBuffer
+
+                // Apply format based on user's choice in dialog
+                // Quality settings are applied for JPEG compression
+                const settings = this.store.get('settings') || {}
+                const quality = settings.uploadQuality || 'high'
 
                 if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
-                    const image = nativeImage.createFromBuffer(imageBuffer)
-                    finalImageBuffer = image.toJPEG(90)
+                    // Use quality setting for JPEG compression level
+                    const jpegQuality = quality === 'low' ? 75 : quality === 'medium' ? 90 : 95
+                    finalImageBuffer = nativeImageObj.toJPEG(jpegQuality)
                 } else if (fileExtension === '.webp') {
-                    const image = nativeImage.createFromBuffer(imageBuffer)
-                    finalImageBuffer = image.toPNG()
+                    // WebP doesn't have direct support, save as PNG
+                    finalImageBuffer = nativeImageObj.toPNG()
+                } else {
+                    // PNG or other formats - always use PNG (lossless)
+                    finalImageBuffer = nativeImageObj.toPNG()
                 }
 
                 fs.writeFileSync(result.filePath, finalImageBuffer)

@@ -22,6 +22,18 @@ store.initializeAuth()
 store.initializeConnectivity()
 store.initializeStoreSync()
 
+// Listen for global screenshot shortcut trigger
+if (window.electron?.ipcRenderer) {
+    window.electron.ipcRenderer.on('trigger-screenshot', async () => {
+        console.log('Screenshot triggered via global shortcut')
+        try {
+            await window.electron.startScreenshotMode()
+        } catch (error) {
+            console.error('Error starting screenshot mode:', error)
+        }
+    })
+}
+
 // Listen for auth events from the HTTP client
 // window.addEventListener("auth:logout", (event) => {
 //   console.log("Auth logout event received:", event.detail);

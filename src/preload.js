@@ -24,7 +24,11 @@ contextBridge.exposeInMainWorld('electron', {
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
-    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args)
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+    ipcRenderer: {
+        on: (channel, callback) => ipcRenderer.on(channel, callback),
+        removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)
+    }
 })
 
 // ==================== WINDOW MANAGEMENT APIs ====================

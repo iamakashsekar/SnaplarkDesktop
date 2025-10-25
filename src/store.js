@@ -139,6 +139,11 @@ export const useStore = defineStore('main', {
 
         async updateSetting(key, value) {
             this.settings[key] = value
+
+            // Update global shortcuts when screenshot hotkey changes
+            if (key === 'hotkeyScreenshot' && window.electron?.invoke) {
+                await window.electron.invoke('update-screenshot-shortcut')
+            }
         },
 
         resetSettings() {

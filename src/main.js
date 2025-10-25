@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, screen, net, dialog } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, protocol, screen, net, dialog, globalShortcut } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -60,6 +60,7 @@ let tray
 let screenshotService
 let notificationService
 let storeService
+let currentScreenshotShortcut = null
 
 // ==================== WINDOW CREATION ====================
 
@@ -85,6 +86,68 @@ const createWindow = () => {
     storeService = new StoreService(windowManager, store)
 }
 
+// ==================== GLOBAL SHORTCUTS ====================
+
+const convertHotkeyToElectron = (hotkey) => {
+    if (!hotkey) return null
+
+    // Convert from our format (Shift + Cmd + S) to Electron format (Shift+Command+S)
+    let electronKey = hotkey
+        .replace(/\s*\+\s*/g, '+') // Remove spaces around +
+        .replace(/Cmd/g, 'Command') // Convert Cmd to Command
+        .replace(/Ctrl/g, 'Control') // Convert Ctrl to Control (if needed)
+
+    return electronKey
+}
+
+const registerScreenshotShortcut = () => {
+    const settings = store.get('settings') || {}
+    const hotkey = settings.hotkeyScreenshot
+
+    if (!hotkey) {
+        console.log('No screenshot hotkey configured')
+        return
+    }
+
+    // Unregister previous shortcut if it exists
+    if (currentScreenshotShortcut) {
+        globalShortcut.unregister(currentScreenshotShortcut)
+        console.log(`Unregistered previous screenshot shortcut: ${currentScreenshotShortcut}`)
+    }
+
+    const electronKey = convertHotkeyToElectron(hotkey)
+    if (!electronKey) return
+
+    try {
+        const registered = globalShortcut.register(electronKey, () => {
+            console.log(`Screenshot shortcut triggered: ${electronKey}`)
+            // Trigger screenshot mode
+            if (screenshotService) {
+                // Call the screenshot mode handler
+                const mainWindow = windowManager.getWindow('main')
+                if (mainWindow) {
+                    mainWindow.webContents.send('trigger-screenshot')
+                }
+            }
+        })
+
+        if (registered) {
+            currentScreenshotShortcut = electronKey
+            console.log(`Registered screenshot shortcut: ${electronKey}`)
+        } else {
+            console.error(`Failed to register screenshot shortcut: ${electronKey}`)
+        }
+    } catch (error) {
+        console.error(`Error registering screenshot shortcut:`, error)
+    }
+}
+
+const unregisterAllShortcuts = () => {
+    globalShortcut.unregisterAll()
+    currentScreenshotShortcut = null
+    console.log('Unregistered all shortcuts')
+}
+
 // ==================== APP LIFECYCLE ====================
 
 app.whenReady().then(() => {
@@ -107,6 +170,9 @@ app.whenReady().then(() => {
 
     createWindow()
 
+    // Register global shortcuts after window is created
+    registerScreenshotShortcut()
+
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow()
@@ -118,6 +184,11 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit()
     }
+})
+
+app.on('will-quit', () => {
+    // Unregister all shortcuts when app is about to quit
+    unregisterAllShortcuts()
 })
 
 // ==================== PROTOCOL HANDLERS ====================
@@ -176,6 +247,12 @@ function setupIPCHandlers() {
             properties: ['openDirectory', 'createDirectory']
         })
         return result
+    })
+
+    // Shortcut handlers
+    ipcMain.handle('update-screenshot-shortcut', () => {
+        registerScreenshotShortcut()
+        return { success: true }
     })
 
     // Tray handlers

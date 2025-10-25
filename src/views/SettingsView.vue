@@ -13,10 +13,9 @@
     const contentRef = ref(null)
 
     const mainTabs = [
-        { id: 'general', label: 'General', height: 700 },
+        { id: 'general', label: 'General', height: 720 },
         { id: 'hotkeys', label: 'Hotkeys', height: 525 },
-        { id: 'capture', label: 'Capture', height: 670 },
-        { id: 'recording', label: 'Recording', height: 600 }
+        { id: 'capture', label: 'Capture', height: 820 }
     ]
 
     const closeWindow = () => {
@@ -233,17 +232,17 @@
 
                     <!-- CAPTURE TAB -->
                     <template v-else-if="activeTab === 'capture'">
-                        <!-- Upload Quality -->
+                        <!-- Screenshot Quality -->
                         <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <label class="block">
-                                <h3 class="text-base font-semibold text-slate-900">Upload Quality</h3>
-                                <p class="mt-1 text-sm text-slate-500">File size vs quality balance</p>
+                                <h3 class="text-base font-semibold text-slate-900">Screenshot Quality</h3>
+                                <p class="mt-1 text-sm text-slate-500">Quality for saved and uploaded screenshots</p>
                                 <select
                                     v-model="settings.uploadQuality"
                                     class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
-                                    <option value="low">Low (Smaller files)</option>
-                                    <option value="medium">Medium (Balanced)</option>
-                                    <option value="high">High (Best quality)</option>
+                                    <option value="low">Low - JPEG 75% (Smaller files)</option>
+                                    <option value="medium">Medium - JPEG 90% (Balanced)</option>
+                                    <option value="high">High - PNG (Best quality)</option>
                                 </select>
                             </label>
                         </div>
@@ -298,18 +297,18 @@
                                 </label>
                             </div>
                         </div>
-                    </template>
 
-                    <!-- RECORDING TAB -->
-                    <template v-else-if="activeTab === 'recording'">
-                        <!-- Flip Camera -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Mirror Webcam</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Flip camera feed horizontally</p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                        <!-- Recording  -->
+                        <div
+                            class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            <div>
+                                <h3 class="text-base font-semibold text-slate-900">Recording</h3>
+                                <p class="mt-1 text-sm text-slate-500">Enable additional capture tools</p>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2">
+                                <label class="text-sm font-medium text-slate-700">Mirror Webcam</label>
+                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
                                         type="checkbox"
                                         v-model="settings.flipCamera"
@@ -317,19 +316,13 @@
                                     <span
                                         class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
                                     <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
                                 </label>
                             </div>
-                        </div>
 
-                        <!-- Record Audio in Mono -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Record Audio in Mono</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Single channel audio (smaller file)</p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                <label class="text-sm font-medium text-slate-700">Record Audio in Mono</label>
+                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
                                         type="checkbox"
                                         v-model="settings.recordAudioMono"
@@ -337,19 +330,13 @@
                                     <span
                                         class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
                                     <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
                                 </label>
                             </div>
-                        </div>
 
-                        <!-- Recording Countdown -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold text-slate-900">3 Second Countdown</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Delay before recording starts</p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                <label class="text-sm font-medium text-slate-700">3 Second Countdown</label>
+                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
                                         type="checkbox"
                                         v-model="settings.recordingCountdown"
@@ -357,7 +344,7 @@
                                     <span
                                         class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
                                     <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
                                 </label>
                             </div>
                         </div>
