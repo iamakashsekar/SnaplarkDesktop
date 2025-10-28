@@ -15,6 +15,7 @@ class WindowManager {
     getCommonConfig() {
         return {
             frame: false,
+            hasShadow: false,
             transparent: true,
             autoHideMenuBar: true,
             webPreferences: {
