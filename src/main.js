@@ -89,13 +89,36 @@ const createWindow = () => {
 // ==================== GLOBAL SHORTCUTS ====================
 
 const convertHotkeyToElectron = (hotkey) => {
+    if (!hotkey || typeof hotkey !== 'string') return null
+
+    // Trim whitespace
+    hotkey = hotkey.trim()
     if (!hotkey) return null
 
     // Convert from our format (Shift + Cmd + S) to Electron format (Shift+Command+S)
     let electronKey = hotkey
         .replace(/\s*\+\s*/g, '+') // Remove spaces around +
-        .replace(/Cmd/g, 'Command') // Convert Cmd to Command
-        .replace(/Ctrl/g, 'Control') // Convert Ctrl to Control (if needed)
+        .replace(/Cmd/gi, 'Command') // Convert Cmd to Command (case insensitive)
+        .replace(/Ctrl/gi, 'Control') // Convert Ctrl to Control (case insensitive)
+
+    // Handle special key names that Electron expects
+    const keyMappings = {
+        'ArrowUp': 'Up',
+        'ArrowDown': 'Down',
+        'ArrowLeft': 'Left',
+        'ArrowRight': 'Right',
+        'Enter': 'Return',
+        ' ': 'Space'
+    }
+
+    // Replace any mapped keys (handle both start and middle of string)
+    Object.keys(keyMappings).forEach(key => {
+        // Escape special regex characters in the key name
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        // Match key at start, after +, or at end
+        const regex = new RegExp(`(^|\\+)${escapedKey}(\\+|$)`, 'gi')
+        electronKey = electronKey.replace(regex, `$1${keyMappings[key]}$2`)
+    })
 
     return electronKey
 }
@@ -106,26 +129,49 @@ const registerScreenshotShortcut = () => {
 
     if (!hotkey) {
         console.log('No screenshot hotkey configured')
+        // Clear current shortcut if no hotkey is set
+        if (currentScreenshotShortcut) {
+            globalShortcut.unregister(currentScreenshotShortcut)
+            currentScreenshotShortcut = null
+        }
         return
     }
 
     // Unregister previous shortcut if it exists
     if (currentScreenshotShortcut) {
-        globalShortcut.unregister(currentScreenshotShortcut)
-        console.log(`Unregistered previous screenshot shortcut: ${currentScreenshotShortcut}`)
+        try {
+            globalShortcut.unregister(currentScreenshotShortcut)
+            console.log(`Unregistered previous screenshot shortcut: ${currentScreenshotShortcut}`)
+        } catch (error) {
+            console.error(`Error unregistering previous shortcut:`, error)
+        }
+        currentScreenshotShortcut = null
     }
 
     const electronKey = convertHotkeyToElectron(hotkey)
-    if (!electronKey) return
+    if (!electronKey) {
+        console.error(`Invalid hotkey format: ${hotkey}`)
+        return
+    }
+
+    // Check if shortcut is already registered
+    if (globalShortcut.isRegistered(electronKey)) {
+        console.log(`Shortcut ${electronKey} is already registered by another application`)
+        // Try to unregister it first (might not work if registered by another app)
+        try {
+            globalShortcut.unregister(electronKey)
+        } catch (error) {
+            console.error(`Cannot unregister existing shortcut:`, error)
+        }
+    }
 
     try {
         const registered = globalShortcut.register(electronKey, () => {
             console.log(`Screenshot shortcut triggered: ${electronKey}`)
             // Trigger screenshot mode
-            if (screenshotService) {
-                // Call the screenshot mode handler
+            if (screenshotService && windowManager) {
                 const mainWindow = windowManager.getWindow('main')
-                if (mainWindow) {
+                if (mainWindow && mainWindow.webContents) {
                     mainWindow.webContents.send('trigger-screenshot')
                 }
             }
@@ -133,12 +179,15 @@ const registerScreenshotShortcut = () => {
 
         if (registered) {
             currentScreenshotShortcut = electronKey
-            console.log(`Registered screenshot shortcut: ${electronKey}`)
+            console.log(`Successfully registered screenshot shortcut: ${electronKey}`)
+            return { success: true, shortcut: electronKey }
         } else {
             console.error(`Failed to register screenshot shortcut: ${electronKey}`)
+            return { success: false, error: 'Failed to register shortcut. It may be in use by another application.' }
         }
     } catch (error) {
         console.error(`Error registering screenshot shortcut:`, error)
+        return { success: false, error: error.message }
     }
 }
 
@@ -250,9 +299,15 @@ function setupIPCHandlers() {
     })
 
     // Shortcut handlers
-    ipcMain.handle('update-screenshot-shortcut', () => {
-        registerScreenshotShortcut()
-        return { success: true }
+    ipcMain.handle('update-screenshot-shortcut', async (event, hotkeyValue) => {
+        // If hotkeyValue is provided, temporarily update store to ensure consistency
+        if (hotkeyValue !== undefined) {
+            const settings = store.get('settings') || {}
+            settings.hotkeyScreenshot = hotkeyValue
+            store.set('settings', settings)
+        }
+        const result = registerScreenshotShortcut()
+        return result || { success: true }
     })
 
     // Tray handlers

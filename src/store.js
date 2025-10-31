@@ -142,7 +142,15 @@ export const useStore = defineStore('main', {
 
             // Update global shortcuts when screenshot hotkey changes
             if (key === 'hotkeyScreenshot' && window.electron?.invoke) {
-                await window.electron.invoke('update-screenshot-shortcut')
+                try {
+                    const result = await window.electron.invoke('update-screenshot-shortcut', value)
+                    if (result && !result.success) {
+                        console.error('Failed to register screenshot shortcut:', result.error)
+                        // Optionally show user notification here
+                    }
+                } catch (error) {
+                    console.error('Error updating screenshot shortcut:', error)
+                }
             }
         },
 

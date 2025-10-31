@@ -11,6 +11,10 @@
 
     const activeTab = ref('general')
     const contentRef = ref(null)
+    
+    // Track which hotkey field is currently being recorded
+    const recordingHotkey = ref(null)
+    const previousHotkeyValue = ref({})
 
     const mainTabs = [
         { id: 'general', label: 'General', height: 720 },
@@ -33,8 +37,41 @@
         }
     }
 
-    const recordHotkey = (field, event) => {
+    const startRecordingHotkey = (field) => {
+        // Store the current value before clearing
+        previousHotkeyValue.value[field] = settings[field] || ''
+        recordingHotkey.value = field
+        // Clear the value for visual feedback
+        settings[field] = ''
+    }
+
+    const stopRecordingHotkey = () => {
+        // Only restore if we're still recording and no new value was set
+        // This prevents restoring if a key was just recorded (which would have cleared recordingHotkey)
+        if (recordingHotkey.value && previousHotkeyValue.value[recordingHotkey.value] !== undefined) {
+            // Only restore if the field is still empty (no key was recorded)
+            if (!settings[recordingHotkey.value] || settings[recordingHotkey.value] === '') {
+                settings[recordingHotkey.value] = previousHotkeyValue.value[recordingHotkey.value]
+            }
+            delete previousHotkeyValue.value[recordingHotkey.value]
+        }
+        recordingHotkey.value = null
+    }
+
+    const recordHotkey = async (field, event) => {
         event.preventDefault()
+        
+        // Handle Escape key to cancel recording
+        if (event.key === 'Escape') {
+            // Restore previous value
+            if (previousHotkeyValue.value[field] !== undefined) {
+                settings[field] = previousHotkeyValue.value[field]
+            }
+            recordingHotkey.value = null
+            delete previousHotkeyValue.value[field]
+            return
+        }
+
         const keys = []
 
         if (event.ctrlKey) keys.push('Ctrl')
@@ -43,11 +80,20 @@
         if (event.metaKey) keys.push('Cmd')
 
         const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
-        if (!['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) {
+        
+        // Skip modifier keys themselves
+        if (!['Control', 'Alt', 'Shift', 'Meta', 'Tab', 'Escape'].includes(event.key)) {
             keys.push(key)
         }
 
-        store.updateSetting(field, keys.join(' + '))
+        // Only set if we have at least one modifier and a key, or if it's a valid single key combo
+        if (keys.length > 0) {
+            const hotkeyString = keys.join(' + ')
+            await store.updateSetting(field, hotkeyString)
+            // Clear recording state and previous value since we successfully recorded
+            recordingHotkey.value = null
+            delete previousHotkeyValue.value[field]
+        }
     }
 
     const changeTab = (tab) => {
@@ -196,10 +242,18 @@
                                 </div>
                                 <input
                                     type="text"
-                                    v-model="settings.hotkeyScreenshot"
-                                    placeholder="Click to set"
+                                    :value="recordingHotkey === 'hotkeyScreenshot' ? '' : settings.hotkeyScreenshot"
+                                    :placeholder="recordingHotkey === 'hotkeyScreenshot' ? 'Recording...' : 'Click to set'"
+                                    @focus="startRecordingHotkey('hotkeyScreenshot')"
+                                    @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyScreenshot', $event)"
-                                    class="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" />
+                                    :class="[
+                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium focus:ring-2 focus:outline-none transition-colors',
+                                        recordingHotkey === 'hotkeyScreenshot'
+                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
+                                            : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
+                                    ]"
+                                    readonly />
                             </div>
 
                             <div class="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -209,10 +263,18 @@
                                 </div>
                                 <input
                                     type="text"
-                                    v-model="settings.hotkeyRecording"
-                                    placeholder="Click to set"
+                                    :value="recordingHotkey === 'hotkeyRecording' ? '' : settings.hotkeyRecording"
+                                    :placeholder="recordingHotkey === 'hotkeyRecording' ? 'Recording...' : 'Click to set'"
+                                    @focus="startRecordingHotkey('hotkeyRecording')"
+                                    @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyRecording', $event)"
-                                    class="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" />
+                                    :class="[
+                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium focus:ring-2 focus:outline-none transition-colors',
+                                        recordingHotkey === 'hotkeyRecording'
+                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
+                                            : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
+                                    ]"
+                                    readonly />
                             </div>
 
                             <div class="flex items-center justify-between">
@@ -222,10 +284,18 @@
                                 </div>
                                 <input
                                     type="text"
-                                    v-model="settings.hotkeyQuickMenu"
-                                    placeholder="Click to set"
+                                    :value="recordingHotkey === 'hotkeyQuickMenu' ? '' : settings.hotkeyQuickMenu"
+                                    :placeholder="recordingHotkey === 'hotkeyQuickMenu' ? 'Recording...' : 'Click to set'"
+                                    @focus="startRecordingHotkey('hotkeyQuickMenu')"
+                                    @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyQuickMenu', $event)"
-                                    class="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none" />
+                                    :class="[
+                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium focus:ring-2 focus:outline-none transition-colors',
+                                        recordingHotkey === 'hotkeyQuickMenu'
+                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
+                                            : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
+                                    ]"
+                                    readonly />
                             </div>
                         </div>
                     </template>
