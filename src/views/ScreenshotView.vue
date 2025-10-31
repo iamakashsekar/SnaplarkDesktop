@@ -67,7 +67,13 @@
     const selectionBorderClass = computed(() => {
         if (mode.value !== 'selecting') return 'animated-dashed-border'
 
+        // If crosshair is disabled, show all borders
+        if (!shouldShowCrosshair.value) {
+            return 'animated-dashed-border'
+        }
+
         // Determine drag direction to hide borders where crosshair is located
+        // This only applies when crosshair is enabled
         const draggingRight = endX.value >= startX.value
         const draggingDown = endY.value >= startY.value
 
