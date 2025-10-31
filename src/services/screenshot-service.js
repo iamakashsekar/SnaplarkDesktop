@@ -32,8 +32,9 @@ class ScreenshotService {
         const scaleFactor = display.scaleFactor || 1
         const image = source.thumbnail
 
+        let screenshot = image
         if (type === 'area' && bounds) {
-            return image.crop({
+            screenshot = image.crop({
                 x: Math.round(bounds.x * scaleFactor),
                 y: Math.round(bounds.y * scaleFactor),
                 width: Math.round(bounds.width * scaleFactor),
@@ -41,7 +42,20 @@ class ScreenshotService {
             })
         }
 
-        return image
+        // Check if cursor should be included
+        const settings = this.store.get('settings') || {}
+        const shouldShowCursor = settings.showCursor !== false
+
+        if (shouldShowCursor) {
+            // Note: Electron's desktopCapturer API doesn't capture cursors by default
+            // To implement cursor capture, you would need to:
+            // 1. Get cursor position using screen.getCursorScreenPoint()
+            // 2. Get cursor image using platform-specific native APIs (requires native modules)
+            // 3. Overlay the cursor image on the screenshot at the cursor position
+            // This is a future enhancement that would require native module integration
+        }
+
+        return screenshot
     }
 
     ensureScreenshotsDirectory() {

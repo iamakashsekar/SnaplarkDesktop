@@ -51,6 +51,19 @@
         return { left, top, width, height }
     })
 
+    // Settings computed properties
+    const shouldShowMagnifier = computed(() => {
+        return store.settings.showMagnifier !== false
+    })
+
+    const shouldShowCrosshair = computed(() => {
+        return store.settings.showCrosshair === true
+    })
+
+    const shouldShowCursor = computed(() => {
+        return store.settings.showCursor !== false
+    })
+
     const selectionBorderClass = computed(() => {
         if (mode.value !== 'selecting') return 'animated-dashed-border'
 
@@ -193,7 +206,7 @@
         // Ensure this window is active when user starts selecting
         isWindowActive.value = true
         mode.value = 'selecting'
-        magnifierActive.value = true
+        magnifierActive.value = shouldShowMagnifier.value
         startX.value = endX.value = e.clientX
         startY.value = endY.value = e.clientY
     }
@@ -201,7 +214,7 @@
     const handleResizeHandleMouseDown = (e, handle) => {
         e.stopPropagation()
         mode.value = 'resizing'
-        magnifierActive.value = true
+        magnifierActive.value = shouldShowMagnifier.value
         resizingHandle.value = handle
     }
 
@@ -708,7 +721,7 @@
 
             if (activationData.isActive) {
                 // This window is now active - show magnifier and update mouse position
-                magnifierActive.value = true
+                magnifierActive.value = shouldShowMagnifier.value
                 mouseX.value = Math.max(0, Math.min(activationData.mouseX, window.innerWidth))
                 mouseY.value = Math.max(0, Math.min(activationData.mouseY, window.innerHeight))
 
@@ -898,17 +911,17 @@
 
         <!-- Crosshair (only when not confirming and window is active) -->
         <div
-            v-if="mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
+            v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
             class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
-            v-if="mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
+            v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
             class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
         <!-- Magnifier -->
         <div
-            v-if="magnifierActive"
+            v-if="shouldShowMagnifier && magnifierActive"
             class="pointer-events-none fixed z-[101] flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
             :style="magnifierStyle">
             <canvas

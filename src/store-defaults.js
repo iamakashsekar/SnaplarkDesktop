@@ -30,7 +30,7 @@ export const defaultState = {
         // Capture
         uploadQuality: 'high',
         showMagnifier: true,
-        showGrid: false,
+        showCrosshair: false,
         showCursor: true,
 
         // Recording

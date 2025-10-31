@@ -340,11 +340,11 @@
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">Show Grid</label>
+                                <label class="text-sm font-medium text-slate-700">Show Crosshair</label>
                                 <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
                                         type="checkbox"
-                                        v-model="settings.showGrid"
+                                        v-model="settings.showCrosshair"
                                         class="peer sr-only" />
                                     <span
                                         class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
@@ -354,7 +354,7 @@
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">Show Cursor</label>
+                                <label class="text-sm font-medium text-slate-700">Show Cursor (Screenshot will include mouse cursor or not)</label>
                                 <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
                                         type="checkbox"
