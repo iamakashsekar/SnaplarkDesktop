@@ -125,86 +125,101 @@
                 window.electron.showMainAtTray({ force: true, gap: 0 })
             }, 100)
         }
-        await resizeWindowTo('main', 264, 550)
+        await resizeWindowTo('main', 232, 550)
         console.log('Main window resized')
     })
 </script>
 
 <template>
-    <div
-        :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
-        class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
+    <div class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
         <!-- Capture Actions -->
         <div class="space-y-4">
-            <button
-                type="button"
-                @click="takeScreenshot"
-                class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-3 py-2 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
-                <svg
-                    width="28"
-                    height="25"
-                    viewBox="0 0 28 25"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <rect
-                        x="4.73857"
-                        y="0.876263"
-                        width="22.3854"
-                        height="22.3854"
-                        stroke="#2178FF"
-                        stroke-width="1.75253"
-                        stroke-dasharray="10.52 10.52" />
-                    <path
-                        d="M10.7178 9.59332C12.3675 9.59358 13.7049 10.9309 13.7051 12.5806C13.7051 13.2013 14.2084 13.7047 14.8291 13.7047H15.5176C16.0303 13.7047 16.4463 14.1206 16.4463 14.6334V22.5601C16.4463 23.7245 15.5022 24.6683 14.3379 24.6685H2.1084C0.943956 24.6685 0 23.7246 0 22.5601V14.6334C0 14.1206 0.415969 13.7047 0.928711 13.7047H1.61719C2.23785 13.7047 2.74121 13.2013 2.74121 12.5806C2.74142 10.9308 4.07867 9.59341 5.72852 9.59332H10.7178ZM8.22168 15.0757C6.70802 15.0759 5.48145 16.3033 5.48145 17.817C5.4817 19.3304 6.70818 20.557 8.22168 20.5572C9.73533 20.5572 10.9626 19.3305 10.9629 17.817C10.9629 16.3031 9.73549 15.0757 8.22168 15.0757Z"
-                        fill="#2178FF" />
-                </svg>
-                <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
-                    Take Screenshot
-                    <span class="text-sm font-normal">(Ctrl + S)</span>
-                </p>
-            </button>
+            <div class="group relative">
+                <button
+                    type="button"
+                    @click="takeScreenshot"
+                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-3 py-2 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    <svg
+                        width="28"
+                        height="25"
+                        viewBox="0 0 28 25"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <rect
+                            x="4.73857"
+                            y="0.876263"
+                            width="22.3854"
+                            height="22.3854"
+                            stroke="#2178FF"
+                            stroke-width="1.75253"
+                            stroke-dasharray="10.52 10.52" />
+                        <path
+                            d="M10.7178 9.59332C12.3675 9.59358 13.7049 10.9309 13.7051 12.5806C13.7051 13.2013 14.2084 13.7047 14.8291 13.7047H15.5176C16.0303 13.7047 16.4463 14.1206 16.4463 14.6334V22.5601C16.4463 23.7245 15.5022 24.6683 14.3379 24.6685H2.1084C0.943956 24.6685 0 23.7246 0 22.5601V14.6334C0 14.1206 0.415969 13.7047 0.928711 13.7047H1.61719C2.23785 13.7047 2.74121 13.2013 2.74121 12.5806C2.74142 10.9308 4.07867 9.59341 5.72852 9.59332H10.7178ZM8.22168 15.0757C6.70802 15.0759 5.48145 16.3033 5.48145 17.817C5.4817 19.3304 6.70818 20.557 8.22168 20.5572C9.73533 20.5572 10.9626 19.3305 10.9629 17.817C10.9629 16.3031 9.73549 15.0757 8.22168 15.0757Z"
+                            fill="#2178FF" />
+                    </svg>
+                    <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
+                        Take Screenshot
+                    </p>
+                </button>
 
-            <button
-                type="button"
-                @click="recordVideo"
-                class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
-                <svg
-                    width="29"
-                    height="30"
-                    viewBox="0 0 29 30"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M25.5559 8.12425C25.0605 7.85842 24.0213 7.5805 22.6076 8.57133L20.8313 9.828C20.6984 6.07008 19.0672 4.59592 15.1038 4.59592H7.85384C3.72134 4.59592 2.11426 6.203 2.11426 10.3355V20.0022C2.11426 22.7813 3.62467 25.7417 7.85384 25.7417H15.1038C19.0672 25.7417 20.6984 24.2676 20.8313 20.5097L22.6076 21.7663C23.3568 22.298 24.0093 22.4672 24.5288 22.4672C24.9759 22.4672 25.3263 22.3342 25.5559 22.2134C26.0513 21.9597 26.8851 21.2709 26.8851 19.543V10.7947C26.8851 9.06675 26.0513 8.378 25.5559 8.12425ZM13.2913 14.4197C12.0468 14.4197 11.0197 13.4047 11.0197 12.148C11.0197 10.8913 12.0468 9.87633 13.2913 9.87633C14.5359 9.87633 15.563 10.8913 15.563 12.148C15.563 13.4047 14.5359 14.4197 13.2913 14.4197Z"
-                        fill="#2178FF" />
-                </svg>
+                <span
+                    class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    {{ store.settings.hotkeyScreenshot }}
+                </span>
+            </div>
 
-                <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
-                    Record Video
-                    <span class="text-sm font-normal">(Ctrl + V)</span>
-                </p>
-            </button>
+            <div class="group relative">
+                <button
+                    type="button"
+                    @click="recordVideo"
+                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    <svg
+                        width="29"
+                        height="30"
+                        viewBox="0 0 29 30"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M25.5559 8.12425C25.0605 7.85842 24.0213 7.5805 22.6076 8.57133L20.8313 9.828C20.6984 6.07008 19.0672 4.59592 15.1038 4.59592H7.85384C3.72134 4.59592 2.11426 6.203 2.11426 10.3355V20.0022C2.11426 22.7813 3.62467 25.7417 7.85384 25.7417H15.1038C19.0672 25.7417 20.6984 24.2676 20.8313 20.5097L22.6076 21.7663C23.3568 22.298 24.0093 22.4672 24.5288 22.4672C24.9759 22.4672 25.3263 22.3342 25.5559 22.2134C26.0513 21.9597 26.8851 21.2709 26.8851 19.543V10.7947C26.8851 9.06675 26.0513 8.378 25.5559 8.12425ZM13.2913 14.4197C12.0468 14.4197 11.0197 13.4047 11.0197 12.148C11.0197 10.8913 12.0468 9.87633 13.2913 9.87633C14.5359 9.87633 15.563 10.8913 15.563 12.148C15.563 13.4047 14.5359 14.4197 13.2913 14.4197Z"
+                            fill="#2178FF" />
+                    </svg>
 
-            <button
-                type="button"
-                @click="recordGIF"
-                class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
-                <svg
-                    width="29"
-                    height="30"
-                    viewBox="0 0 29 30"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M14.4642 3.08548C7.79419 3.08548 2.38086 8.49881 2.38086 15.1688C2.38086 21.8388 7.79419 27.2521 14.4642 27.2521C21.1342 27.2521 26.5475 21.8388 26.5475 15.1688C26.5475 8.49881 21.1463 3.08548 14.4642 3.08548ZM14.5004 20.2801C11.6729 20.2801 9.38919 17.9963 9.38919 15.1688C9.38919 12.3413 11.6729 10.0576 14.5004 10.0576C17.3279 10.0576 19.6117 12.3413 19.6117 15.1688C19.6117 17.9963 17.3279 20.2801 14.5004 20.2801Z"
-                        fill="#2178FF" />
-                </svg>
+                    <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
+                        Record Video
+                    </p>
+                </button>
 
-                <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
-                    Record GIF
-                    <span class="text-sm font-normal">(Ctrl + G)</span>
-                </p>
-            </button>
+                <span
+                    class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    {{ store.settings.hotkeyRecording }}
+                </span>
+            </div>
+
+            <div class="group relative">
+                <button
+                    type="button"
+                    @click="recordGIF"
+                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    <svg
+                        width="29"
+                        height="30"
+                        viewBox="0 0 29 30"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M14.4642 3.08548C7.79419 3.08548 2.38086 8.49881 2.38086 15.1688C2.38086 21.8388 7.79419 27.2521 14.4642 27.2521C21.1342 27.2521 26.5475 21.8388 26.5475 15.1688C26.5475 8.49881 21.1463 3.08548 14.4642 3.08548ZM14.5004 20.2801C11.6729 20.2801 9.38919 17.9963 9.38919 15.1688C9.38919 12.3413 11.6729 10.0576 14.5004 10.0576C17.3279 10.0576 19.6117 12.3413 19.6117 15.1688C19.6117 17.9963 17.3279 20.2801 14.5004 20.2801Z"
+                            fill="#2178FF" />
+                    </svg>
+
+                    <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
+                        Record GIF
+                    </p>
+                </button>
+                <span
+                    class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    {{ store.settings.hotkeyRecording }}
+                </span>
+            </div>
         </div>
 
         <hr class="dark:border-dark-700 my-4 border-gray-400" />
@@ -343,26 +358,32 @@
 
         <!-- App Actions -->
         <div class="space-y-6">
-            <button
-                type="button"
-                @click="quitApplication"
-                class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
-                <svg
-                    width="29"
-                    height="29"
-                    viewBox="0 0 29 29"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M14.5003 2.41667C7.84241 2.41667 2.41699 7.84208 2.41699 14.5C2.41699 21.1579 7.84241 26.5833 14.5003 26.5833C21.1582 26.5833 26.5837 21.1579 26.5837 14.5C26.5837 7.84208 21.1582 2.41667 14.5003 2.41667ZM18.5603 17.2792C18.9107 17.6296 18.9107 18.2096 18.5603 18.56C18.3791 18.7413 18.1495 18.8258 17.9199 18.8258C17.6903 18.8258 17.4607 18.7413 17.2795 18.56L14.5003 15.7808L11.7212 18.56C11.5399 18.7413 11.3103 18.8258 11.0807 18.8258C10.8512 18.8258 10.6216 18.7413 10.4403 18.56C10.0899 18.2096 10.0899 17.6296 10.4403 17.2792L13.2195 14.5L10.4403 11.7208C10.0899 11.3704 10.0899 10.7904 10.4403 10.44C10.7907 10.0896 11.3707 10.0896 11.7212 10.44L14.5003 13.2192L17.2795 10.44C17.6299 10.0896 18.2099 10.0896 18.5603 10.44C18.9107 10.7904 18.9107 11.3704 18.5603 11.7208L15.7812 14.5L18.5603 17.2792Z"
-                        fill="#2178FF" />
-                </svg>
+            <div class="group relative">
+                <button
+                    type="button"
+                    @click="quitApplication"
+                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    <svg
+                        width="29"
+                        height="29"
+                        viewBox="0 0 29 29"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M14.5003 2.41667C7.84241 2.41667 2.41699 7.84208 2.41699 14.5C2.41699 21.1579 7.84241 26.5833 14.5003 26.5833C21.1582 26.5833 26.5837 21.1579 26.5837 14.5C26.5837 7.84208 21.1582 2.41667 14.5003 2.41667ZM18.5603 17.2792C18.9107 17.6296 18.9107 18.2096 18.5603 18.56C18.3791 18.7413 18.1495 18.8258 17.9199 18.8258C17.6903 18.8258 17.4607 18.7413 17.2795 18.56L14.5003 15.7808L11.7212 18.56C11.5399 18.7413 11.3103 18.8258 11.0807 18.8258C10.8512 18.8258 10.6216 18.7413 10.4403 18.56C10.0899 18.2096 10.0899 17.6296 10.4403 17.2792L13.2195 14.5L10.4403 11.7208C10.0899 11.3704 10.0899 10.7904 10.4403 10.44C10.7907 10.0896 11.3707 10.0896 11.7212 10.44L14.5003 13.2192L17.2795 10.44C17.6299 10.0896 18.2099 10.0896 18.5603 10.44C18.9107 10.7904 18.9107 11.3704 18.5603 11.7208L15.7812 14.5L18.5603 17.2792Z"
+                            fill="#2178FF" />
+                    </svg>
 
-                <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
+                    <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
+                        {{ store.getOs() === 'darwin' ? 'Quit' : 'Close' }}
+                    </p>
+                </button>
+                <span
+                    class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
                     {{ store.getOs() === 'darwin' ? 'Quit' : 'Close' }}
-                </p>
-            </button>
-
+                    ({{ store.getOs() === 'darwin' ? 'Cmd' : 'Ctrl' }} + Q)
+                </span>
+            </div>
             <!-- User Profile -->
             <div class="relative flex items-center gap-3 rounded-2xl px-2.5 py-1.5">
                 <img

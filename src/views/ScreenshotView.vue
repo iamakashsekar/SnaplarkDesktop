@@ -917,11 +917,23 @@
 
         <!-- Crosshair (only when not confirming and window is active) -->
         <div
-            v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
+            v-if="
+                shouldShowCrosshair &&
+                mode !== 'confirming' &&
+                mode !== 'editing' &&
+                mode !== 'edited' &&
+                isWindowActive
+            "
             class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
-            v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'editing' && mode !== 'edited' && isWindowActive"
+            v-if="
+                shouldShowCrosshair &&
+                mode !== 'confirming' &&
+                mode !== 'editing' &&
+                mode !== 'edited' &&
+                isWindowActive
+            "
             class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
@@ -949,28 +961,35 @@
             :class="{ 'shadow-2xl': isDraggingToolbar }"
             :style="toolbarStyle">
             <!-- Drag Handle -->
-            <div
-                class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
-                @mousedown="handleToolbarDragStart"
-                title="Drag to move toolbar">
-                <svg
-                    class="size-5 text-gray-600 transition-colors hover:text-gray-800"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <circle
-                        cx="12"
-                        cy="5"
-                        r="2" />
-                    <circle
-                        cx="12"
-                        cy="12"
-                        r="2" />
-                    <circle
-                        cx="12"
-                        cy="19"
-                        r="2" />
-                </svg>
+            <div class="group relative">
+                <div
+                    class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
+                    @mousedown="handleToolbarDragStart"
+                    title="Drag to move toolbar">
+                    <svg
+                        class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <circle
+                            cx="12"
+                            cy="5"
+                            r="2" />
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="2" />
+                        <circle
+                            cx="12"
+                            cy="19"
+                            r="2" />
+                    </svg>
+                </div>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Move
+                </span>
             </div>
 
             <div class="flex items-center rounded-full bg-white/90">
@@ -1121,23 +1140,30 @@
             </div>
 
             <div class="flex items-center rounded-full bg-white/90">
-                <button
-                    @click="handleCancel"
-                    title="Cancel"
-                    class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white">
-                    <svg
-                        class="size-6"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M18 6L6 18M6 6L18 18"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round" />
-                    </svg>
-                </button>
+                <div class="group relative">
+                    <button
+                        @click="handleCancel"
+                        title="Cancel"
+                        class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white">
+                        <svg
+                            class="size-6"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M18 6L6 18M6 6L18 18"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+
+                    <span
+                        class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                        Cancel (esc)
+                    </span>
+                </div>
             </div>
         </div>
 

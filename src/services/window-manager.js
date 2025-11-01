@@ -15,7 +15,7 @@ class WindowManager {
     getCommonConfig() {
         return {
             frame: false,
-            hasShadow: false,
+            hasShadow: true,
             transparent: true,
             autoHideMenuBar: true,
             webPreferences: {
@@ -37,7 +37,7 @@ class WindowManager {
         return {
             main: {
                 ...common,
-                width: 264,
+                width: 232,
                 height: 300,
                 resizable: false,
                 alwaysOnTop: true,
