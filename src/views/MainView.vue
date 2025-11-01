@@ -24,7 +24,7 @@
     }
 
     const recordVideo = async () => {
-        // TODO: Implement video recording
+        await window.electron?.startVideoRecordingMode()
     }
 
     const recordGIF = () => {

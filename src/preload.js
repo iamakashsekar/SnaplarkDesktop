@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.invoke('take-screenshot', type, bounds, displayId, closeWindow),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
 
+    // Video recording functionality
+    startVideoRecordingMode: () => ipcRenderer.invoke('start-video-recording-mode'),
+    cancelVideoRecordingMode: () => ipcRenderer.send('cancel-video-recording-mode'),
+    startVideoRecording: (options) => ipcRenderer.invoke('start-video-recording', options),
+    stopVideoRecording: (recordingId) => ipcRenderer.invoke('stop-video-recording', recordingId),
+
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
@@ -40,11 +46,15 @@ contextBridge.exposeInMainWorld('electronWindows', {
     closeWindowsByType: (type) => ipcRenderer.invoke('close-windows-by-type', type),
     closeOtherScreenshotWindows: (currentDisplayId) =>
         ipcRenderer.invoke('close-other-screenshot-windows', currentDisplayId),
+    closeOtherVideoRecordingWindows: (currentDisplayId) =>
+        ipcRenderer.invoke('close-other-video-recording-windows', currentDisplayId),
 
     // Window operations
     centerWindow: (type) => ipcRenderer.invoke('center-window', type),
     showWindow: (type) => ipcRenderer.invoke('show-window', type),
     hideWindow: (type) => ipcRenderer.invoke('hide-window', type),
+    makeWindowNonBlocking: (type) => ipcRenderer.invoke('make-window-non-blocking', type),
+    makeWindowBlocking: (type) => ipcRenderer.invoke('make-window-blocking', type),
     resizeWindow: (type, width, height) => ipcRenderer.invoke('resize-window', type, width, height),
     getWindowType: () => ipcRenderer.invoke('get-window-type'),
 
