@@ -12,7 +12,7 @@
     const mouseX = ref(0)
     const mouseY = ref(0)
     const displayId = ref(null)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'recording', 'previewing'
+    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'recording', 'stopping', 'previewing'
     const resizingHandle = ref(null)
 
     // Dragging state
@@ -133,6 +133,10 @@
         const secs = Math.floor(seconds % 60)
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
+
+    const windowType = computed(() => {
+        return displayId.value ? `video-recording-${displayId.value}` : 'video-recording'
+    })
 
     const handleMouseDown = async (e) => {
         if (mode.value === 'confirming' || mode.value === 'recording' || mode.value === 'previewing') return
@@ -616,36 +620,90 @@
             mediaRecorder.value.ondataavailable = (event) => {
                 if (event.data && event.data.size > 0) {
                     recordedChunks.value.push(event.data)
-                    console.log('Received data chunk:', event.data.size, 'bytes')
+                    console.log(
+                        'Received data chunk:',
+                        event.data.size,
+                        'bytes, total chunks:',
+                        recordedChunks.value.length
+                    )
+                } else {
+                    console.warn('Received empty data chunk')
                 }
             }
 
             mediaRecorder.value.onstop = async () => {
-                console.log('MediaRecorder stopped, chunks:', recordedChunks.value.length)
-                console.log(
-                    'Total chunks size:',
-                    recordedChunks.value.reduce((sum, chunk) => sum + chunk.size, 0),
-                    'bytes'
-                )
+                try {
+                    console.log('MediaRecorder onstop fired!')
+                    console.log('Chunks count:', recordedChunks.value.length)
+                    console.log('Current mode before onstop:', mode.value)
 
-                cleanupRecording()
+                    // Ensure window is shown and blocking immediately
+                    const currentWindowType = windowType.value
+                    console.log('Window type:', currentWindowType)
+                    window.electronWindows?.makeWindowBlocking(currentWindowType)
+                    window.electronWindows?.showWindow(currentWindowType)
 
-                // Wait a bit to ensure all chunks are collected
-                await new Promise((resolve) => setTimeout(resolve, 200))
+                    // Don't cleanup streams yet - wait until we have the blob
+                    // cleanupRecording()
 
-                const blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
-                console.log('Recording blob size:', blob.size, 'bytes')
+                    // Wait a bit to ensure all chunks are collected
+                    await new Promise((resolve) => setTimeout(resolve, 300))
 
-                if (blob.size > 0) {
-                    recordedVideoBlob.value = blob
-                    previewVideoUrl.value = URL.createObjectURL(blob)
-                    mode.value = 'previewing'
-                    window.electronWindows?.makeWindowBlocking(windowType.value)
-                    window.electronWindows?.showWindow(windowType.value)
-                } else {
-                    console.error('Recording blob is empty')
-                    alert('Recording failed: No video data captured')
+                    const totalSize = recordedChunks.value.reduce((sum, chunk) => sum + chunk.size, 0)
+                    console.log('Total chunks size:', totalSize, 'bytes')
+
+                    if (totalSize === 0) {
+                        console.error('No chunks collected!')
+                        cleanupRecording()
+                        mode.value = 'idle'
+                        alert('Recording failed: No video data captured')
+                        window.electron?.cancelVideoRecordingMode()
+                        return
+                    }
+
+                    const blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
+                    console.log('Recording blob created, size:', blob.size, 'bytes')
+
+                    if (blob.size > 0) {
+                        recordedVideoBlob.value = blob
+                        previewVideoUrl.value = URL.createObjectURL(blob)
+                        console.log(
+                            'Setting mode to previewing, blob URL created:',
+                            previewVideoUrl.value.substring(0, 50)
+                        )
+                        // IMPORTANT: Set previewing mode BEFORE cleanup and ensure it sticks
+                        mode.value = 'previewing'
+                        console.log('Mode set to previewing:', mode.value)
+
+                        // Cleanup streams after creating preview
+                        cleanupRecording()
+
+                        console.log('Preview ready, window shown, mode:', mode.value)
+
+                        // Double-check window is shown and focused
+                        window.electronWindows?.makeWindowBlocking(currentWindowType)
+                        window.electronWindows?.showWindow(currentWindowType)
+
+                        // Force Vue to update by using nextTick
+                        await new Promise((resolve) => setTimeout(resolve, 50))
+                        console.log('Final mode check:', mode.value)
+                    } else {
+                        console.error('Recording blob is empty after creation')
+                        cleanupRecording()
+                        mode.value = 'idle'
+                        alert('Recording failed: No video data captured')
+                        window.electron?.cancelVideoRecordingMode()
+                    }
+                } catch (error) {
+                    console.error('Error in onstop handler:', error)
+                    console.error('Error stack:', error.stack)
+                    // Make sure window is still usable even if there's an error
+                    cleanupRecording()
                     mode.value = 'idle'
+                    const currentWindowType = windowType.value
+                    window.electronWindows?.makeWindowBlocking(currentWindowType)
+                    window.electronWindows?.showWindow(currentWindowType)
+                    alert(`Recording error: ${error.message || 'Unknown error'}`)
                     window.electron?.cancelVideoRecordingMode()
                 }
             }
@@ -671,11 +729,8 @@
 
             console.log('Recording started successfully')
 
-            // Make window non-blocking and hide it after a short delay
-            setTimeout(() => {
-                window.electronWindows?.makeWindowNonBlocking(windowType.value)
-                window.electronWindows?.hideWindow(windowType.value)
-            }, 500)
+            // The window will be hidden by the service automatically
+            // No need to hide here - service handles all video recording windows
         } catch (error) {
             console.error('Error starting recording:', error)
             console.error('Error stack:', error.stack)
@@ -721,7 +776,12 @@
     }
 
     const stopRecording = async () => {
-        if (mediaRecorder.value && isRecording.value) {
+        if (!mediaRecorder.value || !isRecording.value) {
+            console.log('stopRecording called but not recording')
+            return
+        }
+
+        try {
             console.log('Stopping recording...')
             isRecording.value = false
 
@@ -730,22 +790,92 @@
                 recordingInterval.value = null
             }
 
+            // Set mode to stopping FIRST to prevent selection screen from showing
+            mode.value = 'stopping'
+            console.log('Mode set to stopping:', mode.value)
+
+            // Show window immediately before stopping (so preview can appear)
+            const currentWindowType = windowType.value
+            window.electronWindows?.makeWindowBlocking(currentWindowType)
+            window.electronWindows?.showWindow(currentWindowType)
+
             // Request final data chunk before stopping
-            if (mediaRecorder.value.state === 'recording') {
-                mediaRecorder.value.requestData()
-                await new Promise((resolve) => setTimeout(resolve, 100))
+            if (mediaRecorder.value.state === 'recording' || mediaRecorder.value.state === 'paused') {
+                try {
+                    mediaRecorder.value.requestData()
+                    await new Promise((resolve) => setTimeout(resolve, 100))
+                } catch (error) {
+                    console.warn('Error requesting final data:', error)
+                }
             }
 
-            mediaRecorder.value.stop()
+            // Stop the MediaRecorder
+            try {
+                if (mediaRecorder.value.state !== 'inactive') {
+                    console.log('Stopping MediaRecorder, current state:', mediaRecorder.value.state)
+                    mediaRecorder.value.stop()
+                    console.log('MediaRecorder.stop() called, new state:', mediaRecorder.value.state)
+                    // Wait for onstop handler to fire - it will set mode to 'previewing'
+                    // Don't do anything else here, let onstop handler manage the transition
+                } else {
+                    console.log('MediaRecorder already inactive, state:', mediaRecorder.value.state)
+                    // If already inactive, manually trigger preview if we have chunks
+                    if (recordedChunks.value.length > 0) {
+                        const totalSize = recordedChunks.value.reduce((sum, chunk) => sum + chunk.size, 0)
+                        if (totalSize > 0) {
+                            const blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
+                            recordedVideoBlob.value = blob
+                            previewVideoUrl.value = URL.createObjectURL(blob)
+                            mode.value = 'previewing'
+                            cleanupRecording()
+                            console.log('Manually triggered preview (MediaRecorder was inactive)')
+                        } else {
+                            mode.value = 'idle'
+                            cleanupRecording()
+                        }
+                    } else {
+                        mode.value = 'idle'
+                        cleanupRecording()
+                    }
+                }
+            } catch (error) {
+                console.error('Error stopping MediaRecorder:', error)
+                // If stopping fails, manually trigger cleanup
+                cleanupRecording()
+                mode.value = 'idle'
+                window.electronWindows?.makeWindowBlocking(currentWindowType)
+                window.electronWindows?.showWindow(currentWindowType)
+            }
 
             if (recordingId.value) {
-                window.electron?.stopVideoRecording(recordingId.value)
+                try {
+                    await window.electron?.stopVideoRecording(recordingId.value)
+                } catch (error) {
+                    console.error('Error calling stopVideoRecording:', error)
+                }
                 recordingId.value = null
             }
 
-            // Show window again for preview and make it blocking
-            window.electronWindows?.makeWindowBlocking(windowType.value)
-            window.electronWindows?.showWindow(windowType.value)
+            // Timeout safety: if preview doesn't appear within 5 seconds, show error
+            setTimeout(() => {
+                if (mode.value === 'stopping' && !previewVideoUrl.value) {
+                    console.error('Preview timeout - forcing cleanup')
+                    mode.value = 'idle'
+                    window.electronWindows?.makeWindowBlocking(currentWindowType)
+                    window.electronWindows?.showWindow(currentWindowType)
+                    alert('Recording stopped but preview failed to load. Please try again.')
+                    window.electron?.cancelVideoRecordingMode()
+                }
+            }, 5000)
+        } catch (error) {
+            console.error('Error in stopRecording:', error)
+            // Ensure window is still usable
+            isRecording.value = false
+            mode.value = 'idle'
+            const currentWindowType = windowType.value
+            window.electronWindows?.makeWindowBlocking(currentWindowType)
+            window.electronWindows?.showWindow(currentWindowType)
+            cleanupRecording()
         }
     }
 
@@ -813,6 +943,10 @@
                 stopRecording()
             } else if (mode.value === 'previewing') {
                 handleDeleteRecording()
+            } else if (mode.value === 'stopping') {
+                // Allow escape even during stopping to cancel
+                mode.value = 'idle'
+                window.electron?.cancelVideoRecordingMode()
             } else {
                 handleCancel()
             }
@@ -827,9 +961,6 @@
         displayId.value = params.get('displayId')
         mouseX.value = parseInt(params.get('initialMouseX') || '0', 10)
         mouseY.value = parseInt(params.get('initialMouseY') || '0', 10)
-
-        // Get the window type for this specific display
-        const windowType = displayId.value ? `video-recording-${displayId.value}` : 'video-recording'
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
 
@@ -892,7 +1023,10 @@
 
 <template>
     <div
-        :class="{ 'cursor-crosshair select-none': mode !== 'recording', 'pointer-events-none': false }"
+        :class="{
+            'cursor-crosshair select-none': mode !== 'recording' && mode !== 'previewing',
+            'pointer-events-none': isRecording
+        }"
         class="fixed top-0 left-0 h-screen w-screen"
         :style="{
             backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
@@ -919,21 +1053,11 @@
                 }px, ${selectionRect.left}px ${selectionRect.top}px)`
             }"></div>
 
-        <!-- Red border overlay when recording partial screen -->
-        <div
-            v-if="isRecording && !isFullScreen"
-            class="pointer-events-none absolute z-[100] animate-pulse border-4 border-red-500"
-            style="box-shadow: 0 0 20px rgba(239, 68, 68, 0.8)"
-            :style="{
-                left: `${selectionRect.left}px`,
-                top: `${selectionRect.top}px`,
-                width: `${selectionRect.width}px`,
-                height: `${selectionRect.height}px`
-            }"></div>
+        <!-- Red border overlay when recording partial screen - Hidden when recording starts (window is hidden) -->
 
         <!-- Selection rectangle -->
         <div
-            v-if="mode !== 'idle' && mode !== 'recording' && mode !== 'previewing'"
+            v-if="mode !== 'idle' && mode !== 'recording' && mode !== 'previewing' && mode !== 'stopping'"
             :class="[
                 'absolute',
                 mode === 'selecting'
@@ -1014,21 +1138,43 @@
             </div>
         </div>
 
-        <!-- Recording indicator (when recording) -->
+        <!-- Recording Toolbar (when recording) - Compact toolbar with timer and stop button -->
         <div
             v-if="isRecording"
-            class="fixed top-4 left-1/2 z-[100] -translate-x-1/2 rounded-lg bg-red-500 px-4 py-2 shadow-lg">
-            <div class="flex items-center gap-3">
-                <div class="h-3 w-3 animate-pulse rounded-full bg-white"></div>
-                <span class="text-sm font-semibold text-white">Recording</span>
-                <span class="font-mono text-sm text-white">{{ formatDuration(recordingDuration) }}</span>
+            class="pointer-events-auto fixed top-4 left-1/2 z-[200] -translate-x-1/2">
+            <div class="flex items-center gap-3 rounded-full bg-black/90 px-6 py-3 shadow-2xl backdrop-blur-sm">
+                <!-- Recording indicator -->
+                <div class="flex items-center gap-2">
+                    <div class="h-3 w-3 animate-pulse rounded-full bg-red-500"></div>
+                    <span class="text-sm font-semibold text-white">Recording</span>
+                    <span class="font-mono text-sm text-white">{{ formatDuration(recordingDuration) }}</span>
+                </div>
+
+                <!-- Stop button -->
+                <button
+                    @click="stopRecording"
+                    class="flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-white transition-all hover:scale-105 hover:bg-red-600 active:scale-95">
+                    <svg
+                        class="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="currentColor">
+                        <rect
+                            x="6"
+                            y="6"
+                            width="12"
+                            height="12"
+                            rx="2" />
+                    </svg>
+                    <span class="text-sm font-bold">Stop</span>
+                    <span class="text-xs opacity-75">(Space)</span>
+                </button>
             </div>
         </div>
 
-        <!-- Action Toolbar (when confirming) -->
+        <!-- Action Toolbar (when confirming) - Start Recording button -->
         <div
             v-if="mode === 'confirming'"
-            class="absolute z-50 flex items-center gap-4 rounded-full bg-white/90 px-4 py-2 shadow-lg"
+            class="pointer-events-auto absolute z-50 flex items-center gap-4 rounded-full bg-white/90 px-4 py-2 shadow-lg"
             :style="toolbarStyle">
             <button
                 @click="startRecording"
@@ -1052,36 +1198,15 @@
             </button>
         </div>
 
-        <!-- Stop Recording Button (when recording) - Always visible and accessible -->
-        <div
-            v-if="isRecording"
-            class="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2">
-            <button
-                @click="stopRecording"
-                class="flex items-center gap-3 rounded-full bg-red-500 px-8 py-4 text-white shadow-2xl transition-all hover:scale-105 hover:bg-red-600 active:scale-95">
-                <svg
-                    class="h-6 w-6"
-                    viewBox="0 0 24 24"
-                    fill="currentColor">
-                    <rect
-                        x="6"
-                        y="6"
-                        width="12"
-                        height="12"
-                        rx="2" />
-                </svg>
-                <span class="text-lg font-bold">Stop Recording</span>
-                <span class="text-sm opacity-80">(Space)</span>
-            </button>
-        </div>
-
         <!-- Preview Screen (after recording) -->
         <div
-            v-if="mode === 'previewing' && previewVideoUrl"
+            v-if="mode === 'previewing'"
             class="fixed inset-0 z-[200] flex items-center justify-center bg-black/90">
             <div class="relative mx-4 w-full max-w-4xl">
                 <!-- Video Preview -->
-                <div class="relative overflow-hidden rounded-lg bg-black shadow-2xl">
+                <div
+                    v-if="previewVideoUrl"
+                    class="relative overflow-hidden rounded-lg bg-black shadow-2xl">
                     <video
                         :src="previewVideoUrl"
                         controls
@@ -1092,8 +1217,21 @@
                     </video>
                 </div>
 
+                <!-- Loading state if preview URL is not ready yet -->
+                <div
+                    v-else
+                    class="relative overflow-hidden rounded-lg bg-black p-12 shadow-2xl">
+                    <div class="text-center">
+                        <div
+                            class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
+                        <p class="text-lg font-semibold text-white">Loading preview...</p>
+                    </div>
+                </div>
+
                 <!-- Action Buttons -->
-                <div class="mt-6 flex items-center justify-center gap-4">
+                <div
+                    v-if="previewVideoUrl"
+                    class="mt-6 flex items-center justify-center gap-4">
                     <button
                         @click="handleDeleteRecording"
                         class="flex items-center gap-2 rounded-full bg-gray-700 px-6 py-3 text-white transition-all hover:scale-105 hover:bg-gray-600">
@@ -1138,9 +1276,23 @@
                 </div>
 
                 <!-- Instruction text -->
-                <p class="mt-4 text-center text-sm text-gray-400">
+                <p
+                    v-if="previewVideoUrl"
+                    class="mt-4 text-center text-sm text-gray-400">
                     Press <kbd class="rounded bg-gray-800 px-2 py-1">Esc</kbd> to cancel
                 </p>
+            </div>
+        </div>
+
+        <!-- Loading Screen (when stopping) -->
+        <div
+            v-if="mode === 'stopping'"
+            class="fixed inset-0 z-[200] flex items-center justify-center bg-black/90">
+            <div class="text-center">
+                <div
+                    class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
+                <p class="text-lg font-semibold text-white">Processing recording...</p>
+                <p class="mt-2 text-sm text-gray-400">Please wait</p>
             </div>
         </div>
     </div>

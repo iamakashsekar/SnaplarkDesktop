@@ -299,6 +299,34 @@ class VideoRecordingService {
                     }
                 }
 
+                // Hide ALL video recording windows immediately after recording starts
+                setTimeout(() => {
+                    console.log('Hiding all video recording windows')
+                    this.windowManager.windows.forEach((window, key) => {
+                        if (key.startsWith('video-recording') && !window.isDestroyed()) {
+                            try {
+                                // Exit kiosk mode if active (check if method exists)
+                                if (typeof window.isKioskMode === 'function' && window.isKioskMode()) {
+                                    window.setKioskMode(false)
+                                }
+                                // Make non-focusable
+                                window.setFocusable(false)
+                                // Hide the window completely
+                                window.hide()
+                                console.log(`Hidden window: ${key}`)
+                            } catch (error) {
+                                console.error(`Error hiding window ${key}:`, error)
+                                // Still try to hide even if other operations fail
+                                try {
+                                    window.hide()
+                                } catch (hideError) {
+                                    console.error(`Failed to hide window ${key}:`, hideError)
+                                }
+                            }
+                        }
+                    })
+                }, 200)
+
                 const response = {
                     success: true,
                     recordingId,
@@ -343,6 +371,60 @@ class VideoRecordingService {
                 }
             } catch (error) {
                 console.error('Stop video recording error:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        ipcMain.handle('is-video-recording-active', () => {
+            return {
+                isActive: this.activeRecordings.size > 0,
+                count: this.activeRecordings.size,
+                recordingIds: Array.from(this.activeRecordings.keys())
+            }
+        })
+
+        ipcMain.handle('stop-all-video-recordings', async () => {
+            try {
+                const recordingIds = Array.from(this.activeRecordings.keys())
+                
+                // Show all video recording windows first (so they can receive IPC messages)
+                // Then send stop signal to all active recording windows
+                this.windowManager.windows.forEach((window, key) => {
+                    if (key.startsWith('video-recording') && !window.isDestroyed()) {
+                        try {
+                            // Make window blocking and show it first
+                            if (typeof window.isKioskMode === 'function' && window.isKioskMode()) {
+                                window.setKioskMode(false)
+                            }
+                            window.setIgnoreMouseEvents(false)
+                            window.setFocusable(true)
+                            window.show()
+                            // Send stop signal
+                            window.webContents.send('stop-recording-shortcut')
+                        } catch (error) {
+                            console.error(`Error stopping window ${key}:`, error)
+                            // Still try to send stop signal
+                            try {
+                                window.webContents.send('stop-recording-shortcut')
+                            } catch (sendError) {
+                                console.error(`Failed to send stop signal to ${key}:`, sendError)
+                            }
+                        }
+                    }
+                })
+
+                // Unregister Space shortcut
+                if (this.stopRecordingShortcut) {
+                    globalShortcut.unregister(this.stopRecordingShortcut)
+                    this.stopRecordingShortcut = null
+                }
+
+                return {
+                    success: true,
+                    stoppedCount: recordingIds.length
+                }
+            } catch (error) {
+                console.error('Stop all video recordings error:', error)
                 return { success: false, error: error.message }
             }
         })

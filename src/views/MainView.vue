@@ -1,6 +1,6 @@
 <script setup>
     import { useWindows } from '@/composables/useWindows'
-    import { onMounted, ref } from 'vue'
+    import { onMounted, onUnmounted, ref } from 'vue'
     import router from '@/router'
     import { useStore } from '@/store'
     import { BASE_URL } from '@/api/config'
@@ -8,6 +8,37 @@
     const store = useStore()
 
     const isUserMenuOpen = ref(false)
+    const isRecording = ref(false)
+    const recordingCheckInterval = ref(null)
+
+    const checkRecordingStatus = async () => {
+        try {
+            const status = await window.electron?.isVideoRecordingActive()
+            isRecording.value = status?.isActive || false
+        } catch (error) {
+            console.error('Error checking recording status:', error)
+        }
+    }
+
+    const recordVideo = async () => {
+        if (isRecording.value) {
+            // Stop all active recordings
+            await window.electron?.stopAllVideoRecordings()
+            isRecording.value = false
+            if (recordingCheckInterval.value) {
+                clearInterval(recordingCheckInterval.value)
+                recordingCheckInterval.value = null
+            }
+        } else {
+            // Start recording mode
+            await window.electron?.startVideoRecordingMode()
+            // Start checking recording status more frequently
+            if (recordingCheckInterval.value) {
+                clearInterval(recordingCheckInterval.value)
+            }
+            recordingCheckInterval.value = setInterval(checkRecordingStatus, 500)
+        }
+    }
 
     const openLogin = async () => {
         await createWindow('login')
@@ -21,10 +52,6 @@
     // Menu actions
     const takeScreenshot = async () => {
         await window.electron?.startScreenshotMode()
-    }
-
-    const recordVideo = async () => {
-        await window.electron?.startVideoRecordingMode()
     }
 
     const recordGIF = () => {
@@ -118,6 +145,11 @@
     }
 
     onMounted(async () => {
+        // Check initial recording status
+        checkRecordingStatus()
+        // Check periodically
+        recordingCheckInterval.value = setInterval(checkRecordingStatus, 1000)
+
         if (!store.isLoggedIn) {
             window.electronWindows?.hideWindow('main')
             setTimeout(() => {
@@ -127,6 +159,12 @@
         }
         await resizeWindowTo('main', 232, 550)
         console.log('Main window resized')
+    })
+
+    onUnmounted(() => {
+        if (recordingCheckInterval.value) {
+            clearInterval(recordingCheckInterval.value)
+        }
     })
 </script>
 
@@ -172,8 +210,14 @@
                 <button
                     type="button"
                     @click="recordVideo"
-                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    :class="[
+                        'dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 transition-colors',
+                        isRecording
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'text-gray-700 hover:bg-gray-200/10 dark:text-gray-200'
+                    ]">
                     <svg
+                        v-if="!isRecording"
                         width="29"
                         height="30"
                         viewBox="0 0 29 30"
@@ -181,11 +225,24 @@
                         xmlns="http://www.w3.org/2000/svg">
                         <path
                             d="M25.5559 8.12425C25.0605 7.85842 24.0213 7.5805 22.6076 8.57133L20.8313 9.828C20.6984 6.07008 19.0672 4.59592 15.1038 4.59592H7.85384C3.72134 4.59592 2.11426 6.203 2.11426 10.3355V20.0022C2.11426 22.7813 3.62467 25.7417 7.85384 25.7417H15.1038C19.0672 25.7417 20.6984 24.2676 20.8313 20.5097L22.6076 21.7663C23.3568 22.298 24.0093 22.4672 24.5288 22.4672C24.9759 22.4672 25.3263 22.3342 25.5559 22.2134C26.0513 21.9597 26.8851 21.2709 26.8851 19.543V10.7947C26.8851 9.06675 26.0513 8.378 25.5559 8.12425ZM13.2913 14.4197C12.0468 14.4197 11.0197 13.4047 11.0197 12.148C11.0197 10.8913 12.0468 9.87633 13.2913 9.87633C14.5359 9.87633 15.563 10.8913 15.563 12.148C15.563 13.4047 14.5359 14.4197 13.2913 14.4197Z"
-                            fill="#2178FF" />
+                            fill="currentColor" />
+                    </svg>
+                    <svg
+                        v-else
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="currentColor">
+                        <rect
+                            x="6"
+                            y="6"
+                            width="12"
+                            height="12"
+                            rx="2" />
                     </svg>
 
                     <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
-                        Record Video
+                        {{ isRecording ? 'Stop Recording' : 'Record Video' }}
                     </p>
                 </button>
 

@@ -305,15 +305,17 @@ class WindowManager {
     makeWindowNonBlocking(type) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
-            // Exit kiosk mode if active
-            if (window.isKioskMode()) {
-                window.setKioskMode(false)
+            try {
+                // Exit kiosk mode if active (check if method exists)
+                if (typeof window.isKioskMode === 'function' && window.isKioskMode()) {
+                    window.setKioskMode(false)
+                }
+                // Make window non-focusable so it doesn't steal focus
+                window.setFocusable(false)
+                console.log(`Made window ${type} non-blocking (non-focusable)`)
+            } catch (error) {
+                console.error(`Error making window ${type} non-blocking:`, error)
             }
-            // Make window ignore mouse events so clicks pass through
-            window.setIgnoreMouseEvents(true, { forward: true })
-            // Make window non-focusable
-            window.setFocusable(false)
-            console.log(`Made window ${type} non-blocking`)
         }
     }
 

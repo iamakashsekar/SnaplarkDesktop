@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('electron', {
     cancelVideoRecordingMode: () => ipcRenderer.send('cancel-video-recording-mode'),
     startVideoRecording: (options) => ipcRenderer.invoke('start-video-recording', options),
     stopVideoRecording: (recordingId) => ipcRenderer.invoke('stop-video-recording', recordingId),
+    isVideoRecordingActive: () => ipcRenderer.invoke('is-video-recording-active'),
+    stopAllVideoRecordings: () => ipcRenderer.invoke('stop-all-video-recordings'),
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
