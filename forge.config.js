@@ -4,7 +4,9 @@ const path = require('path')
 
 module.exports = {
     packagerConfig: {
-        asar: true,
+        asar: {
+            unpack: '{**/node_modules/@ffmpeg-installer/**/*,**/node_modules/@ffprobe-installer/**/*}'
+        },
         icon: 'src/assets/icons/icon', // Correct: No extension, points to src/assets/icon.icns for macOS
         extraResource: ['./resources/icons']
     },

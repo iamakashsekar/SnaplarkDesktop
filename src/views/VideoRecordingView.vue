@@ -33,6 +33,7 @@
     const recordedVideoBlob = ref(null)
     const recordedVideoPath = ref(null)
     const previewVideoUrl = ref(null)
+    const processingProgress = ref(0)
 
     // Recording state
     const isRecording = ref(false)
@@ -403,6 +404,8 @@
             // Handle recording stop
             mediaRecorder.value.onstop = async () => {
                 try {
+                    console.log('MediaRecorder onstop handler started')
+                    
                     // Show window immediately
                     const currentWindowType = windowType.value
                     window.electronWindows?.makeWindowBlocking(currentWindowType)
@@ -415,12 +418,22 @@
                         throw new Error('No video data captured')
                     }
 
+                    console.log('Creating blob from', recordedChunks.value.length, 'chunks')
+                    
                     // Create blob from recorded chunks
                     let blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
+                    console.log('Blob created, size:', blob.size)
 
                     // If custom area, crop the video
                     if (cropBounds.value) {
-                        blob = await cropVideo(blob, cropBounds.value)
+                        console.log('Custom area detected, starting crop...')
+                        try {
+                            blob = await cropVideo(blob, cropBounds.value)
+                            console.log('Crop completed, new blob size:', blob.size)
+                        } catch (cropError) {
+                            console.error('Crop error:', cropError)
+                            throw new Error(`Crop failed: ${cropError.message}`)
+                        }
                     }
 
                     // Set preview
@@ -430,8 +443,10 @@
 
                     // Cleanup streams
                     cleanupRecording()
+                    console.log('Recording processed successfully')
                 } catch (error) {
                     console.error('Error processing recording:', error)
+                    console.error('Error stack:', error.stack)
                     cleanupRecording()
                     mode.value = 'idle'
                     alert(`Recording error: ${error.message || 'Unknown error'}`)
@@ -468,91 +483,151 @@
         }
     }
 
-    // Crop video to selected area using canvas
+    // Crop video using FFmpeg (FAST!)
     const cropVideo = async (videoBlob, bounds) => {
-        return new Promise((resolve, reject) => {
-            const video = document.createElement('video')
-            video.src = URL.createObjectURL(videoBlob)
-            video.muted = true
+        let tempInputPath = null
+        let tempOutputPath = null
 
-            video.onloadedmetadata = async () => {
+        try {
+            processingProgress.value = 0
+
+            // Listen for progress updates from FFmpeg
+            const progressHandler = (progress) => {
+                processingProgress.value = progress
+            }
+            window.electron.onFFmpegProgress(progressHandler)
+
+            // Step 1: Create temp file path
+            console.log('Step 1: Creating temp file path')
+            let pathResult
+            try {
+                pathResult = await window.electron.createTempVideoPath()
+            } catch (e) {
+                console.error('IPC ERROR in createTempVideoPath:', e)
+                throw new Error(`IPC call failed (createTempVideoPath): ${e.message}`)
+            }
+            if (!pathResult.success) {
+                throw new Error('Failed to create temp path')
+            }
+            tempInputPath = pathResult.path
+            console.log('Temp path created:', tempInputPath)
+
+            // Step 2: Write video to temp file in chunks (avoid IPC size limits)
+            console.log('Starting to write video chunks...')
+            const arrayBuffer = await videoBlob.arrayBuffer()
+            console.log('ArrayBuffer size:', arrayBuffer.byteLength)
+            
+            const uint8Array = new Uint8Array(arrayBuffer)
+            const chunkSize = 64 * 1024 // 64KB chunks (very safe for IPC)
+            const totalChunks = Math.ceil(uint8Array.length / chunkSize)
+            console.log('Total chunks to write:', totalChunks, 'chunk size:', chunkSize)
+
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSize
+                const end = Math.min(start + chunkSize, uint8Array.length)
+                const chunkTypedArray = uint8Array.slice(start, end)
+                // Convert Uint8Array to plain array for IPC compatibility
+                const chunkArray = Array.from(chunkTypedArray)
+                
+                console.log(`Writing chunk ${i + 1}/${totalChunks}, size: ${chunkArray.length}`)
+                
+                let writeResult
                 try {
-                    const canvas = document.createElement('canvas')
-                    const ctx = canvas.getContext('2d', { alpha: false })
-
-                    // Calculate scale between viewport and actual video
-                    const scaleX = video.videoWidth / window.innerWidth
-                    const scaleY = video.videoHeight / window.innerHeight
-
-                    // Calculate crop coordinates in video space
-                    const cropX = Math.round(bounds.left * scaleX)
-                    const cropY = Math.round(bounds.top * scaleY)
-                    const cropWidth = Math.round(bounds.width * scaleX)
-                    const cropHeight = Math.round(bounds.height * scaleY)
-
-                    // Set canvas size to crop size
-                    canvas.width = cropWidth
-                    canvas.height = cropHeight
-
-                    // Create a new video element for recording the cropped version
-                    const recordCanvas = document.createElement('canvas')
-                    const recordCtx = recordCanvas.getContext('2d', { alpha: false })
-                    recordCanvas.width = cropWidth
-                    recordCanvas.height = cropHeight
-
-                    const croppedChunks = []
-                    const canvasStream = recordCanvas.captureStream(30)
-                    const recorder = new MediaRecorder(canvasStream, VIDEO_CONFIG)
-
-                    recorder.ondataavailable = (e) => {
-                        if (e.data?.size > 0) {
-                            croppedChunks.push(e.data)
-                        }
-                    }
-
-                    recorder.onstop = () => {
-                        URL.revokeObjectURL(video.src)
-                        const croppedBlob = new Blob(croppedChunks, { type: VIDEO_CONFIG.mimeType })
-                        resolve(croppedBlob)
-                    }
-
-                    recorder.onerror = (e) => {
-                        console.error('Crop recorder error:', e)
-                        URL.revokeObjectURL(video.src)
-                        reject(new Error('Failed to crop video'))
-                    }
-
-                    // Play video and draw cropped frames
-                    video.play()
-                    recorder.start()
-
-                    const drawFrame = () => {
-                        if (!video.paused && !video.ended) {
-                            recordCtx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
-                            requestAnimationFrame(drawFrame)
-                        } else if (video.ended) {
-                            recorder.stop()
-                        }
-                    }
-
-                    video.onplay = () => {
-                        drawFrame()
-                    }
-
-                    video.onended = () => {
-                        recorder.stop()
-                    }
-                } catch (error) {
-                    URL.revokeObjectURL(video.src)
-                    reject(error)
+                    writeResult = await window.electron.writeVideoChunk({
+                        filePath: tempInputPath,
+                        chunk: chunkArray,
+                        isFirst: i === 0
+                    })
+                } catch (e) {
+                    console.error(`IPC ERROR in writeVideoChunk (chunk ${i + 1}/${totalChunks}):`, e)
+                    throw new Error(`IPC call failed (writeVideoChunk chunk ${i + 1}): ${e.message}`)
+                }
+                
+                if (!writeResult.success) {
+                    throw new Error('Failed to write video chunk ' + (i + 1))
                 }
             }
+            console.log('All chunks written successfully')
 
-            video.onerror = (e) => {
-                URL.revokeObjectURL(video.src)
-                reject(new Error('Failed to load video for cropping'))
+            // Step 3: Crop video with FFmpeg
+            console.log('Step 3: Calling FFmpeg crop with bounds:', bounds)
+            
+            // Create a plain object for IPC (avoid non-serializable properties)
+            const plainBounds = {
+                left: Number(bounds.left),
+                top: Number(bounds.top),
+                width: Number(bounds.width),
+                height: Number(bounds.height)
             }
-        })
+            
+            const cropResult = await window.electron.cropVideoFFmpeg({
+                inputPath: tempInputPath,
+                cropBounds: plainBounds,
+                displayWidth: Number(window.innerWidth),
+                displayHeight: Number(window.innerHeight)
+            })
+            console.log('FFmpeg crop result:', cropResult)
+
+            if (!cropResult.success) {
+                throw new Error(cropResult.error || 'Failed to crop video')
+            }
+            tempOutputPath = cropResult.outputPath
+
+            // Step 4: Get file size for memory-efficient chunked reading
+            console.log('Step 4: Getting cropped video file size')
+            const sizeResult = await window.electron.getFileSize(tempOutputPath)
+            if (!sizeResult.success) {
+                throw new Error('Failed to get file size: ' + sizeResult.error)
+            }
+            const fileSize = sizeResult.size
+            console.log('Cropped video size:', fileSize, 'bytes')
+
+            // Step 5: Read video in chunks (memory-efficient, prevents OOM)
+            console.log('Step 5: Reading cropped video in chunks')
+            const readChunkSize = 256 * 1024 // 256KB chunks for reading
+            const chunks = []
+            let position = 0
+            
+            while (position < fileSize) {
+                const length = Math.min(readChunkSize, fileSize - position)
+                const chunkResult = await window.electron.readFileChunk({
+                    filePath: tempOutputPath,
+                    start: position,
+                    length: length
+                })
+                
+                if (!chunkResult.success) {
+                    throw new Error('Failed to read chunk: ' + chunkResult.error)
+                }
+                
+                chunks.push(new Uint8Array(chunkResult.chunk))
+                position += chunkResult.bytesRead
+                
+                const progress = Math.round(position/fileSize*100)
+                if (progress % 10 === 0) {
+                    console.log(`Reading: ${progress}%`)
+                }
+            }
+            
+            const croppedBlob = new Blob(chunks, { type: VIDEO_CONFIG.mimeType })
+            console.log('Cropped blob created, size:', croppedBlob.size)
+
+            // Step 6: Cleanup temp files
+            await window.electron.cleanupTempFiles([tempInputPath, tempOutputPath])
+
+            // Cleanup progress listener
+            window.electron.removeFFmpegProgressListener()
+
+            return croppedBlob
+        } catch (error) {
+            // Cleanup on error
+            if (tempInputPath || tempOutputPath) {
+                const filesToClean = [tempInputPath, tempOutputPath].filter(Boolean)
+                await window.electron.cleanupTempFiles(filesToClean)
+            }
+            window.electron.removeFFmpegProgressListener()
+            throw error
+        }
     }
 
     const cleanupRecording = () => {
@@ -1015,6 +1090,11 @@
                 <div
                     class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
                 <p class="text-lg font-semibold text-white">Processing recording...</p>
+                <p
+                    v-if="processingProgress > 0"
+                    class="mt-2 text-xl font-bold text-green-400">
+                    {{ processingProgress }}%
+                </p>
                 <p class="mt-2 text-sm text-gray-400">Please wait</p>
             </div>
         </div>

@@ -10,6 +10,7 @@ import ScreenshotService from './services/screenshot-service.js'
 import VideoRecordingService from './services/video-recording-service.js'
 import NotificationService from './services/notification-service.js'
 import StoreService from './services/store-service.js'
+import FFmpegService from './services/ffmpeg-service.js'
 import { getPersistableDefaults } from './store-defaults.js'
 
 // ==================== CONFIGURATION & INITIALIZATION ====================
@@ -62,6 +63,7 @@ let screenshotService
 let videoRecordingService
 let notificationService
 let storeService
+let ffmpegService
 let currentScreenshotShortcut = null
 
 // ==================== WINDOW CREATION ====================
@@ -87,6 +89,7 @@ const createWindow = () => {
     videoRecordingService = new VideoRecordingService(windowManager, store)
     notificationService = new NotificationService(windowManager)
     storeService = new StoreService(windowManager, store)
+    ffmpegService = new FFmpegService()
 }
 
 // ==================== GLOBAL SHORTCUTS ====================

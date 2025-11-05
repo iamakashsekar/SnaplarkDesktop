@@ -29,6 +29,16 @@ contextBridge.exposeInMainWorld('electron', {
     stopVideoRecording: (recordingId) => ipcRenderer.invoke('stop-video-recording', recordingId),
     isVideoRecordingActive: () => ipcRenderer.invoke('is-video-recording-active'),
     stopAllVideoRecordings: () => ipcRenderer.invoke('stop-all-video-recordings'),
+    
+    // FFmpeg video processing
+    createTempVideoPath: () => ipcRenderer.invoke('create-temp-video-path'),
+    writeVideoChunk: (options) => ipcRenderer.invoke('write-video-chunk', options),
+    cropVideoFFmpeg: (options) => ipcRenderer.invoke('crop-video-ffmpeg', options),
+    getFileSize: (filePath) => ipcRenderer.invoke('get-file-size', filePath),
+    readFileChunk: (options) => ipcRenderer.invoke('read-file-chunk', options),
+    cleanupTempFiles: (filePaths) => ipcRenderer.invoke('cleanup-temp-files', filePaths),
+    onFFmpegProgress: (callback) => ipcRenderer.on('ffmpeg-progress', (event, progress) => callback(progress)),
+    removeFFmpegProgressListener: () => ipcRenderer.removeAllListeners('ffmpeg-progress'),
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
