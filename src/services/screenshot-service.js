@@ -70,19 +70,8 @@ class ScreenshotService {
         return defaultSaveFolder
     }
 
-    applyQualitySettings(image) {
-        const settings = this.store.get('settings') || {}
-        const quality = settings.uploadQuality || 'high'
-
-        switch (quality) {
-            case 'low':
-                return { buffer: image.toJPEG(75), extension: '.jpg' }
-            case 'medium':
-                return { buffer: image.toJPEG(90), extension: '.jpg' }
-            case 'high':
-            default:
-                return { buffer: image.toPNG(), extension: '.png' }
-        }
+    convertToPNG(image) {
+        return { buffer: image.toPNG(), extension: '.png' }
     }
 
     setupHandlers() {
@@ -338,9 +327,9 @@ class ScreenshotService {
                     const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
                     const rawBuffer = Buffer.from(base64Data, 'base64')
                     const image = nativeImage.createFromBuffer(rawBuffer)
-                    const qualityResult = this.applyQualitySettings(image)
-                    imageBuffer = qualityResult.buffer
-                    extension = qualityResult.extension
+                    const result = this.convertToPNG(image)
+                    imageBuffer = result.buffer
+                    extension = result.extension
                 } else {
                     const displays = screen.getAllDisplays()
                     const primaryDisplay = screen.getPrimaryDisplay()
@@ -353,9 +342,9 @@ class ScreenshotService {
                     }
 
                     const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-                    const qualityResult = this.applyQualitySettings(image)
-                    imageBuffer = qualityResult.buffer
-                    extension = qualityResult.extension
+                    const result = this.convertToPNG(image)
+                    imageBuffer = result.buffer
+                    extension = result.extension
                 }
 
                 const screenshotsDir = this.ensureScreenshotsDirectory()
@@ -363,7 +352,7 @@ class ScreenshotService {
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
                 let filename = defaultFilename || `Screenshot_${timestamp}.png`
 
-                // Update extension based on quality setting
+                // Update extension to PNG
                 if (defaultFilename) {
                     filename = defaultFilename.replace(/\.(png|jpg|jpeg)$/i, extension)
                 } else {
@@ -415,11 +404,11 @@ class ScreenshotService {
                 const screenshotsDir = this.ensureScreenshotsDirectory()
 
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-                const qualityResult = this.applyQualitySettings(image)
-                const filename = `Screenshot_${timestamp}${qualityResult.extension}`
+                const result = this.convertToPNG(image)
+                const filename = `Screenshot_${timestamp}${result.extension}`
                 const filepath = path.join(screenshotsDir, filename)
 
-                fs.writeFileSync(filepath, qualityResult.buffer)
+                fs.writeFileSync(filepath, result.buffer)
 
                 const { size } = fs.statSync(filepath)
 
@@ -504,20 +493,15 @@ class ScreenshotService {
                 const fileExtension = path.extname(result.filePath).toLowerCase()
                 let finalImageBuffer
 
-                // Apply format based on user's choice in dialog
-                // Quality settings are applied for JPEG compression
-                const settings = this.store.get('settings') || {}
-                const quality = settings.uploadQuality || 'high'
-
+                // Apply format based on user's choice in dialog - always highest quality
                 if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
-                    // Use quality setting for JPEG compression level
-                    const jpegQuality = quality === 'low' ? 75 : quality === 'medium' ? 90 : 95
-                    finalImageBuffer = nativeImageObj.toJPEG(jpegQuality)
+                    // Maximum quality JPEG (100%)
+                    finalImageBuffer = nativeImageObj.toJPEG(100)
                 } else if (fileExtension === '.webp') {
-                    // WebP doesn't have direct support, save as PNG
+                    // WebP doesn't have direct support, save as PNG (lossless)
                     finalImageBuffer = nativeImageObj.toPNG()
                 } else {
-                    // PNG or other formats - always use PNG (lossless)
+                    // PNG or other formats - always PNG (lossless, highest quality)
                     finalImageBuffer = nativeImageObj.toPNG()
                 }
 

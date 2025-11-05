@@ -20,7 +20,7 @@ export const defaultState = {
         launchAtStartup: false,
         language: 'en',
         defaultSaveFolder: '~/Pictures/Snaplark',
-        promptForSaveLocation: false,
+        promptForSaveLocation: true,
 
         // Hotkeys
         hotkeyScreenshot: 'Shift + Cmd + S',
@@ -28,7 +28,6 @@ export const defaultState = {
         hotkeyQuickMenu: 'Ctrl + Alt + S',
 
         // Capture
-        uploadQuality: 'high',
         showMagnifier: true,
         showCrosshair: false,
         showCursor: true,

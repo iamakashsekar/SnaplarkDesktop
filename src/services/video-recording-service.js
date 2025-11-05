@@ -247,8 +247,7 @@ class VideoRecordingService {
 
         ipcMain.handle('start-video-recording', async (event, options) => {
             try {
-                const { type, bounds, displayId, isFullScreen } = options
-                const senderWindow = BrowserWindow.fromWebContents(event.sender)
+                const { displayId } = options
                 
                 await new Promise((resolve) => setTimeout(resolve, 100))
 
@@ -258,12 +257,8 @@ class VideoRecordingService {
                 const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
 
                 const source = await this.findSourceForDisplay(targetDisplay)
-                if (!source) {
-                    throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-                }
-
-                if (!source.id) {
-                    throw new Error(`Screen source has no ID for displayId: ${displayIdStr}`)
+                if (!source?.id) {
+                    throw new Error(`Could not find screen source for displayId: ${displayIdStr}`)
                 }
 
                 const recordingId = `${displayIdStr}-${Date.now()}`
@@ -271,9 +266,6 @@ class VideoRecordingService {
                     displayId: displayIdStr,
                     source: source,
                     display: targetDisplay,
-                    type,
-                    bounds,
-                    isFullScreen,
                     startTime: Date.now()
                 }
 
@@ -327,21 +319,12 @@ class VideoRecordingService {
                     })
                 }, 200)
 
-                const response = {
+                return {
                     success: true,
                     recordingId,
                     sourceId: source.id,
-                    displayId: displayIdStr,
-                    bounds: isFullScreen ? {
-                        x: 0,
-                        y: 0,
-                        width: targetDisplay.bounds.width,
-                        height: targetDisplay.bounds.height
-                    } : bounds
+                    displayId: displayIdStr
                 }
-
-                console.log('Video recording started:', response)
-                return response
             } catch (error) {
                 console.error('Start video recording error:', error)
                 return { success: false, error: error.message }

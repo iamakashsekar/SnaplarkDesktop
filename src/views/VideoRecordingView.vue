@@ -43,16 +43,13 @@
     const recordingDuration = ref(0)
     const recordingInterval = ref(null)
     const stream = ref(null)
-    const videoElement = ref(null)
-    const cropCanvas = ref(null)
-    const cropStream = ref(null)
-    const animationFrameId = ref(null)
     const stopRecordingShortcutCallback = ref(null)
+    const cropBounds = ref(null) // Store crop bounds for post-processing
 
     // Video recording configuration
     const VIDEO_CONFIG = {
         mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 2500000,
+        videoBitsPerSecond: 5000000,
         audioBitsPerSecond: 128000
     }
 
@@ -345,55 +342,37 @@
     }
 
     const startRecording = async () => {
-        let result = null
         try {
             const { left, top, width, height } = selectionRect.value
             const isFullScreenSelection = isFullScreen.value
 
-            console.log('Starting recording with bounds:', { left, top, width, height, isFullScreenSelection })
-            console.log('DisplayId:', displayId.value)
-
-            result = await window.electron?.startVideoRecording({
-                type: isFullScreenSelection ? 'fullscreen' : 'area',
-                bounds: {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId: displayId.value || null,
-                isFullScreen: isFullScreenSelection
-            })
-
-            console.log('Result from startVideoRecording:', result)
-
-            if (!result) {
-                console.error('No result returned from startVideoRecording')
-                alert('Failed to start recording: No response from service')
-                return
+            // Store crop bounds for post-processing if custom area
+            if (!isFullScreenSelection) {
+                cropBounds.value = { left, top, width, height }
+            } else {
+                cropBounds.value = null
             }
 
-            if (!result.success) {
-                console.error('Failed to start recording:', result?.error)
+            // Always request full screen recording (backend returns full screen source)
+            const result = await window.electron?.startVideoRecording({
+                type: 'fullscreen',
+                displayId: displayId.value || null,
+                isFullScreen: true
+            })
+
+            if (!result?.success) {
                 alert(`Failed to start recording: ${result?.error || 'Unknown error'}`)
                 return
             }
 
-            if (!result.recordingId) {
-                console.error('Recording started but no recordingId returned:', result)
-                alert('Failed to start recording: No recording ID received')
+            if (!result.sourceId || !result.recordingId) {
+                alert('Failed to start recording: Missing source or recording ID')
                 return
             }
 
-            if (!result.sourceId) {
-                console.error('Recording started but no sourceId returned:', result)
-                alert('Failed to start recording: No source ID received')
-                return
-            }
-
-            console.log('Recording started, sourceId:', result.sourceId, 'recordingId:', result.recordingId)
             recordingId.value = result.recordingId
 
+            // Get media stream from screen
             const constraints = {
                 audio: false,
                 video: {
@@ -404,305 +383,57 @@
                 }
             }
 
-            console.log('Requesting media stream with constraints:', constraints)
+            stream.value = await navigator.mediaDevices.getUserMedia(constraints)
 
-            try {
-                stream.value = await navigator.mediaDevices.getUserMedia(constraints)
-                console.log('Media stream obtained:', stream.value)
-            } catch (getUserMediaError) {
-                console.error('getUserMedia error:', getUserMediaError)
-                alert(`Failed to access screen: ${getUserMediaError.message || getUserMediaError.name}`)
-                cleanupRecording()
-                mode.value = 'confirming'
-                return
+            if (!stream.value?.getVideoTracks().length) {
+                throw new Error('Failed to get video stream')
             }
 
-            if (!stream.value || stream.value.getVideoTracks().length === 0) {
-                console.error('No video tracks in stream')
-                alert('Failed to get video stream from screen')
-                cleanupRecording()
-                mode.value = 'confirming'
-                return
-            }
-
-            const videoTrack = stream.value.getVideoTracks()[0]
-            console.log('Video track:', videoTrack)
-            console.log('Video track settings:', videoTrack.getSettings())
-
-            if (isFullScreenSelection) {
-                console.log('Setting up fullscreen recording')
-                mediaRecorder.value = new MediaRecorder(stream.value, VIDEO_CONFIG)
-            } else {
-                console.log('Setting up partial screen recording with cropping')
-                videoElement.value = document.createElement('video')
-                videoElement.value.srcObject = stream.value
-                videoElement.value.autoplay = true
-                videoElement.value.muted = true
-                videoElement.value.playsInline = true
-
-                // Wait for video to be ready and playing
-                await new Promise((resolve, reject) => {
-                    const checkVideoReady = () => {
-                        if (videoElement.value.readyState >= 2) {
-                            // Video has loaded enough data
-                            videoElement.value
-                                .play()
-                                .then(() => {
-                                    console.log('Video element playing, starting canvas cropping')
-                                    // Wait a bit more to ensure frames are available
-                                    setTimeout(() => resolve(), 100)
-                                })
-                                .catch((error) => {
-                                    console.error('Error playing video:', error)
-                                    reject(error)
-                                })
-                        } else {
-                            setTimeout(checkVideoReady, 50)
-                        }
-                    }
-
-                    videoElement.value.onloadedmetadata = () => {
-                        checkVideoReady()
-                    }
-                    videoElement.value.onerror = (e) => {
-                        console.error('Video element error:', e)
-                        reject(new Error('Video element failed to load'))
-                    }
-                    setTimeout(() => reject(new Error('Video load timeout')), 10000)
-                })
-
-                cropCanvas.value = document.createElement('canvas')
-                cropCanvas.value.width = Math.round(width)
-                cropCanvas.value.height = Math.round(height)
-                const ctx = cropCanvas.value.getContext('2d', { alpha: false })
-
-                if (!ctx) {
-                    throw new Error('Failed to get canvas context')
-                }
-
-                // Get video element dimensions after it's loaded
-                const videoWidth = videoElement.value.videoWidth || videoElement.value.clientWidth || window.innerWidth
-                const videoHeight =
-                    videoElement.value.videoHeight || videoElement.value.clientHeight || window.innerHeight
-                const viewWidth = window.innerWidth
-                const viewHeight = window.innerHeight
-
-                console.log('Video dimensions:', { videoWidth, videoHeight, viewWidth, viewHeight })
-
-                // Calculate scale factors between viewport and video element
-                const scaleX = videoWidth / viewWidth
-                const scaleY = videoHeight / viewHeight
-
-                console.log('Scale factors:', { scaleX, scaleY })
-
-                // Convert selection coordinates from viewport to video element coordinates
-                const cropLeft = Math.round(left * scaleX)
-                const cropTop = Math.round(top * scaleY)
-                const cropWidth = Math.round(width * scaleX)
-                const cropHeight = Math.round(height * scaleY)
-
-                console.log('Crop coordinates:', { left, top, width, height, cropLeft, cropTop, cropWidth, cropHeight })
-
-                // Draw initial frame before capturing stream
-                try {
-                    ctx.drawImage(
-                        videoElement.value,
-                        cropLeft,
-                        cropTop,
-                        cropWidth,
-                        cropHeight,
-                        0,
-                        0,
-                        Math.round(width),
-                        Math.round(height)
-                    )
-                    console.log('Initial frame drawn to canvas')
-                } catch (error) {
-                    console.warn('Error drawing initial frame:', error)
-                }
-
-                // Start capturing stream from canvas AFTER drawing initial frame
-                cropStream.value = cropCanvas.value.captureStream(30)
-                console.log('Canvas stream created, fps:', 30)
-
-                // Ensure stream is active
-                if (!cropStream.value || cropStream.value.getVideoTracks().length === 0) {
-                    throw new Error('Failed to create canvas stream')
-                }
-
-                const cropVideoTrack = cropStream.value.getVideoTracks()[0]
-                if (!cropVideoTrack) {
-                    throw new Error('Failed to get crop video track')
-                }
-
-                console.log('Canvas video track:', {
-                    enabled: cropVideoTrack.enabled,
-                    readyState: cropVideoTrack.readyState,
-                    muted: cropVideoTrack.muted,
-                    settings: cropVideoTrack.getSettings()
-                })
-
-                // Ensure track is enabled
-                cropVideoTrack.enabled = true
-
-                // Start drawing loop BEFORE creating MediaRecorder
-                // This ensures frames are being produced before MediaRecorder starts
-                let frameCount = 0
-                const drawFrame = () => {
-                    if (!cropCanvas.value || !videoElement.value) {
-                        return
-                    }
-
-                    try {
-                        // Check if video has frames available and isRecording is true
-                        if (videoElement.value.readyState >= 2) {
-                            // Recalculate scale factors in case video dimensions changed
-                            const currentVideoWidth =
-                                videoElement.value.videoWidth || videoElement.value.clientWidth || window.innerWidth
-                            const currentVideoHeight =
-                                videoElement.value.videoHeight || videoElement.value.clientHeight || window.innerHeight
-                            const currentScaleX = currentVideoWidth / viewWidth
-                            const currentScaleY = currentVideoHeight / viewHeight
-
-                            const currentCropLeft = Math.round(left * currentScaleX)
-                            const currentCropTop = Math.round(top * currentScaleY)
-                            const currentCropWidth = Math.round(width * currentScaleX)
-                            const currentCropHeight = Math.round(height * currentScaleY)
-
-                            ctx.drawImage(
-                                videoElement.value,
-                                currentCropLeft,
-                                currentCropTop,
-                                currentCropWidth,
-                                currentCropHeight,
-                                0,
-                                0,
-                                Math.round(width),
-                                Math.round(height)
-                            )
-                            frameCount++
-                            if (frameCount % 30 === 0) {
-                                console.log(`Drawn ${frameCount} frames to canvas`)
-                            }
-                        }
-                    } catch (error) {
-                        console.warn('Error drawing frame:', error)
-                    }
-
-                    // Continue drawing as long as we have the canvas and video element
-                    // isRecording will be set to false when stopping, but we check cropCanvas instead
-                    if (cropCanvas.value && videoElement.value) {
-                        animationFrameId.value = requestAnimationFrame(drawFrame)
-                    }
-                }
-
-                // Start drawing frames immediately
-                drawFrame()
-                console.log('Canvas cropping started, drawing frames...')
-
-                // Wait a bit to ensure frames are being produced before starting MediaRecorder
-                await new Promise((resolve) => setTimeout(resolve, 300))
-                console.log(`Drawn ${frameCount} frames before starting MediaRecorder`)
-
-                // Create MediaRecorder with the canvas stream
-                const croppedStream = new MediaStream([cropVideoTrack])
-                mediaRecorder.value = new MediaRecorder(croppedStream, VIDEO_CONFIG)
-
-                console.log('MediaRecorder created with canvas stream, track state:', cropVideoTrack.readyState)
-            }
-
-            if (!mediaRecorder.value) {
-                throw new Error('Failed to create MediaRecorder')
-            }
-
+            // Create MediaRecorder with the full screen stream
+            mediaRecorder.value = new MediaRecorder(stream.value, VIDEO_CONFIG)
             recordedChunks.value = []
 
+            // Handle data available
             mediaRecorder.value.ondataavailable = (event) => {
-                if (event.data && event.data.size > 0) {
+                if (event.data?.size > 0) {
                     recordedChunks.value.push(event.data)
-                    console.log(
-                        'Received data chunk:',
-                        event.data.size,
-                        'bytes, total chunks:',
-                        recordedChunks.value.length
-                    )
-                } else {
-                    console.warn('Received empty data chunk')
                 }
             }
 
+            // Handle recording stop
             mediaRecorder.value.onstop = async () => {
                 try {
-                    console.log('MediaRecorder onstop fired!')
-                    console.log('Chunks count:', recordedChunks.value.length)
-                    console.log('Current mode before onstop:', mode.value)
-
-                    // Ensure window is shown and blocking immediately
+                    // Show window immediately
                     const currentWindowType = windowType.value
-                    console.log('Window type:', currentWindowType)
                     window.electronWindows?.makeWindowBlocking(currentWindowType)
                     window.electronWindows?.showWindow(currentWindowType)
 
-                    // Don't cleanup streams yet - wait until we have the blob
-                    // cleanupRecording()
-
-                    // Wait a bit to ensure all chunks are collected
+                    // Wait for all chunks to be collected
                     await new Promise((resolve) => setTimeout(resolve, 300))
 
-                    const totalSize = recordedChunks.value.reduce((sum, chunk) => sum + chunk.size, 0)
-                    console.log('Total chunks size:', totalSize, 'bytes')
-
-                    if (totalSize === 0) {
-                        console.error('No chunks collected!')
-                        cleanupRecording()
-                        mode.value = 'idle'
-                        alert('Recording failed: No video data captured')
-                        window.electron?.cancelVideoRecordingMode()
-                        return
+                    if (recordedChunks.value.length === 0) {
+                        throw new Error('No video data captured')
                     }
 
-                    const blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
-                    console.log('Recording blob created, size:', blob.size, 'bytes')
+                    // Create blob from recorded chunks
+                    let blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
 
-                    if (blob.size > 0) {
-                        recordedVideoBlob.value = blob
-                        previewVideoUrl.value = URL.createObjectURL(blob)
-                        console.log(
-                            'Setting mode to previewing, blob URL created:',
-                            previewVideoUrl.value.substring(0, 50)
-                        )
-                        // IMPORTANT: Set previewing mode BEFORE cleanup and ensure it sticks
-                        mode.value = 'previewing'
-                        console.log('Mode set to previewing:', mode.value)
-
-                        // Cleanup streams after creating preview
-                        cleanupRecording()
-
-                        console.log('Preview ready, window shown, mode:', mode.value)
-
-                        // Double-check window is shown and focused
-                        window.electronWindows?.makeWindowBlocking(currentWindowType)
-                        window.electronWindows?.showWindow(currentWindowType)
-
-                        // Force Vue to update by using nextTick
-                        await new Promise((resolve) => setTimeout(resolve, 50))
-                        console.log('Final mode check:', mode.value)
-                    } else {
-                        console.error('Recording blob is empty after creation')
-                        cleanupRecording()
-                        mode.value = 'idle'
-                        alert('Recording failed: No video data captured')
-                        window.electron?.cancelVideoRecordingMode()
+                    // If custom area, crop the video
+                    if (cropBounds.value) {
+                        blob = await cropVideo(blob, cropBounds.value)
                     }
+
+                    // Set preview
+                    recordedVideoBlob.value = blob
+                    previewVideoUrl.value = URL.createObjectURL(blob)
+                    mode.value = 'previewing'
+
+                    // Cleanup streams
+                    cleanupRecording()
                 } catch (error) {
-                    console.error('Error in onstop handler:', error)
-                    console.error('Error stack:', error.stack)
-                    // Make sure window is still usable even if there's an error
+                    console.error('Error processing recording:', error)
                     cleanupRecording()
                     mode.value = 'idle'
-                    const currentWindowType = windowType.value
-                    window.electronWindows?.makeWindowBlocking(currentWindowType)
-                    window.electronWindows?.showWindow(currentWindowType)
                     alert(`Recording error: ${error.message || 'Unknown error'}`)
                     window.electron?.cancelVideoRecordingMode()
                 }
@@ -714,61 +445,117 @@
                 stopRecording()
             }
 
-            console.log('Starting MediaRecorder...')
-            mediaRecorder.value.start(1000)
+            // Start MediaRecorder
+            mediaRecorder.value.start(500)
+
             isRecording.value = true
             mode.value = 'recording'
             recordingStartTime.value = Date.now()
             recordingDuration.value = 0
 
+            // Update duration timer
             recordingInterval.value = setInterval(() => {
                 if (isRecording.value) {
                     recordingDuration.value = Math.floor((Date.now() - recordingStartTime.value) / 1000)
                 }
             }, 1000)
-
-            console.log('Recording started successfully')
-
-            // The window will be hidden by the service automatically
-            // No need to hide here - service handles all video recording windows
         } catch (error) {
             console.error('Error starting recording:', error)
-            console.error('Error stack:', error.stack)
-            console.error('Error details:', {
-                message: error.message,
-                name: error.name,
-                recordingId: recordingId.value,
-                result: result
-            })
-            alert(`Recording failed: ${error.message || error.name || 'Unknown error'}`)
+            alert(`Recording failed: ${error.message || 'Unknown error'}`)
             cleanupRecording()
             isRecording.value = false
             mode.value = 'confirming'
         }
     }
 
+    // Crop video to selected area using canvas
+    const cropVideo = async (videoBlob, bounds) => {
+        return new Promise((resolve, reject) => {
+            const video = document.createElement('video')
+            video.src = URL.createObjectURL(videoBlob)
+            video.muted = true
+
+            video.onloadedmetadata = async () => {
+                try {
+                    const canvas = document.createElement('canvas')
+                    const ctx = canvas.getContext('2d', { alpha: false })
+
+                    // Calculate scale between viewport and actual video
+                    const scaleX = video.videoWidth / window.innerWidth
+                    const scaleY = video.videoHeight / window.innerHeight
+
+                    // Calculate crop coordinates in video space
+                    const cropX = Math.round(bounds.left * scaleX)
+                    const cropY = Math.round(bounds.top * scaleY)
+                    const cropWidth = Math.round(bounds.width * scaleX)
+                    const cropHeight = Math.round(bounds.height * scaleY)
+
+                    // Set canvas size to crop size
+                    canvas.width = cropWidth
+                    canvas.height = cropHeight
+
+                    // Create a new video element for recording the cropped version
+                    const recordCanvas = document.createElement('canvas')
+                    const recordCtx = recordCanvas.getContext('2d', { alpha: false })
+                    recordCanvas.width = cropWidth
+                    recordCanvas.height = cropHeight
+
+                    const croppedChunks = []
+                    const canvasStream = recordCanvas.captureStream(30)
+                    const recorder = new MediaRecorder(canvasStream, VIDEO_CONFIG)
+
+                    recorder.ondataavailable = (e) => {
+                        if (e.data?.size > 0) {
+                            croppedChunks.push(e.data)
+                        }
+                    }
+
+                    recorder.onstop = () => {
+                        URL.revokeObjectURL(video.src)
+                        const croppedBlob = new Blob(croppedChunks, { type: VIDEO_CONFIG.mimeType })
+                        resolve(croppedBlob)
+                    }
+
+                    recorder.onerror = (e) => {
+                        console.error('Crop recorder error:', e)
+                        URL.revokeObjectURL(video.src)
+                        reject(new Error('Failed to crop video'))
+                    }
+
+                    // Play video and draw cropped frames
+                    video.play()
+                    recorder.start()
+
+                    const drawFrame = () => {
+                        if (!video.paused && !video.ended) {
+                            recordCtx.drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight)
+                            requestAnimationFrame(drawFrame)
+                        } else if (video.ended) {
+                            recorder.stop()
+                        }
+                    }
+
+                    video.onplay = () => {
+                        drawFrame()
+                    }
+
+                    video.onended = () => {
+                        recorder.stop()
+                    }
+                } catch (error) {
+                    URL.revokeObjectURL(video.src)
+                    reject(error)
+                }
+            }
+
+            video.onerror = (e) => {
+                URL.revokeObjectURL(video.src)
+                reject(new Error('Failed to load video for cropping'))
+            }
+        })
+    }
+
     const cleanupRecording = () => {
-        if (animationFrameId.value) {
-            cancelAnimationFrame(animationFrameId.value)
-            animationFrameId.value = null
-        }
-
-        if (videoElement.value) {
-            videoElement.value.srcObject = null
-            videoElement.value.onloadedmetadata = null
-            videoElement.value.onerror = null
-            videoElement.value = null
-        }
-
-        if (cropCanvas.value) {
-            cropCanvas.value = null
-        }
-
-        if (cropStream.value) {
-            cropStream.value.getTracks().forEach((track) => track.stop())
-            cropStream.value = null
-        }
-
         if (stream.value) {
             stream.value.getTracks().forEach((track) => track.stop())
             stream.value = null
@@ -776,13 +563,9 @@
     }
 
     const stopRecording = async () => {
-        if (!mediaRecorder.value || !isRecording.value) {
-            console.log('stopRecording called but not recording')
-            return
-        }
+        if (!mediaRecorder.value || !isRecording.value) return
 
         try {
-            console.log('Stopping recording...')
             isRecording.value = false
 
             if (recordingInterval.value) {
@@ -790,91 +573,31 @@
                 recordingInterval.value = null
             }
 
-            // Set mode to stopping FIRST to prevent selection screen from showing
             mode.value = 'stopping'
-            console.log('Mode set to stopping:', mode.value)
 
-            // Show window immediately before stopping (so preview can appear)
+            // Show window
             const currentWindowType = windowType.value
             window.electronWindows?.makeWindowBlocking(currentWindowType)
             window.electronWindows?.showWindow(currentWindowType)
 
-            // Request final data chunk before stopping
-            if (mediaRecorder.value.state === 'recording' || mediaRecorder.value.state === 'paused') {
-                try {
-                    mediaRecorder.value.requestData()
-                    await new Promise((resolve) => setTimeout(resolve, 100))
-                } catch (error) {
-                    console.warn('Error requesting final data:', error)
-                }
+            // Request final data and stop
+            if (mediaRecorder.value.state === 'recording') {
+                mediaRecorder.value.requestData()
+                await new Promise((resolve) => setTimeout(resolve, 100))
             }
 
-            // Stop the MediaRecorder
-            try {
-                if (mediaRecorder.value.state !== 'inactive') {
-                    console.log('Stopping MediaRecorder, current state:', mediaRecorder.value.state)
-                    mediaRecorder.value.stop()
-                    console.log('MediaRecorder.stop() called, new state:', mediaRecorder.value.state)
-                    // Wait for onstop handler to fire - it will set mode to 'previewing'
-                    // Don't do anything else here, let onstop handler manage the transition
-                } else {
-                    console.log('MediaRecorder already inactive, state:', mediaRecorder.value.state)
-                    // If already inactive, manually trigger preview if we have chunks
-                    if (recordedChunks.value.length > 0) {
-                        const totalSize = recordedChunks.value.reduce((sum, chunk) => sum + chunk.size, 0)
-                        if (totalSize > 0) {
-                            const blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
-                            recordedVideoBlob.value = blob
-                            previewVideoUrl.value = URL.createObjectURL(blob)
-                            mode.value = 'previewing'
-                            cleanupRecording()
-                            console.log('Manually triggered preview (MediaRecorder was inactive)')
-                        } else {
-                            mode.value = 'idle'
-                            cleanupRecording()
-                        }
-                    } else {
-                        mode.value = 'idle'
-                        cleanupRecording()
-                    }
-                }
-            } catch (error) {
-                console.error('Error stopping MediaRecorder:', error)
-                // If stopping fails, manually trigger cleanup
-                cleanupRecording()
-                mode.value = 'idle'
-                window.electronWindows?.makeWindowBlocking(currentWindowType)
-                window.electronWindows?.showWindow(currentWindowType)
+            if (mediaRecorder.value.state !== 'inactive') {
+                mediaRecorder.value.stop()
             }
 
             if (recordingId.value) {
-                try {
-                    await window.electron?.stopVideoRecording(recordingId.value)
-                } catch (error) {
-                    console.error('Error calling stopVideoRecording:', error)
-                }
+                await window.electron?.stopVideoRecording(recordingId.value)
                 recordingId.value = null
             }
-
-            // Timeout safety: if preview doesn't appear within 5 seconds, show error
-            setTimeout(() => {
-                if (mode.value === 'stopping' && !previewVideoUrl.value) {
-                    console.error('Preview timeout - forcing cleanup')
-                    mode.value = 'idle'
-                    window.electronWindows?.makeWindowBlocking(currentWindowType)
-                    window.electronWindows?.showWindow(currentWindowType)
-                    alert('Recording stopped but preview failed to load. Please try again.')
-                    window.electron?.cancelVideoRecordingMode()
-                }
-            }, 5000)
         } catch (error) {
-            console.error('Error in stopRecording:', error)
-            // Ensure window is still usable
+            console.error('Error stopping recording:', error)
             isRecording.value = false
             mode.value = 'idle'
-            const currentWindowType = windowType.value
-            window.electronWindows?.makeWindowBlocking(currentWindowType)
-            window.electronWindows?.showWindow(currentWindowType)
             cleanupRecording()
         }
     }
@@ -1107,24 +830,24 @@
         <!-- Instructions (only show on active window) -->
         <div
             v-if="mode === 'idle' && isWindowActive"
-            class="pointer-events-none fixed top-1/2 left-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
+            class="pointer-events-none fixed top-1/2 left-1/2 z-100 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
             <p>Click and drag to select an area or click to record full screen</p>
         </div>
 
         <!-- Crosshair -->
         <div
             v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'recording' && isWindowActive"
-            class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
+            class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-99 h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
             v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'recording' && isWindowActive"
-            class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
+            class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-99 w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
         <!-- Magnifier -->
         <div
             v-if="shouldShowMagnifier && magnifierActive"
-            class="pointer-events-none fixed z-[101] flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
+            class="pointer-events-none fixed z-101 flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
             :style="magnifierStyle">
             <canvas
                 ref="magnifierCanvas"
@@ -1141,7 +864,7 @@
         <!-- Recording Toolbar (when recording) - Compact toolbar with timer and stop button -->
         <div
             v-if="isRecording"
-            class="pointer-events-auto fixed top-4 left-1/2 z-[200] -translate-x-1/2">
+            class="pointer-events-auto fixed top-4 left-1/2 z-200 -translate-x-1/2">
             <div class="flex items-center gap-3 rounded-full bg-black/90 px-6 py-3 shadow-2xl backdrop-blur-sm">
                 <!-- Recording indicator -->
                 <div class="flex items-center gap-2">
@@ -1201,7 +924,7 @@
         <!-- Preview Screen (after recording) -->
         <div
             v-if="mode === 'previewing'"
-            class="fixed inset-0 z-[200] flex items-center justify-center bg-black/90">
+            class="fixed inset-0 z-200 flex items-center justify-center bg-black/90">
             <div class="relative mx-4 w-full max-w-4xl">
                 <!-- Video Preview -->
                 <div
@@ -1287,7 +1010,7 @@
         <!-- Loading Screen (when stopping) -->
         <div
             v-if="mode === 'stopping'"
-            class="fixed inset-0 z-[200] flex items-center justify-center bg-black/90">
+            class="fixed inset-0 z-200 flex items-center justify-center bg-black/90">
             <div class="text-center">
                 <div
                     class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent"></div>

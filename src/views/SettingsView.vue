@@ -11,7 +11,7 @@
 
     const activeTab = ref('general')
     const contentRef = ref(null)
-    
+
     // Track which hotkey field is currently being recorded
     const recordingHotkey = ref(null)
     const previousHotkeyValue = ref({})
@@ -60,7 +60,7 @@
 
     const recordHotkey = async (field, event) => {
         event.preventDefault()
-        
+
         // Handle Escape key to cancel recording
         if (event.key === 'Escape') {
             // Restore previous value
@@ -80,7 +80,7 @@
         if (event.metaKey) keys.push('Cmd')
 
         const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
-        
+
         // Skip modifier keys themselves
         if (!['Control', 'Alt', 'Shift', 'Meta', 'Tab', 'Escape'].includes(event.key)) {
             keys.push(key)
@@ -243,12 +243,14 @@
                                 <input
                                     type="text"
                                     :value="recordingHotkey === 'hotkeyScreenshot' ? '' : settings.hotkeyScreenshot"
-                                    :placeholder="recordingHotkey === 'hotkeyScreenshot' ? 'Recording...' : 'Click to set'"
+                                    :placeholder="
+                                        recordingHotkey === 'hotkeyScreenshot' ? 'Recording...' : 'Click to set'
+                                    "
                                     @focus="startRecordingHotkey('hotkeyScreenshot')"
                                     @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyScreenshot', $event)"
                                     :class="[
-                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium focus:ring-2 focus:outline-none transition-colors',
+                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
                                         recordingHotkey === 'hotkeyScreenshot'
                                             ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
                                             : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
@@ -264,12 +266,14 @@
                                 <input
                                     type="text"
                                     :value="recordingHotkey === 'hotkeyRecording' ? '' : settings.hotkeyRecording"
-                                    :placeholder="recordingHotkey === 'hotkeyRecording' ? 'Recording...' : 'Click to set'"
+                                    :placeholder="
+                                        recordingHotkey === 'hotkeyRecording' ? 'Recording...' : 'Click to set'
+                                    "
                                     @focus="startRecordingHotkey('hotkeyRecording')"
                                     @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyRecording', $event)"
                                     :class="[
-                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium focus:ring-2 focus:outline-none transition-colors',
+                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
                                         recordingHotkey === 'hotkeyRecording'
                                             ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
                                             : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
@@ -285,12 +289,14 @@
                                 <input
                                     type="text"
                                     :value="recordingHotkey === 'hotkeyQuickMenu' ? '' : settings.hotkeyQuickMenu"
-                                    :placeholder="recordingHotkey === 'hotkeyQuickMenu' ? 'Recording...' : 'Click to set'"
+                                    :placeholder="
+                                        recordingHotkey === 'hotkeyQuickMenu' ? 'Recording...' : 'Click to set'
+                                    "
                                     @focus="startRecordingHotkey('hotkeyQuickMenu')"
                                     @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyQuickMenu', $event)"
                                     :class="[
-                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium focus:ring-2 focus:outline-none transition-colors',
+                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
                                         recordingHotkey === 'hotkeyQuickMenu'
                                             ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
                                             : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
@@ -302,21 +308,6 @@
 
                     <!-- CAPTURE TAB -->
                     <template v-else-if="activeTab === 'capture'">
-                        <!-- Screenshot Quality -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
-                            <label class="block">
-                                <h3 class="text-base font-semibold text-slate-900">Screenshot Quality</h3>
-                                <p class="mt-1 text-sm text-slate-500">Quality for saved and uploaded screenshots</p>
-                                <select
-                                    v-model="settings.uploadQuality"
-                                    class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
-                                    <option value="low">Low - JPEG 75% (Smaller files)</option>
-                                    <option value="medium">Medium - JPEG 90% (Balanced)</option>
-                                    <option value="high">High - PNG (Best quality)</option>
-                                </select>
-                            </label>
-                        </div>
-
                         <!-- Crop Tools -->
                         <div
                             class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
@@ -354,7 +345,9 @@
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">Show Cursor (Screenshot will include mouse cursor or not)</label>
+                                <label class="text-sm font-medium text-slate-700"
+                                    >Show Cursor (Screenshot will include mouse cursor or not)</label
+                                >
                                 <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input
                                         type="checkbox"
