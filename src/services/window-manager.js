@@ -113,32 +113,6 @@ class WindowManager {
                 })
             },
 
-            'video-recording': {
-                frame: false,
-                transparent: true,
-                alwaysOnTop: true,
-                skipTaskbar: true,
-                movable: false,
-                resizable: false,
-                hasShadow: false,
-                show: false,
-                enableLargerThanScreen: true,
-                fullscreenable: false,
-                fullscreen: false,
-                kiosk: true,
-                focusable: true,
-                acceptFirstMouse: true,
-                disableAutoHideCursor: true,
-                webPreferences: {
-                    nodeIntegration: false,
-                    contextIsolation: true
-                },
-                ...(process.platform === 'win32' && {
-                    backgroundColor: '#00000000',
-                    titleBarStyle: 'hidden',
-                    titleBarOverlay: false
-                })
-            },
 
             design: {
                 ...common,
@@ -172,9 +146,8 @@ class WindowManager {
 
     createWindow(type, options = {}) {
         const isScreenshotWindow = type.startsWith('screenshot')
-        const isVideoRecordingWindow = type.startsWith('video-recording')
 
-        if (!isScreenshotWindow && !isVideoRecordingWindow && this.windows.has(type)) {
+        if (!isScreenshotWindow && this.windows.has(type)) {
             const existingWindow = this.windows.get(type)
             if (!existingWindow.isDestroyed()) {
                 existingWindow.show()
@@ -184,7 +157,7 @@ class WindowManager {
             this.windows.delete(type)
         }
 
-        const baseType = isScreenshotWindow ? 'screenshot' : isVideoRecordingWindow ? 'video-recording' : type
+        const baseType = isScreenshotWindow ? 'screenshot' : type
         const config = { ...this.windowConfigs[baseType], ...options }
         const parentWindow = this.windows.get('main') || null
 
@@ -208,7 +181,7 @@ class WindowManager {
 
         this.windows.set(type, window)
 
-        if (type !== 'main' && !isScreenshotWindow && !isVideoRecordingWindow) {
+        if (type !== 'main' && !isScreenshotWindow) {
             window.show()
             window.focus()
         }
@@ -217,10 +190,8 @@ class WindowManager {
     }
 
     applyPlatformSpecificSettings(window, type, isScreenshotWindow, config) {
-        const isVideoRecordingWindow = type.startsWith('video-recording')
-        
         if (process.platform === 'darwin' && config.alwaysOnTop) {
-            if (isScreenshotWindow || isVideoRecordingWindow) {
+            if (isScreenshotWindow) {
                 window.setAlwaysOnTop(true, 'screen-saver')
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                 window.setFullScreenable(false)
@@ -239,8 +210,6 @@ class WindowManager {
         let windowType = type
         if (type.startsWith('screenshot')) {
             windowType = 'screenshot'
-        } else if (type.startsWith('video-recording')) {
-            windowType = 'video-recording'
         }
         const urlParams = new URLSearchParams({ window: windowType, ...params })
 

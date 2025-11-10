@@ -6,7 +6,6 @@ import WelcomeView from '../views/WelcomeView.vue'
 import TourView from '../views/TourView.vue'
 import LoginView from '../views/LoginView.vue'
 import ScreenshotView from '../views/ScreenshotView.vue'
-import VideoRecordingView from '../views/VideoRecordingView.vue'
 import DesignView from '../views/DesignView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
 import { useStore } from '../store'
@@ -47,12 +46,6 @@ const routes = [
         name: 'screenshot',
         component: ScreenshotView,
         meta: { windowType: 'screenshot' }
-    },
-    {
-        path: '/video-recording',
-        name: 'video-recording',
-        component: VideoRecordingView,
-        meta: { windowType: 'video-recording' }
     },
     {
         path: '/design',

@@ -22,23 +22,6 @@ contextBridge.exposeInMainWorld('electron', {
         ipcRenderer.invoke('take-screenshot', type, bounds, displayId, closeWindow),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
 
-    // Video recording functionality
-    startVideoRecordingMode: () => ipcRenderer.invoke('start-video-recording-mode'),
-    cancelVideoRecordingMode: () => ipcRenderer.send('cancel-video-recording-mode'),
-    startVideoRecording: (options) => ipcRenderer.invoke('start-video-recording', options),
-    stopVideoRecording: (recordingId) => ipcRenderer.invoke('stop-video-recording', recordingId),
-    isVideoRecordingActive: () => ipcRenderer.invoke('is-video-recording-active'),
-    stopAllVideoRecordings: () => ipcRenderer.invoke('stop-all-video-recordings'),
-    
-    // FFmpeg video processing
-    createTempVideoPath: () => ipcRenderer.invoke('create-temp-video-path'),
-    writeVideoChunk: (options) => ipcRenderer.invoke('write-video-chunk', options),
-    cropVideoFFmpeg: (options) => ipcRenderer.invoke('crop-video-ffmpeg', options),
-    getFileSize: (filePath) => ipcRenderer.invoke('get-file-size', filePath),
-    readFileChunk: (options) => ipcRenderer.invoke('read-file-chunk', options),
-    cleanupTempFiles: (filePaths) => ipcRenderer.invoke('cleanup-temp-files', filePaths),
-    onFFmpegProgress: (callback) => ipcRenderer.on('ffmpeg-progress', (event, progress) => callback(progress)),
-    removeFFmpegProgressListener: () => ipcRenderer.removeAllListeners('ffmpeg-progress'),
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
@@ -58,8 +41,6 @@ contextBridge.exposeInMainWorld('electronWindows', {
     closeWindowsByType: (type) => ipcRenderer.invoke('close-windows-by-type', type),
     closeOtherScreenshotWindows: (currentDisplayId) =>
         ipcRenderer.invoke('close-other-screenshot-windows', currentDisplayId),
-    closeOtherVideoRecordingWindows: (currentDisplayId) =>
-        ipcRenderer.invoke('close-other-video-recording-windows', currentDisplayId),
 
     // Window operations
     centerWindow: (type) => ipcRenderer.invoke('center-window', type),
