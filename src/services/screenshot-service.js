@@ -83,7 +83,8 @@ class ScreenshotService {
                 }
 
                 if (process.platform === 'darwin') {
-                    await new Promise((resolve) => setTimeout(resolve, 500))
+                    // Reduced delay - 200ms should be enough for window to hide
+                    await new Promise((resolve) => setTimeout(resolve, 200))
                 }
 
                 this.windowManager.closeWindowsByType('screenshot')
@@ -140,7 +141,8 @@ class ScreenshotService {
                         params: {
                             displayId: display.id,
                             initialMouseX: mouseX,
-                            initialMouseY: mouseY
+                            initialMouseY: mouseY,
+                            activeDisplayId: initialActiveDisplay.id
                         }
                     })
 
@@ -186,7 +188,8 @@ class ScreenshotService {
 
                     const isInitiallyActive = display.id === initialActiveDisplay.id
 
-                    win.webContents.once('did-finish-load', () => {
+                    // Send activation data immediately when window is ready
+                    const sendActivationData = () => {
                         const activationData = {
                             isActive: isInitiallyActive,
                             activeDisplayId: initialActiveDisplay.id,
@@ -194,7 +197,21 @@ class ScreenshotService {
                             mouseY: initialCursorPos.y - display.bounds.y
                         }
                         win.webContents.send('display-activation-changed', activationData)
-                    })
+                    }
+                    
+                    // Store activeDisplayId on window for reference
+                    win.activeDisplayId = initialActiveDisplay.id
+
+                    // Try to send immediately if window is already loaded
+                    if (win.webContents.isLoading()) {
+                        win.webContents.once('did-finish-load', () => {
+                            // Small delay to ensure Vue component is mounted
+                            setTimeout(sendActivationData, 50)
+                        })
+                    } else {
+                        // Window already loaded, send immediately
+                        setTimeout(sendActivationData, 50)
+                    }
 
                     win.show()
 
@@ -237,13 +254,19 @@ class ScreenshotService {
                                     mouseY: cursorPos.y - win.displayInfo.bounds.y
                                 }
 
-                                if (win.webContents.isLoading()) {
-                                    win.webContents.once('did-finish-load', () => {
-                                        win.webContents.send('display-activation-changed', activationData)
-                                    })
-                                } else {
+                        // Send activation data immediately, regardless of loading state
+                        // The Vue component will handle it when ready
+                        if (win.webContents.isLoading()) {
+                            win.webContents.once('did-finish-load', () => {
+                                setTimeout(() => {
                                     win.webContents.send('display-activation-changed', activationData)
-                                }
+                                }, 50)
+                            })
+                        } else {
+                            setTimeout(() => {
+                                win.webContents.send('display-activation-changed', activationData)
+                            }, 50)
+                        }
                             }
                         })
                     }
