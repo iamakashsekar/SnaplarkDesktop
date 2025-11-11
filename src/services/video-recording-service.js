@@ -3,7 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
 
-class ScreenshotService {
+class VideoRecordingService {
     constructor(windowManager, store) {
         this.windowManager = windowManager
         this.store = store
@@ -75,7 +75,7 @@ class ScreenshotService {
     }
 
     setupHandlers() {
-        ipcMain.handle('start-screenshot-mode', async () => {
+        ipcMain.handle('start-video-recording-mode', async () => {
             try {
                 const mainWindow = this.windowManager.getWindow('main')
                 if (mainWindow) {
@@ -87,7 +87,7 @@ class ScreenshotService {
                     await new Promise((resolve) => setTimeout(resolve, 200))
                 }
 
-                this.windowManager.closeWindowsByType('screenshot')
+                this.windowManager.closeWindowsByType('recording')
 
                 const allDisplays = screen.getAllDisplays()
 
@@ -130,7 +130,7 @@ class ScreenshotService {
                 const initialActiveDisplay = screen.getDisplayNearestPoint(initialCursorPos)
 
                 const windows = validResults.map(({ display, dataURL, mouseX, mouseY }) => {
-                    const windowType = `screenshot-${display.id}`
+                    const windowType = `recording-${display.id}`
 
                     const win = this.windowManager.createWindow(windowType, {
                         ...display.bounds,
@@ -296,43 +296,13 @@ class ScreenshotService {
             }
         })
 
-        ipcMain.handle('copy-screenshot', async (event, type, bounds, displayId) => {
-            try {
-                const senderWindow = BrowserWindow.fromWebContents(event.sender)
-                if (senderWindow) {
-                    senderWindow.hide()
-                }
+        
 
-                await new Promise((resolve) => setTimeout(resolve, 200))
-
-                const displays = screen.getAllDisplays()
-                const primaryDisplay = screen.getPrimaryDisplay()
-                const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-                const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-                const source = await this.findSourceForDisplay(targetDisplay)
-                if (!source) {
-                    throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-                }
-
-                const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-
-                clipboard.writeImage(image)
-
-                this.windowManager.closeWindowsByType('screenshot')
-
-                return { success: true, message: 'Screenshot copied to clipboard' }
-            } catch (error) {
-                console.error('Copy screenshot error:', error)
-                return { success: false, error: error.message }
-            }
+        ipcMain.on('cancel-video-recording-mode', () => {
+            this.windowManager.closeWindowsByType('recording')
         })
 
-        ipcMain.on('cancel-screenshot-mode', () => {
-            this.windowManager.closeWindowsByType('screenshot')
-        })
-
-        ipcMain.handle('save-screenshot-directly', async (event, options) => {
+        ipcMain.handle('save-video-directly', async (event, options) => {
             try {
                 const { type, bounds, displayId, dataUrl, defaultFilename } = options
 
@@ -402,7 +372,7 @@ class ScreenshotService {
             }
         })
 
-        ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {
+        ipcMain.handle('take-video', async (event, type, bounds, displayId, closeWindow) => {
             try {
                 if (closeWindow) {
                     const senderWindow = BrowserWindow.fromWebContents(event.sender)
@@ -452,7 +422,7 @@ class ScreenshotService {
             }
         })
 
-        ipcMain.handle('save-screenshot-with-dialog', async (event, options) => {
+        ipcMain.handle('save-video-with-dialog', async (event, options) => {
             try {
                 const { type, bounds, displayId, defaultFilename, dataUrl } = options
 
@@ -546,12 +516,12 @@ class ScreenshotService {
             }
         })
 
-        ipcMain.handle('close-other-screenshot-windows', async (event, currentDisplayId) => {
+        ipcMain.handle('close-other-video-recording-windows', async (event, currentDisplayId) => {
             try {
                 const currentDisplayIdStr = currentDisplayId?.toString()
 
                 this.windowManager.windows.forEach((window, key) => {
-                    if (key.startsWith('screenshot-') && !window.isDestroyed()) {
+                    if (key.startsWith('recording-') && !window.isDestroyed()) {
                         const windowDisplayIdStr = window.displayInfo?.id?.toString()
 
                         if (window.displayInfo && windowDisplayIdStr !== currentDisplayIdStr) {
@@ -576,4 +546,4 @@ class ScreenshotService {
     }
 }
 
-export default ScreenshotService
+export default VideoRecordingService

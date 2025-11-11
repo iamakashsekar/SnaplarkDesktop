@@ -7,6 +7,7 @@ import Store from 'electron-store'
 import SystemTray from './services/system_tray.js'
 import WindowManager from './services/window-manager.js'
 import ScreenshotService from './services/screenshot-service.js'
+import VideoRecordingService from './services/video-recording-service.js'
 import NotificationService from './services/notification-service.js'
 import StoreService from './services/store-service.js'
 import { getPersistableDefaults } from './store-defaults.js'
@@ -58,6 +59,7 @@ if (process.defaultApp) {
 let windowManager
 let tray
 let screenshotService
+let videoRecordingService
 let notificationService
 let storeService
 let currentScreenshotShortcut = null
@@ -80,6 +82,7 @@ const createWindow = () => {
     }
 
     screenshotService = new ScreenshotService(windowManager, store)
+    videoRecordingService = new VideoRecordingService(windowManager, store)
     notificationService = new NotificationService(windowManager)
     storeService = new StoreService(windowManager, store)
 }
