@@ -9,6 +9,24 @@
     // Direct reference to store.settings (it's already reactive)
     const settings = store.settings
 
+    watch(
+        () => settings.hotkeyScreenshot,
+        (newValue) => {
+            if (window.electron?.invoke) {
+                window.electron.invoke('update-screenshot-shortcut', newValue)
+            }
+        }
+    )
+
+    watch(
+        () => settings.hotkeyRecording,
+        (newValue) => {
+            if (window.electron?.invoke) {
+                window.electron.invoke('update-recording-shortcut', newValue)
+            }
+        }
+    )
+
     const activeTab = ref('general')
     const contentRef = ref(null)
 

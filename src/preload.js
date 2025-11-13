@@ -25,6 +25,12 @@ contextBridge.exposeInMainWorld('electron', {
     // Video recording functionality
     startVideoRecordingMode: () => ipcRenderer.invoke('start-video-recording-mode'),
     cancelVideoRecordingMode: () => ipcRenderer.send('cancel-video-recording-mode'),
+
+    startVideoRecording: (displayId, isFullScreen, bounds) =>
+        ipcRenderer.invoke('start-video-recording', displayId, isFullScreen, bounds),
+
+    saveVideoRecording: (blobData) =>
+        ipcRenderer.invoke('save-video-recording', blobData),
     // takeVideo: (type, bounds, displayId, closeWindow) =>
     //     ipcRenderer.invoke('take-video', type, bounds, displayId, closeWindow),
     // copyVideo: (type, bounds, displayId) => ipcRenderer.invoke('copy-video', type, bounds, displayId),

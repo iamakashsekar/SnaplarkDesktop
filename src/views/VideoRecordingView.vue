@@ -1,10 +1,6 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed } from 'vue'
-    import { apiClient } from '../api/config.js'
-    import axios from 'axios'
-    import KonvaEditor from '../components/KonvaEditor.vue'
-    import { createWorker } from 'tesseract.js'
-    import { useStore } from '@/store'
+    import { useStore } from '../store'
 
     const store = useStore()
 
@@ -34,15 +30,6 @@
     const magnifierCanvas = ref(null)
     const fullScreenImage = ref(null)
 
-    // Upload notifications
-    const uploadNotifications = ref([])
-    const nextNotificationId = ref(1)
-
-    // OCR Modal state
-    const showOCRModal = ref(false)
-    const ocrText = ref('')
-    const ocrCopyTooltip = ref('Copy Text')
-
     const selectionRect = computed(() => {
         const left = Math.min(startX.value, endX.value)
         const top = Math.min(startY.value, endY.value)
@@ -58,10 +45,6 @@
 
     const shouldShowCrosshair = computed(() => {
         return store.settings.showCrosshair === true
-    })
-
-    const shouldShowCursor = computed(() => {
-        return store.settings.showCursor !== false
     })
 
     const selectionBorderClass = computed(() => {
@@ -91,66 +74,6 @@
             return 'animated-dashed-border-selecting-bottom-right'
         }
     })
-
-    const konvaEditorRef = ref(null)
-
-    const backgroundSrc = computed(() => {
-        if (!fullScreenImage.value) return null
-        const { left, top, width, height } = selectionRect.value
-        if (width <= 0 || height <= 0) return null
-
-        // Wait for image to be loaded
-        if (!fullScreenImage.value.complete || fullScreenImage.value.naturalWidth === 0) {
-            return null
-        }
-
-        const canvas = document.createElement('canvas')
-        const dpr = window.devicePixelRatio || 1
-
-        // Set canvas buffer size accounting for device pixel ratio for high quality
-        const bufferWidth = Math.round(width * dpr)
-        const bufferHeight = Math.round(height * dpr)
-        canvas.width = bufferWidth
-        canvas.height = bufferHeight
-
-        // Set CSS size to display size
-        canvas.style.width = `${width}px`
-        canvas.style.height = `${height}px`
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return null
-
-        // Scale context to account for device pixel ratio
-        ctx.scale(dpr, dpr)
-
-        // Enable high-quality image smoothing
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-
-        // Calculate the scale between image natural size and display size
-        const img = fullScreenImage.value
-        const imgW = img.naturalWidth
-        const imgH = img.naturalHeight
-        const viewW = window.innerWidth
-        const viewH = window.innerHeight
-        const scaleX = imgW / viewW
-        const scaleY = imgH / viewH
-
-        // Convert selection coordinates to image coordinates
-        const srcLeft = left * scaleX
-        const srcTop = top * scaleY
-        const srcWidth = width * scaleX
-        const srcHeight = height * scaleY
-
-        ctx.drawImage(img, srcLeft, srcTop, srcWidth, srcHeight, 0, 0, width, height)
-
-        return canvas.toDataURL('image/png')
-    })
-
-    const getEditedDataUrl = () => {
-        const dpr = window.devicePixelRatio || 1
-        return konvaEditorRef.value?.exportPNG?.({ pixelRatio: dpr, mimeType: 'image/png' }) || null
-    }
 
     const magnifierStyle = computed(() => {
         const offset = 10
@@ -426,63 +349,335 @@
         }
     }
 
+    const isRecording = ref(false)
+
+    const recordedChunks = ref([])
+    const mediaRecorder = ref(null)
+
+    // Audio state
+    const microphones = ref([])
+    const selectedMicrophone = ref(null)
+    const isEnumeratingDevices = ref(false)
+
     // Action handlers
-    const handleSave = async () => {
+    const handleStart = async () => {
+        const { left, top, width, height } = selectionRect.value
+        const isFullScreen = width === window.innerWidth && height === window.innerHeight
+
         try {
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-            const { left, top, width, height } = selectionRect.value
+            const result = await window.electron?.startVideoRecording(displayId.value, isFullScreen, {
+                x: Math.round(left),
+                y: Math.round(top),
+                width: Math.round(width),
+                height: Math.round(height)
+            })
 
-            const options = {
-                type: 'area',
-                bounds: {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId: displayId.value
-            }
+            if (result?.success) {
+                console.log('Video recording source obtained:', result.source)
+                isRecording.value = true
+                recordedChunks.value = [] // Clear any previous chunks
 
-            if (mode.value === 'edited') {
-                const dataUrl = getEditedDataUrl()
-                if (!dataUrl) {
-                    console.error('Failed to get edited data URL')
-                    return
+                // Validate source
+                if (!result.source || !result.source.id) {
+                    throw new Error('Invalid recording source received')
                 }
-                options.dataUrl = dataUrl
-                options.defaultFilename = `screenshot_edited_${timestamp}.png`
+
+                // Sanitize source ID to avoid IPC issues
+                const sourceId = String(result.source.id).trim()
+                if (!sourceId || sourceId.length === 0) {
+                    throw new Error('Empty or invalid source ID')
+                }
+
+                console.log('Using source ID:', sourceId)
+
+                // Additional validation for source
+                if (typeof sourceId !== 'string' || sourceId.length < 10) {
+                    console.warn('Source ID looks suspicious:', sourceId)
+                }
+
+                // Resize window to fit only the toolbar when recording starts
+                setTimeout(() => {
+                    const toolbar = document.querySelector('.toolbar-container')
+                    if (toolbar) {
+                        const rect = toolbar.getBoundingClientRect()
+                        const toolbarWidth = rect.width + 40 // Add some padding
+                        const toolbarHeight = rect.height + 40 // Add some padding
+
+                        window.electronWindows?.resizeWindow?.(displayId.value, toolbarWidth, toolbarHeight)
+                    }
+                }, 100)
+
+                // Set up screen recording with selected microphone
+                console.log('Setting up screen recording...')
+
+                // Build audio constraints for selected microphone
+                let audioConstraints = false
+                if (selectedMicrophone.value) {
+                    audioConstraints = {
+                        deviceId: selectedMicrophone.value.deviceId
+                    }
+                    console.log('Recording with microphone:', selectedMicrophone.value.label)
+                } else {
+                    console.log('Recording without microphone audio')
+                }
+
+                // Get separate streams and combine them to avoid IPC issues
+                console.log('Setting up combined screen + audio recording...')
+
+                let videoStream = null
+                let audioStream = null
+                let combinedStream = null
+
+                try {
+                    // Get video stream first
+                    const videoConstraints = {
+                        video: {
+                            mandatory: {
+                                chromeMediaSource: 'desktop',
+                                chromeMediaSourceId: sourceId
+                            }
+                        }
+                    }
+
+                    console.log('Getting video stream...')
+                    videoStream = await navigator.mediaDevices.getUserMedia(videoConstraints)
+                    console.log('Video stream obtained')
+
+                    // Get audio stream if microphone selected
+                    if (selectedMicrophone.value) {
+                        const audioConstraints = {
+                            audio: {
+                                deviceId: selectedMicrophone.value.deviceId
+                            }
+                        }
+
+                        console.log('Getting audio stream...')
+                        audioStream = await navigator.mediaDevices.getUserMedia(audioConstraints)
+                        console.log('Audio stream obtained')
+                    }
+
+                    // Combine streams
+                    const tracks = []
+                    if (videoStream) {
+                        tracks.push(...videoStream.getVideoTracks())
+                    }
+                    if (audioStream) {
+                        tracks.push(...audioStream.getAudioTracks())
+                    }
+
+                    combinedStream = new MediaStream(tracks)
+                    console.log(`Combined stream created with ${tracks.length} tracks`)
+                } catch (mediaError) {
+                    console.error('Failed to get media streams:', mediaError)
+
+                    // Clean up any streams that were created
+                    if (videoStream) {
+                        videoStream.getTracks().forEach((track) => track.stop())
+                    }
+                    if (audioStream) {
+                        audioStream.getTracks().forEach((track) => track.stop())
+                    }
+
+                    throw new Error(`Media access failed: ${mediaError.message}`)
+                }
+
+                // Basic stream validation
+                try {
+                    const tracks = combinedStream.getTracks()
+                    console.log(`Stream has ${tracks.length} total tracks`)
+
+                    const videoTracks = tracks.filter((track) => track.kind === 'video')
+                    if (videoTracks.length === 0) {
+                        throw new Error('No video track available')
+                    }
+
+                    console.log('Stream validation passed')
+                } catch (validationError) {
+                    console.error('Stream validation failed:', validationError)
+                    throw validationError
+                }
+
+                // Create the Media Recorder for screen recording
+                let options = { mimeType: 'video/webm; codecs=vp9' }
+                try {
+                    // Check if VP9 is supported, fallback to VP8 or WebM
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        console.warn('VP9 codec not supported, trying VP8')
+                        options = { mimeType: 'video/webm; codecs=vp8' }
+
+                        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                            console.warn('VP8 codec not supported, using basic WebM')
+                            options = { mimeType: 'video/webm' }
+
+                            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                                console.warn('WebM not supported, using default')
+                                options = {}
+                            }
+                        }
+                    }
+
+                    mediaRecorder.value = new MediaRecorder(combinedStream, options)
+                    console.log(
+                        'MediaRecorder created for screen recording with mimeType:',
+                        options.mimeType || 'default'
+                    )
+                } catch (recorderError) {
+                    console.error('Failed to create MediaRecorder:', recorderError)
+
+                    // Clean up streams
+                    if (combinedStream) {
+                        combinedStream.getTracks().forEach((track) => track.stop())
+                    }
+                    throw new Error(`MediaRecorder creation failed: ${recorderError.message}`)
+                }
+
+                // Register Event Handlers
+                mediaRecorder.value.ondataavailable = (event) => {
+                    if (event.data?.size > 0) {
+                        recordedChunks.value.push(event.data)
+                    }
+                }
+                mediaRecorder.value.onstop = async () => {
+                    // Stop all tracks to free up resources
+                    if (combinedStream) {
+                        combinedStream.getTracks().forEach((track) => track.stop())
+                    }
+
+                    // Use the same mime type that was used for recording
+                    const mimeType = mediaRecorder.value.mimeType || 'video/webm'
+                    console.log('Creating blob with mime type:', mimeType)
+
+                    const blob = new Blob(recordedChunks.value, {
+                        type: mimeType
+                    })
+
+                    try {
+                        const arrayBuffer = await blob.arrayBuffer()
+                        console.log('Video blob size:', blob.size, 'ArrayBuffer size:', arrayBuffer.byteLength)
+
+                        // Validate arrayBuffer before sending
+                        if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+                            throw new Error('Invalid video data: empty array buffer')
+                        }
+
+                        const saveResult = await window.electron?.saveVideoRecording(arrayBuffer)
+
+                        if (saveResult?.success) {
+                            console.log('Video recording saved successfully:', saveResult.filename)
+                            // Reset recording state and restore window size
+                            isRecording.value = false
+                            recordedChunks.value = []
+                            mediaRecorder.value = null
+                            combinedStream = null
+                            // Restore full screen window size
+                            window.electronWindows?.resizeWindow?.(
+                                displayId.value,
+                                window.innerWidth,
+                                window.innerHeight
+                            )
+                        } else if (saveResult?.canceled) {
+                            console.log('Video recording save was canceled')
+                            // Reset recording state and restore window size
+                            isRecording.value = false
+                            recordedChunks.value = []
+                            mediaRecorder.value = null
+                            combinedStream = null
+                            // Restore full screen window size
+                            window.electronWindows?.resizeWindow?.(
+                                displayId.value,
+                                window.innerWidth,
+                                window.innerHeight
+                            )
+                        } else {
+                            console.error('Failed to save video recording:', saveResult?.error)
+                            // Reset recording state even on error and restore window size
+                            isRecording.value = false
+                            recordedChunks.value = []
+                            mediaRecorder.value = null
+                            combinedStream = null
+                            // Restore full screen window size
+                            window.electronWindows?.resizeWindow?.(
+                                displayId.value,
+                                window.innerWidth,
+                                window.innerHeight
+                            )
+                        }
+                    } catch (error) {
+                        console.error('Error saving video recording:', error)
+                        // Reset recording state even on error and restore window size
+                        isRecording.value = false
+                        recordedChunks.value = []
+                        mediaRecorder.value = null
+                        if (combinedStream) {
+                            combinedStream.getTracks().forEach((track) => track.stop())
+                            combinedStream = null
+                        }
+                        // Restore full screen window size
+                        window.electronWindows?.resizeWindow?.(displayId.value, window.innerWidth, window.innerHeight)
+                    }
+                }
+
+                mediaRecorder.value.start()
             } else {
-                options.defaultFilename = `Screenshot_${timestamp}.png`
+                console.error('Failed to get recording source')
             }
-
-            const promptForSaveLocation = store.settings.promptForSaveLocation
-
-            let saveResult
-            if (promptForSaveLocation) {
-                saveResult = await window.electron?.invoke('save-screenshot-with-dialog', options)
-            } else {
-                saveResult = await window.electron?.invoke('save-screenshot-directly', options)
-            }
-
-            if (saveResult?.success) {
-                // Window is closed by the main process after successful save
-                console.log('Screenshot saved successfully:', saveResult.path)
-            } else if (saveResult?.canceled) {
-                // User canceled, windows are shown again by main process
-                console.log('Save canceled by user')
-            } else {
-                console.error('Save failed:', saveResult?.error)
-            }
-
-            return saveResult
         } catch (error) {
-            console.error('Error saving screenshot:', error)
+            console.error('Error starting video recording:', error)
+            // Reset recording state on error and restore window size
+            isRecording.value = false
+            recordedChunks.value = []
+            mediaRecorder.value = null
+            // Clean up any streams that might have been created
+            if (typeof videoStream !== 'undefined' && videoStream) {
+                videoStream.getTracks().forEach((track) => track.stop())
+            }
+            if (typeof audioStream !== 'undefined' && audioStream) {
+                audioStream.getTracks().forEach((track) => track.stop())
+            }
+            if (typeof combinedStream !== 'undefined' && combinedStream) {
+                combinedStream.getTracks().forEach((track) => track.stop())
+            }
+            // Restore full screen window size
+            window.electronWindows?.resizeWindow?.(displayId.value, window.innerWidth, window.innerHeight)
         }
     }
-    const handleUpload = () => captureAndUpload()
-    const handleCopy = () => copyToClipboard()
-    const handleOCR = () => readOCR()
-    const handleSearch = () => searchSimilerImage()
+
+    const enumerateMicrophones = async () => {
+        try {
+            isEnumeratingDevices.value = true
+
+            // Request permission to access media devices
+            await navigator.mediaDevices.getUserMedia({ audio: true })
+
+            const devices = await navigator.mediaDevices.enumerateDevices()
+            microphones.value = devices
+                .filter((device) => device.kind === 'audioinput')
+                .map((device) => ({
+                    deviceId: device.deviceId,
+                    label: device.label || `Microphone ${device.deviceId.slice(0, 8)}`,
+                    groupId: device.groupId
+                }))
+
+            // Set default microphone if none selected
+            if (microphones.value.length > 0 && !selectedMicrophone.value) {
+                selectedMicrophone.value = microphones.value[0]
+            }
+        } catch (error) {
+            console.error('Error enumerating microphones:', error)
+            microphones.value = []
+        } finally {
+            isEnumeratingDevices.value = false
+        }
+    }
+
+    const selectMicrophone = (microphone) => {
+        selectedMicrophone.value = microphone
+    }
+
+    const handleStop = () => {
+        mediaRecorder.value.stop()
+    }
+
     const handleCancel = (event) => {
         window.electron?.cancelVideoRecordingMode()
     }
@@ -490,227 +685,48 @@
     const handleEscapeKeyCancel = (event) => {
         // If called from button click (no event) or Escape key, cancel screenshot mode
         if (event.key === 'Escape') {
-            // First check if OCR modal is open, close it instead of canceling screenshot
-            if (showOCRModal.value) {
-                closeOCRModal()
-                return
-            }
             window.electron?.cancelVideoRecordingMode()
         }
     }
+    // Toolbar dragging handlers
+    const handleToolbarDragStart = (e) => {
+        e.stopPropagation()
+        isDraggingToolbar.value = true
 
-    const captureArea = async (closeWindow = true) => {
-        try {
-            const { left, top, width, height } = selectionRect.value
-            const result = await window.electron?.takeScreenshot(
-                'area',
-                {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId.value,
-                closeWindow
-            )
+        // Get current toolbar position
+        const toolbar = e.currentTarget.closest('.toolbar-container')
+        const rect = toolbar.getBoundingClientRect()
 
-            if (result?.success) {
-                return result
-            } else {
-                console.error('Screenshot failed:', result?.error)
-            }
-        } catch (error) {
-            console.error('Error capturing screenshot:', error)
+        // Store the offset from mouse to toolbar top-left
+        toolbarDragStart.value = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
         }
     }
 
-    const bufferToFile = (buffer, fileName) => {
-        return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
+    const handleToolbarDragMove = (e) => {
+        if (!isDraggingToolbar.value) return
+
+        // Calculate new position
+        let newX = e.clientX - toolbarDragStart.value.x
+        let newY = e.clientY - toolbarDragStart.value.y
+
+        // Keep toolbar within viewport bounds (with some padding)
+        const margin = 10
+        const toolbarWidth = 400
+        const toolbarHeight = 60
+
+        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
+        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
+
+        customToolbarPosition.value = { x: newX, y: newY }
     }
 
-    const captureAndUpload = async (searchSimilar = false) => {
-        try {
-            const notify = (payload) => window.electronNotifications?.notify(payload)
-
-            if (mode.value === 'edited') {
-                const dataUrl = getEditedDataUrl()
-                if (dataUrl) {
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-                    const fileName = `screenshot_${timestamp}.png`
-                    const file = base64ToFile(dataUrl, fileName)
-
-                    notify({
-                        variant: 'upload',
-                        fileInfo: {
-                            dataUrl: dataUrl,
-                            fileName: fileName,
-                            fileSize: formatFileSize(file.size),
-                            searchSimilar: searchSimilar
-                        }
-                    })
-
-                    handleCancel()
-                    return
-                }
-            }
-
-            const result = await captureArea()
-            if (result?.success) {
-                notify({
-                    variant: 'upload',
-                    fileInfo: {
-                        path: result.path,
-                        fileName: result.filename,
-                        fileSize: formatFileSize(result.size),
-                        searchSimilar: searchSimilar
-                    }
-                })
-
-                handleCancel()
-            } else {
-                console.error('Screenshot failed:', result?.error)
-            }
-        } catch (error) {
-            console.error('Error capturing screenshot:', error)
-        }
+    const handleToolbarDragEnd = () => {
+        isDraggingToolbar.value = false
     }
 
-    // Helper functions
-    const base64ToFile = (base64Data, fileName) => {
-        const data = base64Data.replace(/^data:image\/\w+;base64,/, '')
-        const bytes = new Uint8Array(
-            atob(data)
-                .split('')
-                .map((c) => c.charCodeAt(0))
-        )
-        return new File([new Blob([bytes], { type: 'image/png' })], fileName, { type: 'image/png' })
-    }
-
-    const formatFileSize = (bytes) => {
-        if (bytes === 0) return '0 Bytes'
-        const k = 1024
-        const sizes = ['Bytes', 'KB', 'MB', 'GB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        const value = bytes / Math.pow(k, i)
-
-        if (sizes[i] === 'KB') {
-            return `${Math.round(value)} KB` // no decimals
-        } else if (sizes[i] === 'Bytes') {
-            return `${bytes} Bytes` // keep as is
-        } else {
-            return `${value.toFixed(1)} ${sizes[i]}` // 1 decimal for MB, GB
-        }
-    }
-
-    // Notification actions
-    const copyUploadLink = async (url) => {
-        try {
-            await navigator.clipboard.writeText(url)
-        } catch (err) {
-            console.error('Failed to copy link:', err)
-        }
-    }
-
-    const shareUploadLink = (url) => {
-        if (navigator.share) {
-            navigator.share({ title: 'Screenshot', url }).catch(console.error)
-        } else {
-            window.open(url, '_blank')
-        }
-    }
-
-    const removeNotification = (id) => {
-        const index = uploadNotifications.value.findIndex((n) => n.id === id)
-        if (index !== -1) uploadNotifications.value.splice(index, 1)
-    }
-
-    const retryUpload = (notification) => {
-        removeNotification(notification.id)
-        captureAndUpload()
-    }
-
-    // Screenshot actions
-    const copyToClipboard = async () => {
-        try {
-            if (mode.value === 'edited') {
-                const dataUrl = getEditedDataUrl()
-                if (dataUrl) {
-                    const res = await fetch(dataUrl)
-                    const blob = await res.blob()
-                    await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })])
-                    handleCancel()
-                    return
-                }
-            }
-            const { left, top, width, height } = selectionRect.value
-            const result = await window.electron?.copyScreenshot(
-                'area',
-                {
-                    x: Math.round(left),
-                    y: Math.round(top),
-                    width: Math.round(width),
-                    height: Math.round(height)
-                },
-                displayId.value
-            )
-
-            if (result?.success) {
-                handleCancel()
-            } else {
-                console.error('Copy failed:', result?.error)
-            }
-        } catch (error) {
-            console.error('Error copying screenshot:', error)
-        }
-    }
-
-    const readOCR = async () => {
-        try {
-            const result = await captureArea(false)
-
-            if (result?.success) {
-                loading.value = true
-                const buffer = await window.electron.readFileAsBuffer(result.path)
-                const blobFile = bufferToFile(buffer, result.filename)
-
-                const worker = await createWorker('eng')
-                const ret = await worker.recognize(blobFile)
-                ocrText.value = ret.data.text
-                await worker.terminate()
-                showOCRModal.value = true
-                console.log(ret.data.text)
-                loading.value = false
-            } else {
-                loading.value = false
-                console.error('Screenshot failed:', result?.error)
-            }
-        } catch (error) {
-            loading.value = false
-            console.error('Error capturing screenshot:', error)
-        }
-    }
-
-    const copyOCRText = async () => {
-        try {
-            await navigator.clipboard.writeText(ocrText.value)
-            ocrCopyTooltip.value = 'Copied!'
-            setTimeout(() => {
-                ocrCopyTooltip.value = 'Copy Text'
-                closeOCRModal()
-            }, 200)
-        } catch (error) {
-            console.error('Failed to copy OCR text:', error)
-        }
-    }
-
-    const closeOCRModal = () => {
-        showOCRModal.value = false
-        ocrCopyTooltip.value = 'Copy Text'
-    }
-
-    const searchSimilerImage = async () => {
-        captureAndUpload(true)
-    }
+    const showToolbar = ref(false)
 
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
@@ -742,6 +758,9 @@
         }
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
+
+        // Initialize microphone enumeration
+        enumerateMicrophones()
 
         // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
@@ -827,61 +846,14 @@
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
     })
-
-    // Editing
-    const handleEdit = () => {
-        mode.value = 'editing'
-    }
-
-    const handleCancelEdit = () => {
-        mode.value = 'confirming'
-    }
-
-    // Toolbar dragging handlers
-    const handleToolbarDragStart = (e) => {
-        e.stopPropagation()
-        isDraggingToolbar.value = true
-
-        // Get current toolbar position
-        const toolbar = e.currentTarget.closest('.toolbar-container')
-        const rect = toolbar.getBoundingClientRect()
-
-        // Store the offset from mouse to toolbar top-left
-        toolbarDragStart.value = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        }
-    }
-
-    const handleToolbarDragMove = (e) => {
-        if (!isDraggingToolbar.value) return
-
-        // Calculate new position
-        let newX = e.clientX - toolbarDragStart.value.x
-        let newY = e.clientY - toolbarDragStart.value.y
-
-        // Keep toolbar within viewport bounds (with some padding)
-        const margin = 10
-        const toolbarWidth = 400
-        const toolbarHeight = 60
-
-        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
-        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
-
-        customToolbarPosition.value = { x: newX, y: newY }
-    }
-
-    const handleToolbarDragEnd = () => {
-        isDraggingToolbar.value = false
-    }
-
-    const showToolbar = ref(false)
 </script>
 
 <template>
+    <!-- Selection Interface (when not recording) -->
     <div
-        :class="{ 'cursor-crosshair select-none': mode !== 'editing', 'pointer-events-none': loading }"
-        class="fixed top-0 left-0 h-screen w-screen"
+        v-if="!isRecording"
+        class="fixed top-0 left-0 h-screen w-screen cursor-crosshair select-none"
+        :class="{ 'pointer-events-none': loading }"
         :style="{
             backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
             backgroundSize: 'cover',
@@ -889,18 +861,8 @@
             backgroundRepeat: 'no-repeat'
         }"
         @mousedown="handleMouseDown"
-        @mousemove="
-            (e) => {
-                handleMouseMove(e)
-                handleToolbarDragMove(e)
-            }
-        "
-        @mouseup="
-            (e) => {
-                handleMouseUp(e)
-                handleToolbarDragEnd()
-            }
-        ">
+        @mousemove="handleMouseMove"
+        @mouseup="handleMouseUp">
         <!-- Dark overlay for everything outside the selection -->
         <div
             v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"
@@ -919,7 +881,7 @@
 
         <!-- Selection rectangle -->
         <div
-            v-if="mode !== 'idle'"
+            v-if="mode !== 'idle' && !isRecording"
             :class="[
                 'absolute',
                 mode === 'selecting'
@@ -972,8 +934,8 @@
 
         <!-- Instructions (only show on active window) -->
         <div
-            v-if="mode === 'idle' && isWindowActive"
-            class="pointer-events-none fixed top-1/2 left-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
+            v-if="mode === 'idle' && isWindowActive && !isRecording"
+            class="pointer-events-none fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
             <p>Click and drag to select an area or click to capture full screen</p>
         </div>
 
@@ -984,9 +946,10 @@
                 mode !== 'confirming' &&
                 mode !== 'editing' &&
                 mode !== 'edited' &&
-                isWindowActive
+                isWindowActive &&
+                !isRecording
             "
-            class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-[99] h-px transition-none"
+            class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-40 h-px transition-none"
             :style="{ top: mouseY + 'px' }" />
         <div
             v-if="
@@ -994,15 +957,16 @@
                 mode !== 'confirming' &&
                 mode !== 'editing' &&
                 mode !== 'edited' &&
-                isWindowActive
+                isWindowActive &&
+                !isRecording
             "
-            class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-[99] w-px transition-none"
+            class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-40 w-px transition-none"
             :style="{ left: mouseX + 'px' }" />
 
         <!-- Magnifier -->
         <div
-            v-if="shouldShowMagnifier && magnifierActive"
-            class="pointer-events-none fixed z-[101] flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
+            v-if="shouldShowMagnifier && magnifierActive && !isRecording"
+            class="pointer-events-none fixed z-50 flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
             :style="magnifierStyle">
             <canvas
                 ref="magnifierCanvas"
@@ -1018,7 +982,7 @@
 
         <!-- Action Toolbar -->
         <div
-            v-if="mode === 'confirming' || mode === 'edited'"
+            v-if="mode === 'confirming' || mode === 'edited' || isRecording"
             class="toolbar-container absolute z-50 flex items-center gap-4 transition-shadow"
             :class="{ 'shadow-2xl': isDraggingToolbar }"
             :style="toolbarStyle">
@@ -1056,8 +1020,8 @@
             <div class="relative">
                 <div class="group relative rounded-full bg-white/90">
                     <button
-                        @click="handleCancel"
-                        title="Cancel"
+                        @click="isRecording ? handleStop() : handleStart()"
+                        title="Start Recording"
                         class="flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-transparent px-4 py-2.5 transition-colors">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1081,7 +1045,7 @@
                             </defs>
                         </svg>
 
-                        <span>Record</span>
+                        <span>{{ isRecording ? 'Stop' : 'Record' }}</span>
                     </button>
 
                     <span
@@ -1128,7 +1092,7 @@
                 <div class="flex items-center gap-4 rounded-full bg-white/90">
                     <div class="group relative">
                         <button
-                            @click="handleCancel"
+                            @click=""
                             title="Cancel"
                             class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors">
                             <svg
@@ -1160,15 +1124,17 @@
 
                         <span
                             class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                            Video
+                            Enable webcam
                         </span>
                     </div>
 
+                    <!-- Audio Controls -->
                     <div class="group relative">
                         <button
-                            @click="handleCancel"
-                            title="Cancel"
-                            class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pr-4 transition-colors">
+                            @click="enumerateMicrophones"
+                            :disabled="isEnumeratingDevices"
+                            title="Audio Settings"
+                            class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pr-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             <svg
                                 width="24"
                                 height="24"
@@ -1199,9 +1165,56 @@
                             </svg>
                         </button>
 
+                        <!-- Audio Settings Dropdown -->
+                        <div
+                            class="invisible absolute top-full left-1/2 z-20 mt-2 -translate-x-1/2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100">
+                            <div class="min-w-64 rounded-lg border bg-white p-4 shadow-lg">
+                                <!-- Microphone Selection -->
+                                <div class="mb-2">
+                                    <div class="mb-2 text-xs font-medium text-gray-700">Microphone</div>
+                                    <div class="max-h-32 space-y-1 overflow-y-auto">
+                                        <div
+                                            v-for="mic in microphones"
+                                            :key="mic.deviceId"
+                                            @click="selectMicrophone(mic)"
+                                            class="flex cursor-pointer items-center gap-2 rounded p-2 hover:bg-gray-100"
+                                            :class="{
+                                                'border border-blue-200 bg-blue-50':
+                                                    selectedMicrophone?.deviceId === mic.deviceId
+                                            }">
+                                            <div class="flex h-3 w-3 items-center justify-center rounded-full border-2">
+                                                <div
+                                                    v-if="selectedMicrophone?.deviceId === mic.deviceId"
+                                                    class="h-1.5 w-1.5 rounded-full bg-blue-600"></div>
+                                            </div>
+                                            <span class="truncate text-xs text-gray-700">{{ mic.label }}</span>
+                                        </div>
+                                        <div
+                                            v-if="microphones.length === 0 && !isEnumeratingDevices"
+                                            class="p-2 text-xs text-gray-500">
+                                            No microphones found
+                                        </div>
+                                        <div
+                                            v-if="isEnumeratingDevices"
+                                            class="p-2 text-xs text-gray-500">
+                                            Loading microphones...
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Refresh Button -->
+                                <button
+                                    @click="enumerateMicrophones"
+                                    :disabled="isEnumeratingDevices"
+                                    class="mt-2 w-full rounded bg-gray-100 px-3 py-1.5 text-xs hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50">
+                                    Refresh devices
+                                </button>
+                            </div>
+                        </div>
+
                         <span
                             class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                            Sound
+                            Audio settings
                         </span>
                     </div>
                 </div>
@@ -1259,402 +1272,88 @@
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Edit toolbar -->
-        <KonvaEditor
-            v-if="mode === 'editing' || mode === 'edited'"
-            ref="konvaEditorRef"
-            :editable="mode === 'editing'"
-            :backgroundSrc="backgroundSrc"
-            @cancel="handleCancelEdit"
-            @save="mode = 'edited'"
-            :selectionRect="selectionRect"
-            :toolbarStyle="toolbarStyle" />
-
-        <!-- Upload Notifications -->
-        <div class="fixed top-4 right-4 z-[10000] min-w-[380px] space-y-3">
-            <transition-group
-                name="notification"
-                tag="div">
+    <!-- Recording Interface (when recording) -->
+    <div
+        v-if="isRecording"
+        class="fixed top-0 left-0"
+        @mousemove="handleToolbarDragMove"
+        @mouseup="handleToolbarDragEnd">
+        <!-- Action Toolbar (only during recording) -->
+        <div
+            class="toolbar-container absolute z-50 flex items-center gap-4 transition-shadow"
+            :class="{ 'shadow-2xl': isDraggingToolbar }"
+            :style="toolbarStyle">
+            <!-- Drag Handle -->
+            <div class="group relative">
                 <div
-                    v-for="notification in uploadNotifications"
-                    :key="notification.id"
-                    class="rounded-lg border border-gray-100 bg-white p-4 shadow-2xl">
-                    <!-- Uploading State -->
-                    <div v-if="notification.status === 'uploading'">
-                        <div class="mb-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M9 17H15V22H9V17Z"
-                                            fill="#3B82F6" />
-                                        <path
-                                            d="M12 2L7 7H10V15H14V7H17L12 2Z"
-                                            fill="#3B82F6" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium text-gray-900">Uploading</h4>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    @click="notification.status = 'minimized'"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M5 8L10 13L15 8"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="removeNotification(notification.id)"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M6 6L14 14M6 14L14 6"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <div class="flex justify-between text-sm text-gray-500">
-                                <span>{{ notification.fileSize }}</span>
-                                <span>{{ notification.progress }}%</span>
-                            </div>
-                            <div class="h-2 w-full rounded-full bg-gray-200">
-                                <div
-                                    class="h-2 rounded-full bg-blue-500 transition-all duration-300"
-                                    :style="{ width: `${notification.progress}%` }"></div>
-                            </div>
-                            <div class="text-center text-xs text-gray-400">
-                                {{ notification.remainingTime || 'Calculating...' }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Upload Complete State -->
-                    <div v-else-if="notification.status === 'completed'">
-                        <div class="mb-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M9 17H15V22H9V17Z"
-                                            fill="#3B82F6" />
-                                        <path
-                                            d="M12 2L7 7H10V15H14V7H17L12 2Z"
-                                            fill="#3B82F6" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium text-gray-900">Upload Complete</h4>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    @click="notification.status = 'minimized'"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M5 8L10 13L15 8"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="removeNotification(notification.id)"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M6 6L14 14M6 14L14 6"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between rounded-lg bg-gray-50 p-2">
-                                <a
-                                    :href="notification.url"
-                                    target="_blank"
-                                    class="mr-2 flex-1 truncate text-sm text-blue-600 hover:text-blue-700">
-                                    {{ notification.url }}
-                                </a>
-                                <div class="flex items-center gap-1">
-                                    <button
-                                        @click="copyUploadLink(notification.url)"
-                                        class="rounded p-1.5 transition-colors hover:bg-gray-200"
-                                        title="Copy Link">
-                                        <svg
-                                            width="18"
-                                            height="18"
-                                            viewBox="0 0 18 18"
-                                            fill="none">
-                                            <path
-                                                d="M12 1.5H3C2.175 1.5 1.5 2.175 1.5 3V12.75H3V3H12V1.5ZM14.25 4.5H6C5.175 4.5 4.5 5.175 4.5 6V15C4.5 15.825 5.175 16.5 6 16.5H14.25C15.075 16.5 15.75 15.825 15.75 15V6C15.75 5.175 15.075 4.5 14.25 4.5ZM14.25 15H6V6H14.25V15Z"
-                                                fill="#6B7280" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        @click="shareUploadLink(notification.url)"
-                                        class="rounded p-1.5 transition-colors hover:bg-gray-200"
-                                        title="Share">
-                                        <svg
-                                            width="18"
-                                            height="18"
-                                            viewBox="0 0 18 18"
-                                            fill="none">
-                                            <path
-                                                d="M14.25 12.375C13.5525 12.375 12.9375 12.6975 12.5175 13.185L6.3075 9.735C6.345 9.5775 6.375 9.42 6.375 9.255C6.375 9.09 6.345 8.9325 6.3075 8.775L12.435 5.3625C12.87 5.88 13.515 6.2175 14.25 6.2175C15.495 6.2175 16.5 5.2125 16.5 3.9675C16.5 2.7225 15.495 1.7175 14.25 1.7175C13.005 1.7175 12 2.7225 12 3.9675C12 4.1325 12.03 4.29 12.0675 4.4475L5.94 7.86C5.505 7.3425 4.86 7.005 4.125 7.005C2.88 7.005 1.875 8.01 1.875 9.255C1.875 10.5 2.88 11.505 4.125 11.505C4.86 11.505 5.505 11.1675 5.94 10.65L12.1425 14.1075C12.105 14.25 12.0825 14.4 12.0825 14.55C12.0825 15.7575 13.065 16.74 14.2725 16.74C15.48 16.74 16.4625 15.7575 16.4625 14.55C16.4625 13.3425 15.48 12.36 14.2725 12.36L14.25 12.375Z"
-                                                fill="#6B7280" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <button
-                                @click="removeNotification(notification.id)"
-                                class="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800">
-                                Copy Link
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Upload Failed State -->
-                    <div v-else-if="notification.status === 'failed'">
-                        <div class="mb-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"
-                                            fill="#EF4444" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium text-gray-900">Upload Failed</h4>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    @click="notification.status = 'minimized'"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M5 8L10 13L15 8"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="removeNotification(notification.id)"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M6 6L14 14M6 14L14 6"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex items-center gap-2 rounded-lg bg-red-50 p-3">
-                                <div
-                                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 16 16"
-                                        fill="none">
-                                        <path
-                                            d="M8 1C4.13 1 1 4.13 1 8C1 11.87 4.13 15 8 15C11.87 15 15 11.87 15 8C15 4.13 11.87 1 8 1ZM8 9C7.45 9 7 8.55 7 8V5C7 4.45 7.45 4 8 4C8.55 4 9 4.45 9 5V8C9 8.55 8.55 9 8 9ZM9 11H7V13H9V11Z"
-                                            fill="#EF4444" />
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-red-800">
-                                        {{ notification.error }}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                @click="retryUpload(notification)"
-                                class="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800">
-                                Try Again
-                            </button>
-                        </div>
-                    </div>
+                    class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
+                    @mousedown="handleToolbarDragStart"
+                    title="Drag to move toolbar">
+                    <svg
+                        class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <circle
+                            cx="12"
+                            cy="5"
+                            r="2" />
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="2" />
+                        <circle
+                            cx="12"
+                            cy="19"
+                            r="2" />
+                    </svg>
                 </div>
-            </transition-group>
+
+                <span
+                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                    Move
+                </span>
+            </div>
+            <div class="relative">
+                <div class="group relative rounded-full bg-white/90">
+                    <button
+                        @click="handleStop()"
+                        title="Stop Recording"
+                        class="flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-transparent px-4 py-2.5 transition-colors">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="#d73a3a">
+                            <g clip-path="url(#clip0_4418_8039)">
+                                <path
+                                    d="M11.97 2C6.44997 2 1.96997 6.48 1.96997 12C1.96997 17.52 6.44997 22 11.97 22C17.49 22 21.97 17.52 21.97 12C21.97 6.48 17.5 2 11.97 2ZM12 16.23C9.65997 16.23 7.76997 14.34 7.76997 12C7.76997 9.66 9.65997 7.77 12 7.77C14.34 7.77 16.23 9.66 16.23 12C16.23 14.34 14.34 16.23 12 16.23Z"
+                                    fill="white"
+                                    style="fill: var(--fillg)" />
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_4418_8039">
+                                    <rect
+                                        width="24"
+                                        height="24"
+                                        fill="white" />
+                                </clipPath>
+                            </defs>
+                        </svg>
+
+                        <span>Stop</span>
+                    </button>
+
+                    <span
+                        class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
+                        Stop Recording
+                    </span>
+                </div>
+            </div>
         </div>
-
-        <!-- OCR Loading Overlay -->
-        <transition
-            name="loading"
-            enter-active-class="duration-300 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-200 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0">
-            <div
-                v-if="loading"
-                class="fixed inset-0 z-[25000] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                <div class="flex flex-col items-center justify-center text-center">
-                    <!-- Spinner Animation -->
-                    <div class="relative mb-6">
-                        <div class="h-16 w-16 rounded-full border-4 border-white/20"></div>
-                        <div
-                            class="absolute top-0 h-16 w-16 animate-spin rounded-full border-4 border-transparent border-t-white"></div>
-                    </div>
-
-                    <!-- Loading Text with Animated Dots -->
-                    <div class="flex items-center justify-center gap-1 text-white">
-                        <span class="text-lg font-medium">Extracting text</span>
-                        <div class="flex gap-1">
-                            <div class="animation-delay-0 h-1 w-1 animate-pulse rounded-full bg-white"></div>
-                            <div class="animation-delay-150 h-1 w-1 animate-pulse rounded-full bg-white"></div>
-                            <div class="animation-delay-300 h-1 w-1 animate-pulse rounded-full bg-white"></div>
-                        </div>
-                    </div>
-
-                    <!-- Progress Indicator -->
-                    <div class="mt-4 text-sm text-white/70">Processing with OCR technology</div>
-                </div>
-            </div>
-        </transition>
-
-        <!-- OCR Modal -->
-        <transition
-            name="modal"
-            enter-active-class="duration-200 ease-out"
-            enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-150 ease-in"
-            leave-from-class="opacity-100"
-            leave-to-class="opacity-0">
-            <div
-                v-if="showOCRModal"
-                class="fixed inset-0 z-[20000] flex items-center justify-center bg-black/50"
-                @click.self="closeOCRModal">
-                <transition
-                    name="modal-content"
-                    enter-active-class="duration-200 ease-out"
-                    enter-from-class="opacity-0 scale-95 translate-y-4"
-                    enter-to-class="opacity-100 scale-100 translate-y-0"
-                    leave-active-class="duration-150 ease-in"
-                    leave-from-class="opacity-100 scale-100 translate-y-0"
-                    leave-to-class="opacity-0 scale-95 translate-y-4">
-                    <div
-                        v-if="showOCRModal"
-                        class="relative w-full max-w-lg rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md">
-                        <div class="rounded-2xl bg-white p-6 shadow-2xl">
-                            <!-- Modal Header -->
-                            <div class="mb-6 flex items-center justify-between">
-                                <h3 class="text-xl font-semibold text-gray-900">OCR Text</h3>
-                                <button
-                                    @click="closeOCRModal"
-                                    class="text-gray-7 rounded-full p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-900">
-                                    <svg
-                                        class="h-5 w-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        stroke-width="2">
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <!-- OCR Text Content -->
-                            <div class="mb-8">
-                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                    <textarea
-                                        :value="ocrText"
-                                        readonly
-                                        class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none"
-                                        placeholder="OCR text will appear here...">
-                                    </textarea>
-                                </div>
-                            </div>
-
-                            <!-- Copy Button -->
-                            <div class="flex justify-center">
-                                <button
-                                    @click="copyOCRText"
-                                    class="bg-primary-blue flex items-center justify-center rounded-full px-8 py-3 text-white transition-all duration-200 hover:scale-105 hover:bg-blue-600 active:scale-95">
-                                    <svg
-                                        class="h-5 w-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        stroke-width="2">
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </transition>
-            </div>
-        </transition>
     </div>
 </template>
 

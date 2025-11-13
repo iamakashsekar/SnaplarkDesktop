@@ -198,7 +198,7 @@ class VideoRecordingService {
                         }
                         win.webContents.send('display-activation-changed', activationData)
                     }
-                    
+
                     // Store activeDisplayId on window for reference
                     win.activeDisplayId = initialActiveDisplay.id
 
@@ -254,19 +254,19 @@ class VideoRecordingService {
                                     mouseY: cursorPos.y - win.displayInfo.bounds.y
                                 }
 
-                        // Send activation data immediately, regardless of loading state
-                        // The Vue component will handle it when ready
-                        if (win.webContents.isLoading()) {
-                            win.webContents.once('did-finish-load', () => {
-                                setTimeout(() => {
-                                    win.webContents.send('display-activation-changed', activationData)
-                                }, 50)
-                            })
-                        } else {
-                            setTimeout(() => {
-                                win.webContents.send('display-activation-changed', activationData)
-                            }, 50)
-                        }
+                                // Send activation data immediately, regardless of loading state
+                                // The Vue component will handle it when ready
+                                if (win.webContents.isLoading()) {
+                                    win.webContents.once('did-finish-load', () => {
+                                        setTimeout(() => {
+                                            win.webContents.send('display-activation-changed', activationData)
+                                        }, 50)
+                                    })
+                                } else {
+                                    setTimeout(() => {
+                                        win.webContents.send('display-activation-changed', activationData)
+                                    }, 50)
+                                }
                             }
                         })
                     }
@@ -296,10 +296,86 @@ class VideoRecordingService {
             }
         })
 
-        
-
         ipcMain.on('cancel-video-recording-mode', () => {
             this.windowManager.closeWindowsByType('recording')
+        })
+
+        ipcMain.handle('start-video-recording', async (event, displayId, isFullScreen, bounds) => {
+            const displays = screen.getAllDisplays()
+            const primaryDisplay = screen.getPrimaryDisplay()
+            const displayIdStr = (displayId ?? primaryDisplay.id).toString()
+            const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
+
+            const source = await this.findSourceForDisplay(targetDisplay)
+            if (!source?.id) {
+                throw new Error(`Could not find screen source for displayId: ${displayIdStr}`)
+            }
+            return {
+                success: true,
+                display: targetDisplay,
+                source: source,
+            }
+        })
+
+        ipcMain.handle('save-video-recording', async (event, arrayBuffer) => {
+            try {
+                const settings = this.store.get('settings') || {}
+                const promptForSaveLocation = settings.promptForSaveLocation !== false
+                const defaultSaveFolder = settings.defaultSaveFolder || '~/Pictures/Snaplark'
+
+                // Resolve the default save folder path
+                let resolvedSaveFolder = defaultSaveFolder
+                if (resolvedSaveFolder.startsWith('~')) {
+                    resolvedSaveFolder = resolvedSaveFolder.replace('~', os.homedir())
+                }
+
+                // Ensure directory exists
+                fs.mkdirSync(resolvedSaveFolder, { recursive: true })
+
+                const timestamp = Date.now()
+                const filename = `recording-${timestamp}.webm`
+
+                let filePath
+
+                if (promptForSaveLocation) {
+                    // Show save dialog
+                    const defaultPath = path.join(resolvedSaveFolder, filename)
+
+                    const result = await dialog.showSaveDialog({
+                        title: 'Save Video Recording',
+                        buttonLabel: 'Save video',
+                        defaultPath: defaultPath,
+                        filters: [
+                            { name: 'WebM Video', extensions: ['webm'] }
+                        ],
+                        properties: ['createDirectory', 'showOverwriteConfirmation']
+                    })
+
+                    if (result.canceled || !result.filePath) {
+                        return { success: false, canceled: true }
+                    }
+
+                    filePath = result.filePath
+                } else {
+                    // Save directly to default folder
+                    filePath = path.join(resolvedSaveFolder, filename)
+                }
+
+                const bufferData = Buffer.from(arrayBuffer)
+                fs.writeFileSync(filePath, bufferData)
+
+                const { size } = fs.statSync(filePath)
+
+                return {
+                    success: true,
+                    path: filePath,
+                    filename: path.basename(filePath),
+                    size: size
+                }
+            } catch (error) {
+                console.error('Save video recording error:', error)
+                return { success: false, error: error.message }
+            }
         })
 
         ipcMain.handle('save-video-directly', async (event, options) => {
@@ -535,7 +611,6 @@ class VideoRecordingService {
                 return { success: false, error: error.message }
             }
         })
-
     }
 
     cleanup() {

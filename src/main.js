@@ -63,6 +63,7 @@ let videoRecordingService
 let notificationService
 let storeService
 let currentScreenshotShortcut = null
+let currentRecordingShortcut = null
 
 const createWindow = () => {
     windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME)
@@ -192,9 +193,73 @@ const registerScreenshotShortcut = () => {
     }
 }
 
+const registerRecordingShortcut = () => {
+    const settings = store.get('settings') || {}
+    const hotkey = settings.hotkeyRecording
+
+    if (!hotkey) {
+        console.log('No recording hotkey configured')
+        if (currentRecordingShortcut) {
+            globalShortcut.unregister(currentRecordingShortcut)
+            currentRecordingShortcut = null
+        }
+        return
+    }
+
+    if (currentRecordingShortcut) {
+        try {
+            globalShortcut.unregister(currentRecordingShortcut)
+            console.log(`Unregistered previous recording shortcut: ${currentRecordingShortcut}`)
+        } catch (error) {
+            console.error(`Error unregistering previous shortcut:`, error)
+        }
+        currentRecordingShortcut = null
+    }
+
+    const electronKey = convertHotkeyToElectron(hotkey)
+    if (!electronKey) {
+        console.error(`Invalid hotkey format: ${hotkey}`)
+        return
+    }
+
+    if (globalShortcut.isRegistered(electronKey)) {
+        console.log(`Shortcut ${electronKey} is already registered by another application`)
+        try {
+            globalShortcut.unregister(electronKey)
+        } catch (error) {
+            console.error(`Cannot unregister existing shortcut:`, error)
+        }
+    }
+
+    try {
+        const registered = globalShortcut.register(electronKey, () => {
+            console.log(`Recording shortcut triggered: ${electronKey}`)
+            if (videoRecordingService && windowManager) {
+                const mainWindow = windowManager.getWindow('main')
+                if (mainWindow && mainWindow.webContents) {
+                    mainWindow.webContents.send('trigger-video-recording')
+                }
+            }
+        })
+
+        if (registered) {
+            currentRecordingShortcut = electronKey
+            console.log(`Successfully registered recording shortcut: ${electronKey}`)
+            return { success: true, shortcut: electronKey }
+        } else {
+            console.error(`Failed to register recording shortcut: ${electronKey}`)
+            return { success: false, error: 'Failed to register shortcut. It may be in use by another application.' }
+        }
+    } catch (error) {
+        console.error(`Error registering recording shortcut:`, error)
+        return { success: false, error: error.message }
+    }
+}
+
 const unregisterAllShortcuts = () => {
     globalShortcut.unregisterAll()
     currentScreenshotShortcut = null
+    currentRecordingShortcut = null
     console.log('Unregistered all shortcuts')
 }
 
@@ -222,6 +287,7 @@ app.whenReady().then(() => {
 
     // Register global shortcuts after window is created
     registerScreenshotShortcut()
+    registerRecordingShortcut()
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -308,6 +374,16 @@ function setupIPCHandlers() {
             store.set('settings', settings)
         }
         const result = registerScreenshotShortcut()
+        return result || { success: true }
+    })
+
+    ipcMain.handle('update-recording-shortcut', async (event, hotkeyValue) => {
+        if (hotkeyValue !== undefined) {
+            const settings = store.get('settings') || {}
+            settings.hotkeyRecording = hotkeyValue
+            store.set('settings', settings)
+        }
+        const result = registerRecordingShortcut()
         return result || { success: true }
     })
 
