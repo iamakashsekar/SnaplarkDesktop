@@ -1,7 +1,8 @@
-import { ipcMain, screen, desktopCapturer, clipboard, dialog, nativeImage, BrowserWindow } from 'electron'
+import { app, ipcMain, screen, desktopCapturer, dialog, shell } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import { spawn } from 'node:child_process'
 
 class VideoRecordingService {
     constructor(windowManager, store) {
@@ -68,10 +69,6 @@ class VideoRecordingService {
 
         fs.mkdirSync(defaultSaveFolder, { recursive: true })
         return defaultSaveFolder
-    }
-
-    convertToPNG(image) {
-        return { buffer: image.toPNG(), extension: '.png' }
     }
 
     setupHandlers() {
@@ -297,299 +294,8 @@ class VideoRecordingService {
         })
 
         ipcMain.on('cancel-video-recording-mode', () => {
+            // this.windowManager.closeWindowsByType('webcam')
             this.windowManager.closeWindowsByType('recording')
-        })
-
-        ipcMain.handle('start-video-recording', async (event, displayId, isFullScreen, bounds) => {
-            const displays = screen.getAllDisplays()
-            const primaryDisplay = screen.getPrimaryDisplay()
-            const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-            const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-            const source = await this.findSourceForDisplay(targetDisplay)
-            if (!source?.id) {
-                throw new Error(`Could not find screen source for displayId: ${displayIdStr}`)
-            }
-            return {
-                success: true,
-                display: targetDisplay,
-                source: source,
-            }
-        })
-
-        ipcMain.handle('save-video-recording', async (event, arrayBuffer) => {
-            try {
-                const settings = this.store.get('settings') || {}
-                const promptForSaveLocation = settings.promptForSaveLocation !== false
-                const defaultSaveFolder = settings.defaultSaveFolder || '~/Pictures/Snaplark'
-
-                // Resolve the default save folder path
-                let resolvedSaveFolder = defaultSaveFolder
-                if (resolvedSaveFolder.startsWith('~')) {
-                    resolvedSaveFolder = resolvedSaveFolder.replace('~', os.homedir())
-                }
-
-                // Ensure directory exists
-                fs.mkdirSync(resolvedSaveFolder, { recursive: true })
-
-                const timestamp = Date.now()
-                const filename = `recording-${timestamp}.webm`
-
-                let filePath
-
-                if (promptForSaveLocation) {
-                    // Show save dialog
-                    const defaultPath = path.join(resolvedSaveFolder, filename)
-
-                    const result = await dialog.showSaveDialog({
-                        title: 'Save Video Recording',
-                        buttonLabel: 'Save video',
-                        defaultPath: defaultPath,
-                        filters: [
-                            { name: 'WebM Video', extensions: ['webm'] }
-                        ],
-                        properties: ['createDirectory', 'showOverwriteConfirmation']
-                    })
-
-                    if (result.canceled || !result.filePath) {
-                        return { success: false, canceled: true }
-                    }
-
-                    filePath = result.filePath
-                } else {
-                    // Save directly to default folder
-                    filePath = path.join(resolvedSaveFolder, filename)
-                }
-
-                const bufferData = Buffer.from(arrayBuffer)
-                fs.writeFileSync(filePath, bufferData)
-
-                const { size } = fs.statSync(filePath)
-
-                return {
-                    success: true,
-                    path: filePath,
-                    filename: path.basename(filePath),
-                    size: size
-                }
-            } catch (error) {
-                console.error('Save video recording error:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        ipcMain.handle('save-video-directly', async (event, options) => {
-            try {
-                const { type, bounds, displayId, dataUrl, defaultFilename } = options
-
-                const senderWindow = BrowserWindow.fromWebContents(event.sender)
-                if (senderWindow) {
-                    senderWindow.hide()
-                }
-
-                await new Promise((resolve) => setTimeout(resolve, 200))
-
-                let imageBuffer
-                let extension = '.png'
-
-                if (dataUrl) {
-                    const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-                    const rawBuffer = Buffer.from(base64Data, 'base64')
-                    const image = nativeImage.createFromBuffer(rawBuffer)
-                    const result = this.convertToPNG(image)
-                    imageBuffer = result.buffer
-                    extension = result.extension
-                } else {
-                    const displays = screen.getAllDisplays()
-                    const primaryDisplay = screen.getPrimaryDisplay()
-                    const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-                    const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-                    const source = await this.findSourceForDisplay(targetDisplay)
-                    if (!source) {
-                        throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-                    }
-
-                    const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-                    const result = this.convertToPNG(image)
-                    imageBuffer = result.buffer
-                    extension = result.extension
-                }
-
-                const screenshotsDir = this.ensureScreenshotsDirectory()
-
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-                let filename = defaultFilename || `Screenshot_${timestamp}.png`
-
-                // Update extension to PNG
-                if (defaultFilename) {
-                    filename = defaultFilename.replace(/\.(png|jpg|jpeg)$/i, extension)
-                } else {
-                    filename = `Screenshot_${timestamp}${extension}`
-                }
-
-                const filepath = path.join(screenshotsDir, filename)
-
-                fs.writeFileSync(filepath, imageBuffer)
-
-                const { size } = fs.statSync(filepath)
-
-                this.windowManager.closeWindowsByType('screenshot')
-
-                return {
-                    success: true,
-                    path: filepath,
-                    filename: filename,
-                    size: size
-                }
-            } catch (error) {
-                console.error('Save screenshot directly error:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        ipcMain.handle('take-video', async (event, type, bounds, displayId, closeWindow) => {
-            try {
-                if (closeWindow) {
-                    const senderWindow = BrowserWindow.fromWebContents(event.sender)
-                    if (senderWindow) {
-                        senderWindow.hide()
-                    }
-                    await new Promise((resolve) => setTimeout(resolve, 200))
-                }
-
-                const displays = screen.getAllDisplays()
-                const primaryDisplay = screen.getPrimaryDisplay()
-                const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-                const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-                const source = await this.findSourceForDisplay(targetDisplay)
-                if (!source) {
-                    throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-                }
-
-                const image = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-
-                const screenshotsDir = this.ensureScreenshotsDirectory()
-
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-                const result = this.convertToPNG(image)
-                const filename = `Screenshot_${timestamp}${result.extension}`
-                const filepath = path.join(screenshotsDir, filename)
-
-                fs.writeFileSync(filepath, result.buffer)
-
-                const { size } = fs.statSync(filepath)
-
-                if (closeWindow) {
-                    this.windowManager.closeWindowsByType('screenshot')
-                }
-
-                return {
-                    success: true,
-                    path: filepath,
-                    dataUrl: image.toDataURL(),
-                    filename: filename,
-                    size: size
-                }
-            } catch (error) {
-                console.error('Screenshot error:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        ipcMain.handle('save-video-with-dialog', async (event, options) => {
-            try {
-                const { type, bounds, displayId, defaultFilename, dataUrl } = options
-
-                const screenshotWindows = []
-                this.windowManager.windows.forEach((window, key) => {
-                    if (key.startsWith('screenshot-') && !window.isDestroyed()) {
-                        screenshotWindows.push(window)
-                        window.hide()
-                    }
-                })
-
-                await new Promise((resolve) => setTimeout(resolve, 200))
-
-                let nativeImageObj
-
-                if (dataUrl) {
-                    const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-                    const rawBuffer = Buffer.from(base64Data, 'base64')
-                    nativeImageObj = nativeImage.createFromBuffer(rawBuffer)
-                } else {
-                    const displays = screen.getAllDisplays()
-                    const primaryDisplay = screen.getPrimaryDisplay()
-                    const displayIdStr = (displayId ?? primaryDisplay.id).toString()
-                    const targetDisplay = displays.find((d) => d.id.toString() === displayIdStr) || primaryDisplay
-
-                    const source = await this.findSourceForDisplay(targetDisplay)
-                    if (!source) {
-                        throw new Error(`Could not find any screen source for displayId: ${displayIdStr}`)
-                    }
-
-                    nativeImageObj = await this.takeScreenshotForDisplay(source, type, bounds, targetDisplay)
-                }
-
-                // Remove extension from filename to avoid double extensions
-                // The dialog will add the extension based on the user's selected filter
-                const filenameWithoutExt = defaultFilename.replace(/\.(png|jpg|jpeg|webp)$/i, '')
-
-                const defaultPath = path.join(os.homedir(), 'Pictures', filenameWithoutExt)
-
-                const result = await dialog.showSaveDialog({
-                    title: 'Save Screenshot',
-                    defaultPath: defaultPath,
-                    filters: [
-                        { name: 'PNG Image', extensions: ['png'] },
-                        { name: 'JPEG Image', extensions: ['jpg', 'jpeg'] },
-                        { name: 'WEBP Image', extensions: ['webp'] },
-                        { name: 'All Files', extensions: ['*'] }
-                    ],
-                    properties: ['createDirectory', 'showOverwriteConfirmation']
-                })
-
-                if (result.canceled || !result.filePath) {
-                    screenshotWindows.forEach((window) => {
-                        if (!window.isDestroyed()) {
-                            window.show()
-                        }
-                    })
-                    return { success: false, canceled: true }
-                }
-
-                const fileExtension = path.extname(result.filePath).toLowerCase()
-                let finalImageBuffer
-
-                // Apply format based on user's choice in dialog - always highest quality
-                if (fileExtension === '.jpg' || fileExtension === '.jpeg') {
-                    // Maximum quality JPEG (100%)
-                    finalImageBuffer = nativeImageObj.toJPEG(100)
-                } else if (fileExtension === '.webp') {
-                    // WebP doesn't have direct support, save as PNG (lossless)
-                    finalImageBuffer = nativeImageObj.toPNG()
-                } else {
-                    // PNG or other formats - always PNG (lossless, highest quality)
-                    finalImageBuffer = nativeImageObj.toPNG()
-                }
-
-                fs.writeFileSync(result.filePath, finalImageBuffer)
-
-                const { size } = fs.statSync(result.filePath)
-
-                this.windowManager.closeWindowsByType('screenshot')
-
-                return {
-                    success: true,
-                    path: result.filePath,
-                    filename: path.basename(result.filePath),
-                    size: size
-                }
-            } catch (error) {
-                console.error('Save screenshot with dialog error:', error)
-                return { success: false, error: error.message }
-            }
         })
 
         ipcMain.handle('close-other-video-recording-windows', async (event, currentDisplayId) => {
@@ -610,6 +316,441 @@ class VideoRecordingService {
                 console.error('Error closing other screenshot windows:', error)
                 return { success: false, error: error.message }
             }
+        })
+
+        // Handle getting screen sources
+        ipcMain.handle('get-sources', async () => {
+            try {
+                const sources = await desktopCapturer.getSources({
+                    types: ['window', 'screen'],
+                    thumbnailSize: { width: 150, height: 150 }
+                })
+                return sources
+            } catch (error) {
+                console.error('Error getting sources:', error)
+                return []
+            }
+        })
+
+        // Handle saving video file to temp folder (for processing before download)
+        ipcMain.handle('save-video', async (event, buffer, filename) => {
+            try {
+                // Get temp folder path
+                const tempDir = app.getPath('temp')
+
+                // Ensure filename doesn't already have .webm extension
+                const baseName = filename || 'recording'
+                const finalName = baseName.endsWith('.webm') ? baseName : `${baseName}.webm`
+                const filepath = path.join(tempDir, finalName)
+
+                fs.writeFileSync(filepath, Buffer.from(buffer))
+
+                const fileSize = buffer.byteLength
+                console.log(`💾 Video saved to temp: ${filepath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
+
+                // Store the temp path for later conversion
+                activeTempPath = filepath
+
+                return { success: true, path: filepath, size: fileSize }
+            } catch (error) {
+                console.error('Error saving video:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Real-time recording to disk - prevents memory overflow
+        // Store active write stream and file path
+        let activeWriteStream = null
+        let activeFilePath = null
+        let activeTempPath = null
+
+        // Initialize recording stream - creates temp file and starts writing immediately
+        ipcMain.handle('init-recording-stream', async (event, timestamp) => {
+            try {
+                // Clean up any existing stream
+                if (activeWriteStream) {
+                    activeWriteStream.end()
+                    activeWriteStream = null
+                }
+
+                // Create temp file in system temp directory
+                const tempDir = app.getPath('temp')
+                activeTempPath = path.join(tempDir, `recording_${timestamp}_temp.webm`)
+
+                // Create write stream with high water mark for better performance
+                activeWriteStream = fs.createWriteStream(activeTempPath, {
+                    highWaterMark: 64 * 1024 * 1024 // 64MB buffer for smooth writing
+                })
+
+                // Increase max listeners to prevent warning (chunks write every 1 second)
+                // For 24-hour recording: 86400 chunks, but we only need listeners for concurrent writes
+                activeWriteStream.setMaxListeners(0) // 0 = unlimited
+
+                // Add error handler to catch write errors
+                activeWriteStream.on('error', (err) => {
+                    console.error('❌ CRITICAL: Write stream error:', err)
+                })
+
+                console.log(`🎬 Started recording to disk: ${activeTempPath}`)
+
+                return { success: true, tempPath: activeTempPath }
+            } catch (error) {
+                console.error('Error initializing recording stream:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Append chunk during recording (called every 1 second automatically)
+        ipcMain.handle('append-recording-chunk', async (event, chunk) => {
+            try {
+                if (!activeWriteStream) {
+                    // Stream already closed - this is normal when stopping, just ignore
+                    console.log('⚠️ Stream already closed, skipping chunk write')
+                    return { success: true, skipped: true }
+                }
+
+                // Write chunk to disk immediately with proper backpressure handling
+                await new Promise((resolve, reject) => {
+                    const buffer = Buffer.from(chunk)
+                    const canContinue = activeWriteStream.write(buffer)
+
+                    if (canContinue) {
+                        // Buffer not full, can continue immediately
+                        resolve()
+                    } else {
+                        // Buffer full, wait for drain event
+                        const onDrain = () => {
+                            activeWriteStream.removeListener('error', onError)
+                            resolve()
+                        }
+                        const onError = (err) => {
+                            activeWriteStream.removeListener('drain', onDrain)
+                            reject(err)
+                        }
+                        activeWriteStream.once('drain', onDrain)
+                        activeWriteStream.once('error', onError)
+                    }
+                })
+
+                return { success: true }
+            } catch (error) {
+                console.error('❌ CRITICAL: Error appending recording chunk:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Stop recording and close stream
+        ipcMain.handle('stop-recording-stream', async (event) => {
+            try {
+                if (!activeWriteStream) {
+                    return { success: true, tempPath: activeTempPath }
+                }
+
+                // Ensure all data is flushed before closing
+                await new Promise((resolve, reject) => {
+                    const onFinish = () => {
+                        activeWriteStream.removeListener('error', onError)
+                        console.log('✅ Stream finished writing')
+                        resolve()
+                    }
+                    const onError = (err) => {
+                        activeWriteStream.removeListener('finish', onFinish)
+                        reject(err)
+                    }
+
+                    // Wait for any pending writes to complete
+                    if (activeWriteStream.writableNeedDrain) {
+                        activeWriteStream.once('drain', () => {
+                            activeWriteStream.end()
+                        })
+                    } else {
+                        activeWriteStream.end()
+                    }
+
+                    activeWriteStream.once('finish', onFinish)
+                    activeWriteStream.once('error', onError)
+                })
+
+                console.log(`⏹️ Recording stopped: ${activeTempPath}`)
+
+                const tempPath = activeTempPath
+
+                // Keep temp path but clear stream
+                activeWriteStream = null
+
+                return { success: true, tempPath }
+            } catch (error) {
+                console.error('❌ Error stopping recording stream:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Create a remuxed copy that is more broadly playable (rewrites container metadata)
+        ipcMain.handle('make-recording-playable', async (event, inputPath) => {
+            try {
+                if (!inputPath || !fs.existsSync(inputPath)) {
+                    throw new Error('Input file not found.')
+                }
+
+                let ffmpegPath
+                try {
+                    ffmpegPath = require('ffmpeg-static')
+                } catch (e) {
+                    ffmpegPath = 'ffmpeg'
+                }
+
+                const dir = path.dirname(inputPath)
+                const base = path.basename(inputPath, path.extname(inputPath))
+                const stagingPath = path.join(dir, `${base}_staging.webm`)
+
+                if (fs.existsSync(stagingPath)) {
+                    fs.unlinkSync(stagingPath)
+                }
+
+                await new Promise((resolve, reject) => {
+                    const args = ['-y', '-i', inputPath, '-c', 'copy', '-fflags', '+genpts', '-map', '0', stagingPath]
+                    const proc = spawn(ffmpegPath, args, { stdio: 'ignore' })
+                    proc.once('error', reject)
+                    proc.once('close', (code) => {
+                        if (code === 0) resolve()
+                        else reject(new Error(`ffmpeg exited with code ${code}`))
+                    })
+                })
+
+                // Replace original file atomically
+                try {
+                    fs.unlinkSync(inputPath)
+                } catch (e) {
+                    // ignore if already removed
+                }
+                fs.renameSync(stagingPath, inputPath)
+
+                activeTempPath = inputPath
+                return { success: true, path: inputPath }
+            } catch (error) {
+                console.error('Error making recording playable:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Convert WebM to MP4 and save to Downloads folder (called when user clicks download)
+        ipcMain.handle('finalize-recording', async (event, finalFilename) => {
+            try {
+                if (!activeTempPath || !fs.existsSync(activeTempPath)) {
+                    throw new Error('No temp file found to finalize.')
+                }
+
+                // Get Downloads folder path
+                const downloadsDir = app.getPath('downloads')
+                const mp4Path = path.join(downloadsDir, `${finalFilename}.mp4`)
+
+                // Get ffmpeg path
+                let ffmpegPath
+                try {
+                    ffmpegPath = require('ffmpeg-static')
+                } catch (e) {
+                    ffmpegPath = 'ffmpeg'
+                }
+
+                console.log('🔄 Converting WebM to MP4 and saving to Downloads...')
+
+                // Convert WebM to MP4 using ffmpeg
+                await new Promise((resolve, reject) => {
+                    const args = [
+                        '-y', // Overwrite output file
+                        '-i',
+                        activeTempPath, // Input file
+                        '-c:v',
+                        'libx264', // Video codec
+                        '-preset',
+                        'ultrafast', // Fastest encoding (2-5 min for 1hr @ 1080p)
+                        '-crf',
+                        '23', // Quality (lower = better, 23 is default)
+                        '-c:a',
+                        'aac', // Audio codec
+                        '-b:a',
+                        '128k', // Audio bitrate
+                        '-movflags',
+                        '+faststart', // Enable fast start for web playback
+                        mp4Path // Output file
+                    ]
+
+                    const proc = spawn(ffmpegPath, args, { stdio: 'ignore' })
+                    proc.once('error', reject)
+                    proc.once('close', (code) => {
+                        if (code === 0) resolve()
+                        else reject(new Error(`ffmpeg conversion failed with code ${code}`))
+                    })
+                })
+
+                // Keep the temp WebM file for now (user might want to download again)
+                // It will be cleaned up on app close or new recording
+
+                activeFilePath = mp4Path
+                const fileSize = fs.statSync(activeFilePath).size
+                console.log(
+                    `💾 Video converted and saved as MP4: ${activeFilePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`
+                )
+
+                const filepath = activeFilePath
+
+                // Clean up
+                activeTempPath = null
+                activeFilePath = null
+
+                return { success: true, path: filepath, size: fileSize }
+            } catch (error) {
+                console.error('Error finalizing recording:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Show file in folder (file explorer)
+        ipcMain.handle('show-item-in-folder', async (event, filePath) => {
+            try {
+                if (!filePath || !fs.existsSync(filePath)) {
+                    throw new Error('File not found')
+                }
+                shell.showItemInFolder(filePath)
+                return { success: true }
+            } catch (error) {
+                console.error('Error showing file in folder:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Read temp file for duration fixing
+        ipcMain.handle('read-temp-file', async (event, filePath) => {
+            try {
+                if (!fs.existsSync(filePath)) {
+                    throw new Error('Temp file not found')
+                }
+
+                const stats = fs.statSync(filePath)
+                const fileSizeMB = (stats.size / 1024 / 1024).toFixed(2)
+                console.log(`📖 Reading temp file: ${fileSizeMB} MB`)
+
+                // Check if file is too large for memory (> 4GB)
+                if (stats.size > 4 * 1024 * 1024 * 1024) {
+                    console.warn('⚠️ File too large to load into memory, may cause issues')
+                }
+
+                const buffer = fs.readFileSync(filePath)
+                console.log(`✅ File read successfully: ${fileSizeMB} MB`)
+
+                return buffer
+            } catch (error) {
+                console.error('❌ Error reading temp file:', error)
+                return null
+            }
+        })
+
+        // Legacy: Initialize video save - create file and write stream (for download feature)
+        ipcMain.handle('init-video-save', async (event, filename, fileSize) => {
+            try {
+                // Clean up any existing stream
+                if (activeWriteStream) {
+                    activeWriteStream.end()
+                    activeWriteStream = null
+                }
+
+                // Get Downloads folder path
+                const downloadsDir = app.getPath('downloads')
+                activeFilePath = path.join(downloadsDir, `${filename || 'recording'}.webm`)
+
+                // Create write stream
+                activeWriteStream = fs.createWriteStream(activeFilePath)
+
+                console.log(`Initializing video save: ${activeFilePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
+
+                return { success: true }
+            } catch (error) {
+                console.error('Error initializing video save:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Append a single chunk to the video file
+        ipcMain.handle('append-video-chunk', async (event, chunk, chunkIndex, totalChunks) => {
+            try {
+                if (!activeWriteStream) {
+                    throw new Error('No active write stream. Call init-video-save first.')
+                }
+
+                // Write chunk to stream
+                await new Promise((resolve, reject) => {
+                    const buffer = Buffer.from(chunk)
+                    const canContinue = activeWriteStream.write(buffer)
+
+                    if (canContinue) {
+                        resolve()
+                    } else {
+                        // Wait for drain event if buffer is full
+                        activeWriteStream.once('drain', resolve)
+                        activeWriteStream.once('error', reject)
+                    }
+                })
+
+                // Log progress
+                const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100)
+                console.log(`Writing chunk ${chunkIndex + 1}/${totalChunks} (${progress}%)`)
+
+                return { success: true }
+            } catch (error) {
+                console.error('Error appending video chunk:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Finalize video save - close the stream
+        ipcMain.handle('finalize-video-save', async (event) => {
+            try {
+                if (!activeWriteStream) {
+                    throw new Error('No active write stream to finalize.')
+                }
+
+                // Close the stream
+                await new Promise((resolve, reject) => {
+                    activeWriteStream.end(() => resolve())
+                    activeWriteStream.once('error', reject)
+                })
+
+                console.log(`Video saved successfully: ${activeFilePath}`)
+
+                const filepath = activeFilePath
+
+                // Clean up
+                activeWriteStream = null
+                activeFilePath = null
+
+                return { success: true, path: filepath }
+            } catch (error) {
+                console.error('Error finalizing video save:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Get file stats
+        ipcMain.handle('get-file-stats', async (event, filePath) => {
+            try {
+                if (!fs.existsSync(filePath)) {
+                    throw new Error('File not found')
+                }
+                const stats = fs.statSync(filePath)
+                return { success: true, size: stats.size, modified: stats.mtime }
+            } catch (error) {
+                console.error('Error getting file stats:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        // Handle opening save dialog
+        ipcMain.handle('show-save-dialog', async () => {
+            const result = await dialog.showSaveDialog(mainWindow, {
+                defaultPath: `recording_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`,
+                filters: [{ name: 'Videos', extensions: ['webm', 'mp4'] }]
+            })
+            return result
         })
     }
 

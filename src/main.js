@@ -105,16 +105,16 @@ const convertHotkeyToElectron = (hotkey) => {
 
     // Handle special key names that Electron expects
     const keyMappings = {
-        'ArrowUp': 'Up',
-        'ArrowDown': 'Down',
-        'ArrowLeft': 'Left',
-        'ArrowRight': 'Right',
-        'Enter': 'Return',
+        ArrowUp: 'Up',
+        ArrowDown: 'Down',
+        ArrowLeft: 'Left',
+        ArrowRight: 'Right',
+        Enter: 'Return',
         ' ': 'Space'
     }
 
     // Replace any mapped keys (handle both start and middle of string)
-    Object.keys(keyMappings).forEach(key => {
+    Object.keys(keyMappings).forEach((key) => {
         // Escape special regex characters in the key name
         const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         // Match key at start, after +, or at end
@@ -321,6 +321,13 @@ function setupProtocolHandlers() {
             return new Response('File not found', { status: 404 })
         }
     })
+
+    // Register protocol to serve local video files
+    protocol.registerFileProtocol('local-video', (request, callback) => {
+        const url = request.url.replace('local-video://', '')
+        const decodedPath = decodeURIComponent(url)
+        callback({ path: decodedPath })
+    })
 }
 
 // ==================== IPC HANDLERS ====================
@@ -363,6 +370,20 @@ function setupIPCHandlers() {
             properties: ['openDirectory', 'createDirectory']
         })
         return result
+    })
+
+    // Permission handlers
+    app.on('web-contents-created', (event, webContents) => {
+        webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+            console.log(`Permission requested: ${permission}`)
+            // Allow camera and microphone permissions
+            if (permission === 'media' || permission === 'camera' || permission === 'microphone') {
+                console.log(`Granting ${permission} permission`)
+                callback(true)
+            } else {
+                callback(false)
+            }
+        })
     })
 
     // Shortcut handlers

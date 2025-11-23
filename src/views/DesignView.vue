@@ -1,88 +1,20 @@
 <script setup>
     import { ref } from 'vue'
+    import VideoPlayer from '../components/VideoPlayer.vue'
 
-    const uploadProgress = ref(75)
-    const uploadStatus = ref('success')
-    const link = ref('https://www.figma.com/file/RegiZy5o7UYekqg')
+    const isProcessing = ref(true)
+    const recordedVideoUrl = ref('http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4')
+    const isDownloading = ref(false)
 </script>
 
 <template>
     <div class="size-full rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2">
         <div class="rounded-2xl bg-white p-5">
             <!-- Title -->
-            <div class="mb-5 flex items-center gap-4">
-                <template v-if="uploadStatus === 'uploading'">
-                    <div class="box-shadow bg-primary-blue flex size-8 items-center justify-center rounded-lg">
-                        <svg
-                            class="size-5"
-                            viewBox="0 0 28 28"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M23.918 11.8883H20.5463C17.7813 11.8883 15.5296 9.63665 15.5296 6.87165V3.49998C15.5296 2.85831 15.0046 2.33331 14.363 2.33331H9.4163C5.82297 2.33331 2.91797 4.66665 2.91797 8.83165V19.1683C2.91797 23.3333 5.82297 25.6666 9.4163 25.6666H18.5863C22.1796 25.6666 25.0846 23.3333 25.0846 19.1683V13.055C25.0846 12.4133 24.5596 11.8883 23.918 11.8883ZM13.453 15.785C13.278 15.96 13.0563 16.0416 12.8346 16.0416C12.613 16.0416 12.3913 15.96 12.2163 15.785L11.3763 14.945V19.8333C11.3763 20.3116 10.9796 20.7083 10.5013 20.7083C10.023 20.7083 9.6263 20.3116 9.6263 19.8333V14.945L8.7863 15.785C8.44797 16.1233 7.88797 16.1233 7.54964 15.785C7.2113 15.4466 7.2113 14.8866 7.54964 14.5483L9.88297 12.215C9.96464 12.145 10.0463 12.0866 10.1396 12.04C10.163 12.0283 10.198 12.0166 10.2213 12.005C10.2913 11.9816 10.3613 11.97 10.443 11.9583C10.478 11.9583 10.5013 11.9583 10.5363 11.9583C10.6296 11.9583 10.723 11.9816 10.8163 12.0166C10.828 12.0166 10.828 12.0166 10.8396 12.0166C10.933 12.0516 11.0263 12.1216 11.0963 12.1916C11.108 12.2033 11.1196 12.2033 11.1196 12.215L13.453 14.5483C13.7913 14.8866 13.7913 15.4466 13.453 15.785Z"
-                                fill="white" />
-                            <path
-                                d="M20.3333 10.2783C21.4417 10.29 22.9817 10.29 24.3 10.29C24.965 10.29 25.315 9.50835 24.8483 9.04168C23.1683 7.35001 20.1583 4.30501 18.4317 2.57835C17.9533 2.10001 17.125 2.42668 17.125 3.09168V7.16334C17.125 8.86668 18.5717 10.2783 20.3333 10.2783Z"
-                                fill="white" />
-                        </svg>
-                    </div>
-                    <h2 class="font-bold">Uploading</h2>
-                </template>
-                <template v-if="uploadStatus === 'error'">
-                    <div class="error-shadow flex size-8 items-center justify-center rounded-lg bg-[#D73A3A]">
-                        <svg
-                            class="size-5"
-                            viewBox="0 0 28 28"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M16.742 2.33325H11.2587C10.0454 2.33325 9.05371 3.31325 9.05371 4.52659V5.62325C9.05371 6.83659 10.0337 7.81659 11.247 7.81659H16.742C17.9554 7.81659 18.9354 6.83659 18.9354 5.62325V4.52659C18.947 3.31325 17.9554 2.33325 16.742 2.33325Z"
-                                fill="white" />
-                            <path
-                                d="M20.1129 5.62331C20.1129 7.47831 18.5962 8.99498 16.7412 8.99498H11.2579C9.40289 8.99498 7.88622 7.47831 7.88622 5.62331C7.88622 4.96998 7.18622 4.56164 6.60289 4.86498C4.95789 5.73998 3.83789 7.47831 3.83789 9.47331V20.4516C3.83789 23.3216 6.18289 25.6666 9.05289 25.6666H18.9462C21.8162 25.6666 24.1612 23.3216 24.1612 20.4516V9.47331C24.1612 7.47831 23.0412 5.73998 21.3962 4.86498C20.8129 4.56164 20.1129 4.96998 20.1129 5.62331ZM16.9512 19.4716C16.7762 19.6466 16.5546 19.7283 16.3329 19.7283C16.1112 19.7283 15.8896 19.6466 15.7146 19.4716L14.0229 17.78L12.2846 19.5183C12.1096 19.6933 11.8879 19.775 11.6662 19.775C11.4446 19.775 11.2229 19.6933 11.0479 19.5183C10.7096 19.18 10.7096 18.62 11.0479 18.2816L12.7862 16.5433L11.0946 14.8516C10.7562 14.5133 10.7562 13.9533 11.0946 13.615C11.4329 13.2766 11.9929 13.2766 12.3312 13.615L14.0229 15.3066L15.6562 13.6733C15.9946 13.335 16.5546 13.335 16.8929 13.6733C17.2312 14.0116 17.2312 14.5716 16.8929 14.91L15.2596 16.5433L16.9512 18.235C17.2896 18.5733 17.2896 19.1216 16.9512 19.4716Z"
-                                fill="white" />
-                        </svg>
-                    </div>
-                    <h2 class="font-bold">Upload Failed</h2>
-                </template>
-                <template v-if="uploadStatus === 'success'">
-                    <div class="box-shadow bg-primary-blue flex size-8 items-center justify-center rounded-lg">
-                        <svg
-                            class="size-5"
-                            viewBox="0 0 28 28"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M18.4331 2.57841C17.9548 2.10007 17.1265 2.42674 17.1265 3.09174V7.16341C17.1265 8.86674 18.5731 10.2784 20.3348 10.2784C21.4431 10.2901 22.9831 10.2901 24.3015 10.2901C24.9665 10.2901 25.3165 9.50841 24.8498 9.04174C23.1698 7.35007 20.1598 4.30507 18.4331 2.57841Z"
-                                fill="white" />
-                            <path
-                                d="M17.2198 22.47C14.4782 22.6683 14.4782 26.635 17.2198 26.8333H23.7065C24.4882 26.8333 25.2582 26.5416 25.8298 26.0166C27.7548 24.3366 26.7282 20.9766 24.1965 20.6616C23.2865 15.19 15.3765 17.2666 17.2432 22.4816"
-                                fill="white" />
-                            <path
-                                d="M25.0832 13.0549V16.8466C25.0832 17.1966 24.5698 17.3599 24.3132 17.1149C23.7532 16.5666 23.0648 16.1466 22.2715 15.9016C20.3115 15.2949 18.0365 15.8899 16.6248 17.3833C15.6798 18.3633 15.2015 19.6116 15.2132 20.9649C15.2132 21.1866 15.1082 21.3849 14.9332 21.5133C13.9998 22.2249 13.4165 23.3449 13.4165 24.6399C13.4165 24.7333 13.4165 24.8266 13.4282 24.9199C13.4515 25.2933 13.1832 25.6549 12.7982 25.6549H9.41484C5.8215 25.6549 2.9165 23.3216 2.9165 19.1566V8.83159C2.9165 4.66659 5.8215 2.33325 9.41484 2.33325H14.3615C15.0032 2.33325 15.5282 2.85825 15.5282 3.49992V6.87158C15.5282 9.64825 17.7682 11.8883 20.5448 11.8883H23.9165C24.5582 11.8883 25.0832 12.4133 25.0832 13.0549Z"
-                                fill="white" />
-                        </svg>
-                    </div>
-                    <h2 class="font-bold">Upload Completed</h2>
-                </template>
+            <div class="drag mb-5 flex items-center gap-4">
+                <h2 class="font-bold">Name of the video file</h2>
 
                 <div class="ml-auto flex items-center gap-1">
-                    <button>
-                        <svg
-                            class="size-6"
-                            viewBox="0 0 26 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                opacity="0.4"
-                                d="M13.1373 22C18.8439 22 23.47 17.5228 23.47 12C23.47 6.47715 18.8439 2 13.1373 2C7.43077 2 2.80469 6.47715 2.80469 12C2.80469 17.5228 7.43077 22 13.1373 22Z"
-                                fill="#6C82A3" />
-                            <path
-                                d="M17.1895 12.75H8.92339C8.49975 12.75 8.14844 12.41 8.14844 12C8.14844 11.59 8.49975 11.25 8.92339 11.25H17.1895C17.6131 11.25 17.9644 11.59 17.9644 12C17.9644 12.41 17.6235 12.75 17.1895 12.75Z"
-                                fill="#6C82A3" />
-                        </svg>
-                    </button>
-
                     <button>
                         <svg
                             class="size-6"
@@ -101,125 +33,94 @@
                 </div>
             </div>
 
-            <!-- Progress -->
-            <template v-if="uploadStatus === 'uploading' || uploadStatus === 'error'">
-                <div class="flex items-end justify-between">
-                    <p class="text-xs text-slate-500">3.5 MB</p>
-                    <p
-                        v-if="uploadStatus === 'uploading'"
-                        class="text-sm font-semibold">
-                        {{ `${uploadProgress}%` }}
-                    </p>
-                    <button
-                        v-else
-                        class="group relative">
-                        <svg
-                            class="size-8"
-                            viewBox="0 0 47 45"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                opacity="0.4"
-                                d="M31.3658 3.75H15.15C8.07862 3.75 3.87451 7.81875 3.87451 14.6438V30.3375C3.87451 37.1625 8.0786 41.2313 15.1306 41.2313H31.3464C38.3984 41.2313 42.6026 37.1625 42.6026 30.3375V14.6438C42.6219 7.81875 38.4178 3.75 31.3658 3.75Z"
-                                fill="#2178FF" />
-                            <path
-                                d="M32.5089 17.0062C32.0633 16.3499 31.1528 16.1812 30.4941 16.6124C29.8353 17.0437 29.6416 17.9249 30.0872 18.5624C30.9978 19.8749 31.4627 21.4124 31.4627 22.9874C31.4627 27.3749 27.7624 30.9562 23.2289 30.9562C18.6955 30.9562 14.9951 27.3749 14.9951 22.9874C14.9951 18.5999 18.6955 15.0187 23.2289 15.0187C23.597 15.0187 23.9457 15.0562 24.3138 15.0937L23.2483 15.8624C22.6089 16.3124 22.4539 17.1937 22.9383 17.8312C23.2289 18.2062 23.6745 18.4124 24.1201 18.4124C24.4107 18.4124 24.7207 18.3187 24.9725 18.1499L28.731 15.4874C28.7504 15.4687 28.7504 15.4499 28.7698 15.4499C28.7892 15.4312 28.8085 15.4312 28.8279 15.4124C28.886 15.3562 28.9248 15.2999 28.9635 15.2437C29.0216 15.1687 29.0991 15.1124 29.1379 15.0187C29.1766 14.9437 29.196 14.8499 29.2347 14.7749C29.2541 14.6812 29.2929 14.6062 29.3123 14.5124C29.3316 14.4187 29.3122 14.3437 29.2929 14.2499C29.2929 14.1562 29.2929 14.0812 29.2541 13.9874C29.2348 13.8937 29.1766 13.8187 29.1379 13.7249C29.0991 13.6687 29.0991 13.5937 29.041 13.5187C29.0217 13.4999 29.0023 13.4999 29.0023 13.4812C28.9829 13.4624 28.9829 13.4437 28.9635 13.4249L25.7281 9.84368C25.205 9.26243 24.2751 9.18743 23.6745 9.71243C23.0739 10.2187 23.0158 11.1187 23.5389 11.6999L24.0813 12.2999C23.8101 12.2812 23.5389 12.2437 23.2483 12.2437C17.1068 12.2437 12.1084 17.0812 12.1084 23.0249C12.1084 28.9687 17.1068 33.8062 23.2483 33.8062C29.3897 33.8062 34.3882 28.9687 34.3882 23.0249C34.3882 20.8499 33.7488 18.7874 32.5089 17.0062Z"
-                                fill="#2178FF" />
-                        </svg>
-
-                        <div class="absolute top-full -left-2 z-10 mt-1.5 hidden w-max group-hover:block">
-                            <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                                Retry
-                                <!-- Arrow -->
-                                <div
-                                    class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                            </div>
-                        </div>
-                    </button>
-                </div>
-                <div class="relative mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <!-- Processing Overlay -->
+            <div
+                v-if="isProcessing"
+                class="bg-gray-black/60 flex flex-col items-center justify-center gap-4 rounded-2xl p-12 backdrop-blur-md">
+                <div class="relative h-16 w-16">
                     <div
-                        v-if="uploadStatus === 'uploading'"
-                        :style="{ width: `${uploadProgress}%` }"
-                        class="let-0 absolute inset-y-0 bg-linear-to-r from-blue-500 to-cyan-500"></div>
+                        class="absolute inset-0 animate-spin rounded-full border-4 border-white/20 border-t-white"></div>
                 </div>
-                <p class="mt-2 text-right text-xs text-slate-400">
-                    {{ uploadStatus === 'uploading' ? '12 Second Remaining' : 'Error 500  API not working' }}
-                </p>
-            </template>
-
-            <template v-if="uploadStatus === 'success'">
-                <div class="flex gap-2 pb-4">
-                    <div
-                        class="truncate rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-sm text-blue-500">
-                        {{ link }}
-                    </div>
-                    <button
-                        class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
-                        <svg
-                            class="size-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M16 12.9V17.1C16 20.6 14.6 22 11.1 22H6.9C3.4 22 2 20.6 2 17.1V12.9C2 9.4 3.4 8 6.9 8H11.1C14.6 8 16 9.4 16 12.9Z"
-                                stroke="#2178FF"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round" />
-                            <path
-                                d="M22 6.9V11.1C22 14.6 20.6 16 17.1 16H16V12.9C16 9.4 14.6 8 11.1 8H8V6.9C8 3.4 9.4 2 12.9 2H17.1C20.6 2 22 3.4 22 6.9Z"
-                                stroke="#2178FF"
-                                stroke-width="1.5"
-                                stroke-linecap="round"
-                                stroke-linejoin="round" />
-                        </svg>
-
-                        <!-- Tooltip -->
-                        <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
-                            <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                                Copy Link
-                                <!-- Arrow -->
-                                <div
-                                    class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                            </div>
-                        </div>
-                    </button>
-                    <button
-                        class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
-                        <svg
-                            class="size-5"
-                            viewBox="0 0 24 20"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M14 17.7929V14.3333C14 14.1315 13.8783 13.9471 13.6878 13.8804C9.49794 12.4142 4.58425 16.1566 1.92376 18.9596C1.60082 19.2998 1.01594 19.0703 1.05045 18.6025C1.73698 9.29573 9.26646 6.37576 13.5212 6.02893C13.7889 6.0071 14 5.78753 14 5.51886V2.20711C14 1.76165 14.5386 1.53857 14.8536 1.85355L22.6464 9.64645C22.8417 9.84171 22.8417 10.1583 22.6464 10.3536L14.8536 18.1464C14.5386 18.4614 14 18.2383 14 17.7929Z"
-                                stroke="#2178FF"
-                                stroke-width="1.5"
-                                stroke-linecap="round" />
-                        </svg>
-
-                        <div class="absolute top-full mt-1.5 hidden group-hover:block">
-                            <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                                Share
-                                <!-- Arrow -->
-                                <div
-                                    class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                            </div>
-                        </div>
-                    </button>
+                <div class="text-center">
+                    <p class="text-lg font-semibold text-white">Processing video...</p>
+                    <small class="mt-1 block text-sm text-white/70">Fixing duration metadata</small>
                 </div>
-            </template>
+            </div>
+
+            <!-- Preview Content -->
+            <div
+                v-show="!isProcessing"
+                class="relative">
+                <VideoPlayer
+                    :src="recordedVideoUrl"
+                    :autoplay="true"
+                    :show-controls="true" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Toolbar -->
+    <div
+        v-if="recordedVideoUrl"
+        class="toolbar-container mt-2 flex items-center gap-4 transition-shadow">
+        <div class="mx-auto flex items-center rounded-full bg-white/90">
+            <button
+                @click="handleUpload"
+                title="Upload"
+                class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                <svg
+                    class="size-6 group-hover:text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M21.74 12.91C21.48 12.05 21.05 11.3 20.48 10.69C19.75 9.86 18.78 9.29 17.69 9.04C17.14 6.54 15.6 4.74 13.41 4.07C11.03 3.33 8.27 4.05 6.54 5.86C5.02 7.45 4.52 9.64 5.11 11.97C3.11 12.46 2.12 14.13 2.01 15.72C2 15.83 2 15.93 2 16.03C2 17.91 3.23 20.02 5.97 20.22H16.35C17.77 20.22 19.13 19.69 20.17 18.74C21.8 17.31 22.4 15.08 21.74 12.91Z"
+                        fill="currentColor" />
+                </svg>
+                <span class="hidden group-hover:block group-hover:text-white"> Upload </span>
+            </button>
+
+            <button
+                @click="handleCopy"
+                title="Copy"
+                class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                <svg
+                    class="size-6 group-hover:text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M15.5 13.15H13.33C11.55 13.15 10.1 11.71 10.1 9.92V7.75C10.1 7.34 9.77 7 9.35 7H6.18C3.87 7 2 8.5 2 11.18V17.82C2 20.5 3.87 22 6.18 22H12.07C14.38 22 16.25 20.5 16.25 17.82V13.9C16.25 13.48 15.91 13.15 15.5 13.15Z"
+                        fill="currentColor" />
+                    <path
+                        d="M17.8198 2H15.8498H14.7598H11.9298C9.66977 2 7.83977 3.44 7.75977 6.01C7.81977 6.01 7.86977 6 7.92977 6H10.7598H11.8498H13.8198C16.1298 6 17.9998 7.5 17.9998 10.18V12.15V14.86V16.83C17.9998 16.89 17.9898 16.94 17.9898 16.99C20.2198 16.92 21.9998 15.44 21.9998 12.83V10.86V8.15V6.18C21.9998 3.5 20.1298 2 17.8198 2Z"
+                        fill="currentColor" />
+                    <path
+                        d="M11.9796 7.14999C11.6696 6.83999 11.1396 7.04999 11.1396 7.47999V10.1C11.1396 11.2 12.0696 12.1 13.2096 12.1C13.9196 12.11 14.9096 12.11 15.7596 12.11C16.1896 12.11 16.4096 11.61 16.1096 11.31C15.0196 10.22 13.0796 8.26999 11.9796 7.14999Z"
+                        fill="currentColor" />
+                </svg>
+                <span class="hidden group-hover:block group-hover:text-white"> Copy </span>
+            </button>
+
+            <button
+                @click="handleSave"
+                title="Save"
+                class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                <svg
+                    class="size-6 group-hover:text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M8.78125 13.2002H15.4746C15.6843 13.2002 15.8564 13.3717 15.8564 13.585V19.5C15.8564 19.6933 15.6992 19.8496 15.5059 19.8496H8.75C8.55672 19.8496 8.40039 19.6933 8.40039 19.5V13.585C8.40039 13.3717 8.5716 13.2002 8.78125 13.2002ZM7.8252 3.15039C8.09431 3.1505 8.3125 3.36856 8.3125 3.6377V5.88672C8.3125 6.85441 9.09271 7.64062 10.0566 7.64062H14.2002C15.164 7.64049 15.9434 6.85433 15.9434 5.88672V4.21094C15.9434 4.14578 15.9785 4.09968 16.0195 4.0791C16.0582 4.05972 16.104 4.06116 16.1465 4.09961L18.5703 6.29492C19.3447 6.99621 19.787 7.99515 19.7871 9.04395V16.1514C19.7869 17.6994 18.8424 19.0247 17.502 19.5762C17.3737 19.6289 17.219 19.5336 17.2188 19.3623V13.585C17.2188 12.6173 16.4385 11.8311 15.4746 11.8311H8.78125C7.81734 11.8311 7.03711 12.6173 7.03711 13.585V19.4736C7.03709 19.6348 6.89786 19.7335 6.77051 19.6953C5.25543 19.2392 4.15058 17.8254 4.15039 16.1514V6.84863C4.15062 4.80501 5.79657 3.15039 7.8252 3.15039ZM10.0254 3.15039H14.2314C14.4246 3.15053 14.5811 3.30679 14.5811 3.5V5.88672C14.5811 6.09992 14.4098 6.27134 14.2002 6.27148H10.0566C9.84697 6.27148 9.6748 6.10001 9.6748 5.88672V3.5C9.6748 3.3067 9.83209 3.15039 10.0254 3.15039Z"
+                        fill="currentColor" />
+                </svg>
+                <span class="hidden group-hover:block group-hover:text-white"> Save </span>
+            </button>
         </div>
     </div>
 </template>
 
 <style scoped>
-    .error-shadow {
-        box-shadow: 0px 11px 35px 0px #d73a3a4a !important;
-    }
-
-    .box-shadow {
-        box-shadow: 0px 11px 35px 0px #2178ff4a;
-    }
+    /* Empty */
 </style>

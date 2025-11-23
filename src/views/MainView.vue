@@ -27,45 +27,8 @@
         await window.electron?.startVideoRecordingMode()
     }
 
-    const recordGIF = () => {
-        const id = `upload-${Date.now()}`
-
-        const notify = (payload) => window.electronNotifications?.notify(payload)
-
-        notify({
-            id,
-            variant: 'upload',
-            additionalInfo: {
-                link: 'https://example.com/',
-                file: '',
-                fileSize: '1.2 MB'
-            }
-        })
-
-        let progress = 0
-        const timer = setInterval(() => {
-            progress = Math.min(100, progress + 8)
-            notify({ id, progress })
-            if (progress >= 100) {
-                clearInterval(timer)
-                const url = 'https://example.com/file/abcd'
-                store.lastCapture = url // Automatic sync will handle this
-                notify({
-                    id,
-                    title: 'Upload Complete',
-                    message: url,
-                    variant: 'success',
-                    progress: null,
-                    timeoutMs: 6000,
-                    actions: [
-                        {
-                            label: 'Copy Link',
-                            onClick: () => navigator.clipboard.writeText(url)
-                        }
-                    ]
-                })
-            }
-        }, 200)
+    const recordGIF = async () => {
+        await createWindow('webcam')
     }
 
     const openLastCapture = () => {

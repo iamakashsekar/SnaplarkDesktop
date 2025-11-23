@@ -10,6 +10,7 @@ import DesignView from '../views/DesignView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
 import { useStore } from '../store'
 import VideoRecordingView from '../views/VideoRecordingView.vue'
+import WebcamView from '../views/WebcamView.vue'
 
 const routes = [
     {
@@ -53,6 +54,12 @@ const routes = [
         name: 'recording',
         component: VideoRecordingView,
         meta: { windowType: 'recording' }
+    },
+    {
+        path: '/webcam',
+        name: 'webcam',
+        component: WebcamView,
+        meta: { windowType: 'webcam' }
     },
     {
         path: '/design',

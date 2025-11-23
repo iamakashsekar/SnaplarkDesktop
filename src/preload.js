@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import { pathToFileURL } from 'url'
 
 // ==================== UTILITIES ====================
 
@@ -25,15 +26,30 @@ contextBridge.exposeInMainWorld('electron', {
     // Video recording functionality
     startVideoRecordingMode: () => ipcRenderer.invoke('start-video-recording-mode'),
     cancelVideoRecordingMode: () => ipcRenderer.send('cancel-video-recording-mode'),
+    getSources: () => ipcRenderer.invoke('get-sources'),
+    saveVideo: (buffer, filename) => ipcRenderer.invoke('save-video', buffer, filename),
 
-    startVideoRecording: (displayId, isFullScreen, bounds) =>
-        ipcRenderer.invoke('start-video-recording', displayId, isFullScreen, bounds),
+    // Real-time recording to disk (writes during recording, not after)
+    initRecordingStream: (timestamp) => ipcRenderer.invoke('init-recording-stream', timestamp),
+    appendRecordingChunk: (chunk) => ipcRenderer.invoke('append-recording-chunk', chunk),
+    stopRecordingStream: () => ipcRenderer.invoke('stop-recording-stream'),
+    finalizeRecording: (filename) => ipcRenderer.invoke('finalize-recording', filename),
+    readTempFile: (path) => ipcRenderer.invoke('read-temp-file', path),
+    showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
+    // Convert a filesystem path to a file:// URL for safe use in <video src>
+    getFileUrl: (fsPath) => pathToFileURL(fsPath).href,
+    // Make a temp recording file more playable by remuxing container metadata via ffmpeg
+    makeRecordingPlayable: (inputPath) => ipcRenderer.invoke('make-recording-playable', inputPath),
+    // Get file stats (size, etc)
+    getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
 
-    saveVideoRecording: (blobData) =>
-        ipcRenderer.invoke('save-video-recording', blobData),
-    // takeVideo: (type, bounds, displayId, closeWindow) =>
-    //     ipcRenderer.invoke('take-video', type, bounds, displayId, closeWindow),
-    // copyVideo: (type, bounds, displayId) => ipcRenderer.invoke('copy-video', type, bounds, displayId),
+    // Streaming video save methods (for legacy download feature)
+    initVideoSave: (filename, fileSize) => ipcRenderer.invoke('init-video-save', filename, fileSize),
+    appendVideoChunk: (chunk, chunkIndex, totalChunks) =>
+        ipcRenderer.invoke('append-video-chunk', chunk, chunkIndex, totalChunks),
+    finalizeVideoSave: () => ipcRenderer.invoke('finalize-video-save'),
+
+    showSaveDialog: () => ipcRenderer.invoke('show-save-dialog'),
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
@@ -60,10 +76,14 @@ contextBridge.exposeInMainWorld('electronWindows', {
     centerWindow: (type) => ipcRenderer.invoke('center-window', type),
     showWindow: (type) => ipcRenderer.invoke('show-window', type),
     hideWindow: (type) => ipcRenderer.invoke('hide-window', type),
-    makeWindowNonBlocking: (type) => ipcRenderer.invoke('make-window-non-blocking', type),
+    makeWindowNonBlocking: (type, toolbarPosition, toolbarSize) =>
+        ipcRenderer.invoke('make-window-non-blocking', type, toolbarPosition, toolbarSize),
     makeWindowBlocking: (type) => ipcRenderer.invoke('make-window-blocking', type),
     resizeWindow: (type, width, height) => ipcRenderer.invoke('resize-window', type, width, height),
+    moveWindow: (type, x, y) => ipcRenderer.invoke('move-window', type, x, y),
     getWindowType: () => ipcRenderer.invoke('get-window-type'),
+    getWindow: (type) => ipcRenderer.invoke('get-window', type),
+    getCurrentWindowDisplayInfo: () => ipcRenderer.invoke('get-current-window-display-info'),
 
     // Display events
     onDisplayChanged: (callback) => {

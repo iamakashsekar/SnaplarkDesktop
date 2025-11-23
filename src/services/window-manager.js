@@ -139,10 +139,40 @@ class WindowManager {
                 })
             },
 
+            webcam: {
+                frame: false,
+                transparent: true,
+                alwaysOnTop: true,
+                skipTaskbar: true,
+                movable: true,
+                resizable: false,
+                hasShadow: false,
+                width: 208,
+                height: 208,
+                show: false,
+                focusable: true,
+                acceptFirstMouse: true,
+                fullscreenable: false,
+                enableLargerThanScreen: true,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    webSecurity: true,
+                    allowRunningInsecureContent: false,
+                    experimentalFeatures: false,
+                    permissions: ['camera', 'microphone']
+                },
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false
+                })
+            },
+
             design: {
                 ...common,
-                width: 384,
-                height: 210,
+                width: 800,
+                height: 600,
                 resizable: true,
                 alwaysOnTop: false,
                 skipTaskbar: false,
@@ -172,9 +202,10 @@ class WindowManager {
     createWindow(type, options = {}) {
         const isScreenshotWindow = type.startsWith('screenshot')
         const isVideoRecordingWindow = type.startsWith('recording')
+        const isWebcamWindow = type === 'webcam'
         const isSelectionWindow = isScreenshotWindow || isVideoRecordingWindow
 
-        if (!isSelectionWindow && this.windows.has(type)) {
+        if (!isSelectionWindow && !isWebcamWindow && this.windows.has(type)) {
             const existingWindow = this.windows.get(type)
             if (!existingWindow.isDestroyed()) {
                 existingWindow.show()
@@ -203,14 +234,109 @@ class WindowManager {
         this.loadWindowContent(window, type, options.params)
 
         window.on('closed', () => {
+            // Clean up any intervals when window is closed
+            if (window._keepOnTopInterval) {
+                clearInterval(window._keepOnTopInterval)
+                window._keepOnTopInterval = null
+            }
             this.windows.delete(type)
         })
 
         this.windows.set(type, window)
 
+        // Position webcam window on the specified display if provided
+        if (isWebcamWindow && options.displayInfo) {
+            const isFullScreen = options.isFullScreen || false
+            const selectionRect = options.selectionRect || null
+
+            const display = options.displayInfo.display || options.displayInfo
+            const webcamWidth = config.width || 208
+            const webcamHeight = config.height || 208
+            const margin = 20
+
+            let x, y
+
+            if (isFullScreen) {
+                x = display.bounds.x + display.bounds.width - webcamWidth - margin
+                y = display.bounds.y + display.bounds.height - webcamHeight - margin
+                console.log('Full x', x)
+                console.log('Full y', y)
+            } else {
+                console.log('selectionRect', selectionRect)
+
+                // Calculate position relative to display bounds + selectionRect offset
+                x = display.bounds.x + selectionRect.left + selectionRect.width - webcamWidth - margin
+                y = display.bounds.y + selectionRect.top + selectionRect.height - webcamHeight - margin
+
+                console.log('Custom x', x)
+                console.log('Custom y', y)
+            }
+
+            window.setBounds({
+                x,
+                y,
+                width: webcamWidth,
+                height: webcamHeight
+            })
+
+            // Ensure window can appear over system UI elements
+            // These settings are also applied in applyPlatformSpecificSettings, but set here for immediate effect
+            if (process.platform === 'darwin') {
+                // On macOS, ensure window appears over menubar and use screen-saver level with higher priority
+                window.setAlwaysOnTop(true, 'screen-saver', 2)
+                window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+                // Ensure webcam window can receive mouse events
+                window.setIgnoreMouseEvents(false)
+            } else if (process.platform === 'win32') {
+                // On Windows, ensure window appears over taskbar
+                window.setSkipTaskbar(true)
+                window.setAlwaysOnTop(true, 'floating')
+                window.setIgnoreMouseEvents(false)
+            }
+        }
+
         if (type !== 'main' && !isSelectionWindow) {
-            window.show()
-            window.focus()
+            // Ensure webcam window is brought to front when shown
+            if (isWebcamWindow) {
+                // Set up interval to keep webcam window on top while it's visible
+                const keepOnTopInterval = setInterval(() => {
+                    if (window.isDestroyed() || !window.isVisible()) {
+                        clearInterval(keepOnTopInterval)
+                        return
+                    }
+                    // Periodically bring webcam window to front and focus to ensure it stays above recording window and can receive mouse events
+                    window.moveTop()
+                    window.focus()
+                }, 1000) // Check every second
+
+                // Store interval reference on window for cleanup
+                window._keepOnTopInterval = keepOnTopInterval
+
+                // Ensure webcam window can receive mouse events and is focusable
+                window.setIgnoreMouseEvents(false)
+                window.setFocusable(true)
+
+                window.show()
+                // Bring webcam window to front after showing to ensure it's above recording window
+                // Use multiple timeouts to ensure it stays on top even if recording window tries to come forward
+                const bringToFront = () => {
+                    if (!window.isDestroyed()) {
+                        window.moveTop()
+                        // Focus webcam window to ensure it can receive mouse events
+                        window.focus()
+                    }
+                }
+
+                // Bring to front immediately and focus to receive mouse events
+                setTimeout(bringToFront, 50)
+                // Bring to front again after a short delay to handle any focus changes
+                setTimeout(bringToFront, 200)
+                // One more time to ensure it stays on top
+                setTimeout(bringToFront, 500)
+            } else {
+                window.show()
+                window.focus()
+            }
         }
 
         return window
@@ -218,7 +344,15 @@ class WindowManager {
 
     applyPlatformSpecificSettings(window, type, isSelectionWindow, config) {
         if (process.platform === 'darwin' && config.alwaysOnTop) {
-            if (isSelectionWindow) {
+            if (type === 'webcam') {
+                // Webcam window should be on top of all other windows including recording
+                // Use 'screen-saver' level with a higher window level (2) to ensure it's above recording window (level 1)
+                window.setAlwaysOnTop(true, 'screen-saver', 2)
+                window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+                window.setFullScreenable(false)
+                // Ensure webcam window can receive mouse events
+                window.setIgnoreMouseEvents(false)
+            } else if (isSelectionWindow) {
                 window.setAlwaysOnTop(true, 'screen-saver')
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                 window.setFullScreenable(false)
@@ -229,6 +363,11 @@ class WindowManager {
                 window.setFullScreenable(false)
             } else {
                 window.setAlwaysOnTop(true, 'screen-saver')
+            }
+        } else if (config.alwaysOnTop) {
+            // For Windows and Linux, ensure webcam window has higher priority
+            if (type === 'webcam') {
+                window.setAlwaysOnTop(true, 'floating')
             }
         }
     }
@@ -284,11 +423,94 @@ class WindowManager {
         return Array.from(this.windows.values()).filter((win) => !win.isDestroyed())
     }
 
+    getCurrentWindowDisplayInfo(webContents) {
+        // Find the window that owns this webContents
+        let currentWindow = null
+        for (const [type, win] of this.windows.entries()) {
+            if (!win.isDestroyed() && win.webContents === webContents) {
+                currentWindow = win
+                break
+            }
+        }
+
+        if (!currentWindow) {
+            return null
+        }
+
+        // Get window bounds
+        const bounds = currentWindow.getBounds()
+        const centerPoint = {
+            x: bounds.x + bounds.width / 2,
+            y: bounds.y + bounds.height / 2
+        }
+
+        // Find which display this window is on
+        const display = screen.getDisplayNearestPoint(centerPoint)
+        return {
+            display,
+            bounds,
+            displayId: display.id
+        }
+    }
+
     showWindow(type) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
-            window.show()
-            window.focus()
+            // Ensure webcam window stays on top of all other windows
+            if (type === 'webcam') {
+                if (process.platform === 'darwin') {
+                    // Use 'screen-saver' level with higher priority (2) to ensure it's above recording window
+                    window.setAlwaysOnTop(true, 'screen-saver', 2)
+                    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+                    // Ensure webcam window can receive mouse events
+                    window.setIgnoreMouseEvents(false)
+                } else {
+                    window.setAlwaysOnTop(true, 'floating')
+                    window.setIgnoreMouseEvents(false)
+                }
+
+                // Set up interval to keep webcam window on top while it's visible (if not already set)
+                if (!window._keepOnTopInterval) {
+                    const keepOnTopInterval = setInterval(() => {
+                        if (window.isDestroyed() || !window.isVisible()) {
+                            clearInterval(keepOnTopInterval)
+                            window._keepOnTopInterval = null
+                            return
+                        }
+                        // Periodically bring webcam window to front and focus to ensure it stays above recording window and can receive mouse events
+                        window.moveTop()
+                        window.focus()
+                    }, 1000) // Check every second
+
+                    // Store interval reference on window for cleanup
+                    window._keepOnTopInterval = keepOnTopInterval
+                }
+
+                // Ensure webcam window can receive mouse events and is focusable
+                window.setIgnoreMouseEvents(false)
+                window.setFocusable(true)
+
+                window.show()
+                // Bring webcam window to front after showing to ensure it's above recording window
+                // Use multiple timeouts to ensure it stays on top even if recording window tries to come forward
+                const bringToFront = () => {
+                    if (!window.isDestroyed()) {
+                        window.moveTop()
+                        // Focus webcam window to ensure it can receive mouse events
+                        window.focus()
+                    }
+                }
+
+                // Bring to front immediately and focus to receive mouse events
+                setTimeout(bringToFront, 50)
+                // Bring to front again after a short delay to handle any focus changes
+                setTimeout(bringToFront, 200)
+                // One more time to ensure it stays on top
+                setTimeout(bringToFront, 500)
+            } else {
+                window.show()
+                window.focus()
+            }
         }
         return window
     }
@@ -300,17 +522,63 @@ class WindowManager {
         }
     }
 
-    makeWindowNonBlocking(type) {
+    makeWindowNonBlocking(type, toolbarPosition = null, toolbarSize = null) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
             try {
-                // Exit kiosk mode if active (check if method exists)
-                if (typeof window.isKioskMode === 'function' && window.isKioskMode()) {
-                    window.setKioskMode(false)
+                // Exit kiosk and fullscreen modes
+                window.setKiosk(false)
+                window.setFullScreen(false)
+
+                // Make window normal (resizable and movable)
+                window.setResizable(true)
+                window.setMovable(true)
+
+                // Enable shadow for the window
+                window.setHasShadow(true)
+
+                // Use toolbar size if provided, otherwise use defaults
+                const padding = 10 // Padding to prevent tooltips from being cut off
+                const toolbarWidth = toolbarSize ? toolbarSize.width + padding * 2 : 450
+                const toolbarHeight = toolbarSize ? toolbarSize.height + padding * 2 : 80
+
+                let x, y
+
+                if (toolbarPosition) {
+                    // Position window so that its center matches the toolbar's previous screen position
+                    // Window center = window.x + window.width/2, window.y + window.height/2
+                    // So: window.x = toolbarScreenX - window.width/2, window.y = toolbarScreenY - window.height/2
+                    x = Math.round(toolbarPosition.x - toolbarWidth / 2)
+                    y = Math.round(toolbarPosition.y - toolbarHeight / 2)
+
+                    // Find the display that contains the toolbar position
+                    const display = screen.getDisplayNearestPoint({ x: toolbarPosition.x, y: toolbarPosition.y })
+                    const screenBounds = display.bounds
+
+                    // Ensure window stays within screen bounds
+                    x = Math.max(screenBounds.x, Math.min(x, screenBounds.x + screenBounds.width - toolbarWidth))
+                    y = Math.max(screenBounds.y, Math.min(y, screenBounds.y + screenBounds.height - toolbarHeight))
+                } else {
+                    // Fallback: Center the window horizontally, position near top
+                    const bounds = window.getBounds()
+                    const screenBounds = screen.getDisplayMatching(bounds).bounds
+                    x = Math.max(screenBounds.x, screenBounds.x + (screenBounds.width - toolbarWidth) / 2)
+                    y = Math.max(screenBounds.y + 20, bounds.y) // Keep current Y or top + margin
                 }
-                // Make window non-focusable so it doesn't steal focus
-                window.setFocusable(false)
-                console.log(`Made window ${type} non-blocking (non-focusable)`)
+
+                window.setBounds({
+                    x: Math.round(x),
+                    y: Math.round(y),
+                    width: toolbarWidth,
+                    height: toolbarHeight
+                })
+
+                console.log(
+                    'Made window non-blocking',
+                    type,
+                    toolbarPosition ? 'with toolbar position' : 'centered',
+                    toolbarSize ? `size: ${toolbarWidth}x${toolbarHeight}` : ''
+                )
             } catch (error) {
                 console.error(`Error making window ${type} non-blocking:`, error)
             }
@@ -396,9 +664,9 @@ class WindowManager {
             }
         })
 
-        ipcMain.handle('make-window-non-blocking', (event, type) => {
+        ipcMain.handle('make-window-non-blocking', (event, type, toolbarPosition, toolbarSize) => {
             try {
-                this.makeWindowNonBlocking(type)
+                this.makeWindowNonBlocking(type, toolbarPosition, toolbarSize)
                 return { success: true }
             } catch (error) {
                 console.error('Error making window non-blocking:', error)
@@ -429,11 +697,48 @@ class WindowManager {
             return { success: false, error: `Window ${type} not found` }
         })
 
+        ipcMain.handle('move-window', (event, type, x, y) => {
+            const window = this.getWindow(type)
+            if (window) {
+                window.setPosition(Math.round(x), Math.round(y))
+                return { success: true }
+            }
+            return { success: false, error: `Window ${type} not found` }
+        })
+
         ipcMain.handle('get-window-type', (event) => {
             const webContents = event.sender
             const url = webContents.getURL()
             const urlParams = new URLSearchParams(url.split('?')[1] || '')
             return urlParams.get('window')?.split('#/')[0] || 'main'
+        })
+
+        ipcMain.handle('get-window', (event, type) => {
+            const window = this.getWindow(type)
+            return window && !window.isDestroyed() ? { exists: true } : { exists: false }
+        })
+
+        ipcMain.handle('get-current-window-display-info', (event) => {
+            try {
+                const info = this.getCurrentWindowDisplayInfo(event.sender)
+                if (!info) {
+                    return { success: false, error: 'Could not determine current window display' }
+                }
+                return {
+                    success: true,
+                    displayId: info.displayId,
+                    display: {
+                        id: info.display.id,
+                        bounds: info.display.bounds,
+                        workArea: info.display.workArea,
+                        scaleFactor: info.display.scaleFactor
+                    },
+                    windowBounds: info.bounds
+                }
+            } catch (error) {
+                console.error('Error getting current window display info:', error)
+                return { success: false, error: error.message }
+            }
         })
     }
 }
