@@ -76,8 +76,8 @@ contextBridge.exposeInMainWorld('electronWindows', {
     centerWindow: (type) => ipcRenderer.invoke('center-window', type),
     showWindow: (type) => ipcRenderer.invoke('show-window', type),
     hideWindow: (type) => ipcRenderer.invoke('hide-window', type),
-    makeWindowNonBlocking: (type, toolbarPosition, toolbarSize) =>
-        ipcRenderer.invoke('make-window-non-blocking', type, toolbarPosition, toolbarSize),
+    makeWindowNonBlocking: (type, toolbarPosition, toolbarSize, toolbarDimensions) =>
+        ipcRenderer.invoke('make-window-non-blocking', type, toolbarPosition, toolbarSize, toolbarDimensions),
     makeWindowBlocking: (type) => ipcRenderer.invoke('make-window-blocking', type),
     resizeWindow: (type, width, height) => ipcRenderer.invoke('resize-window', type, width, height),
     moveWindow: (type, x, y) => ipcRenderer.invoke('move-window', type, x, y),

@@ -533,7 +533,7 @@ class VideoRecordingService {
             }
         })
 
-        // Convert WebM to MP4 and save to Downloads folder (called when user clicks download)
+        // Save WebM file to Downloads folder (called when user clicks download)
         ipcMain.handle('finalize-recording', async (event, finalFilename) => {
             try {
                 if (!activeTempPath || !fs.existsSync(activeTempPath)) {

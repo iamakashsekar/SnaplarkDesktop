@@ -52,6 +52,19 @@
         { immediate: true }
     )
 
+    watch(
+        () => props.autoplay,
+        (shouldPlay) => {
+            if (videoRef.value) {
+                if (shouldPlay) {
+                    videoRef.value.play().catch(() => {})
+                } else {
+                    videoRef.value.pause()
+                }
+            }
+        }
+    )
+
     // Video event handlers
     const handleTimeUpdate = () => {
         if (videoRef.value) {

@@ -634,9 +634,12 @@ export function useRecorder() {
             isProcessing.value = true // Show processing overlay during conversion
 
             if (window.electron && tempRecordingPath.value) {
+                console.log('tempRecordingPath', tempRecordingPath.value)
+
                 // Convert WebM to MP4 and save to Downloads
                 const filenameWithoutExt = filename.value.replace('.webm', '')
                 const result = await window.electron.finalizeRecording(filenameWithoutExt)
+                console.log('result', result)
 
                 if (result.success) {
                     savedFilePath.value = result.path

@@ -522,7 +522,7 @@ class WindowManager {
         }
     }
 
-    makeWindowNonBlocking(type, toolbarPosition = null, toolbarSize = null) {
+    makeWindowNonBlocking(type, toolbarPosition = null, toolbarDimensions = null) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
             try {
@@ -531,54 +531,18 @@ class WindowManager {
                 window.setFullScreen(false)
 
                 // Make window normal (resizable and movable)
-                window.setResizable(true)
+                window.setResizable(false)
                 window.setMovable(true)
 
                 // Enable shadow for the window
-                window.setHasShadow(true)
-
-                // Use toolbar size if provided, otherwise use defaults
-                const padding = 10 // Padding to prevent tooltips from being cut off
-                const toolbarWidth = toolbarSize ? toolbarSize.width + padding * 2 : 450
-                const toolbarHeight = toolbarSize ? toolbarSize.height + padding * 2 : 80
-
-                let x, y
-
-                if (toolbarPosition) {
-                    // Position window so that its center matches the toolbar's previous screen position
-                    // Window center = window.x + window.width/2, window.y + window.height/2
-                    // So: window.x = toolbarScreenX - window.width/2, window.y = toolbarScreenY - window.height/2
-                    x = Math.round(toolbarPosition.x - toolbarWidth / 2)
-                    y = Math.round(toolbarPosition.y - toolbarHeight / 2)
-
-                    // Find the display that contains the toolbar position
-                    const display = screen.getDisplayNearestPoint({ x: toolbarPosition.x, y: toolbarPosition.y })
-                    const screenBounds = display.bounds
-
-                    // Ensure window stays within screen bounds
-                    x = Math.max(screenBounds.x, Math.min(x, screenBounds.x + screenBounds.width - toolbarWidth))
-                    y = Math.max(screenBounds.y, Math.min(y, screenBounds.y + screenBounds.height - toolbarHeight))
-                } else {
-                    // Fallback: Center the window horizontally, position near top
-                    const bounds = window.getBounds()
-                    const screenBounds = screen.getDisplayMatching(bounds).bounds
-                    x = Math.max(screenBounds.x, screenBounds.x + (screenBounds.width - toolbarWidth) / 2)
-                    y = Math.max(screenBounds.y + 20, bounds.y) // Keep current Y or top + margin
-                }
+                // window.setHasShadow(true)
 
                 window.setBounds({
-                    x: Math.round(x),
-                    y: Math.round(y),
-                    width: toolbarWidth,
-                    height: toolbarHeight
+                    x: toolbarPosition.x,
+                    y: toolbarPosition.y,
+                    width: toolbarDimensions.width,
+                    height: toolbarDimensions.height
                 })
-
-                console.log(
-                    'Made window non-blocking',
-                    type,
-                    toolbarPosition ? 'with toolbar position' : 'centered',
-                    toolbarSize ? `size: ${toolbarWidth}x${toolbarHeight}` : ''
-                )
             } catch (error) {
                 console.error(`Error making window ${type} non-blocking:`, error)
             }
@@ -664,9 +628,9 @@ class WindowManager {
             }
         })
 
-        ipcMain.handle('make-window-non-blocking', (event, type, toolbarPosition, toolbarSize) => {
+        ipcMain.handle('make-window-non-blocking', (event, type, toolbarPosition, toolbarDimensions) => {
             try {
-                this.makeWindowNonBlocking(type, toolbarPosition, toolbarSize)
+                this.makeWindowNonBlocking(type, toolbarPosition, toolbarDimensions)
                 return { success: true }
             } catch (error) {
                 console.error('Error making window non-blocking:', error)

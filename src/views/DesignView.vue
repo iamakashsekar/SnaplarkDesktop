@@ -33,28 +33,27 @@
                 </div>
             </div>
 
-            <!-- Processing Overlay -->
-            <div
-                v-if="isProcessing"
-                class="bg-gray-black/60 flex flex-col items-center justify-center gap-4 rounded-2xl p-12 backdrop-blur-md">
-                <div class="relative h-16 w-16">
-                    <div
-                        class="absolute inset-0 animate-spin rounded-full border-4 border-white/20 border-t-white"></div>
-                </div>
-                <div class="text-center">
-                    <p class="text-lg font-semibold text-white">Processing video...</p>
-                    <small class="mt-1 block text-sm text-white/70">Fixing duration metadata</small>
-                </div>
-            </div>
-
-            <!-- Preview Content -->
-            <div
-                v-show="!isProcessing"
-                class="relative">
+            <!-- Video Preview & Processing Overlay -->
+            <div class="relative overflow-hidden rounded-2xl">
                 <VideoPlayer
                     :src="recordedVideoUrl"
-                    :autoplay="true"
-                    :show-controls="true" />
+                    :class="{ invisible: isProcessing }"
+                    :autoplay="!isProcessing"
+                    :show-controls="!isProcessing" />
+
+                <!-- Processing Overlay -->
+                <div
+                    v-if="isProcessing"
+                    class="bg-gray-black/60 absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 backdrop-blur-md">
+                    <div class="relative h-16 w-16">
+                        <div
+                            class="absolute inset-0 animate-spin rounded-full border-4 border-white/20 border-t-white"></div>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-lg font-semibold text-white">Processing video...</p>
+                        <small class="mt-1 block text-sm text-white/70">Fixing duration metadata</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
