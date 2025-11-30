@@ -33,6 +33,9 @@
     const magnifierCanvas = ref(null)
     const fullScreenImage = ref(null)
 
+    // Webcam repositioning throttle
+    let webcamRepositionTimeout = null
+
     const selectionRect = computed(() => {
         const left = Math.min(startX.value, endX.value)
         const top = Math.min(startY.value, endY.value)
@@ -175,6 +178,9 @@
             if (handle.includes('right')) endX.value = e.clientX
             if (handle.includes('top')) startY.value = e.clientY
             if (handle.includes('bottom')) endY.value = e.clientY
+
+            // Reposition webcam during resize (throttled)
+            repositionWebcam(true)
         } else if (mode.value === 'moving') {
             const deltaX = e.clientX - dragStartMouseX.value
             const deltaY = e.clientY - dragStartMouseY.value
@@ -192,6 +198,9 @@
             startY.value = constrainedTop
             endX.value = constrainedLeft + width
             endY.value = constrainedTop + height
+
+            // Reposition webcam during move (throttled)
+            repositionWebcam(true)
         }
 
         // Only update magnifier if this window is active
@@ -200,7 +209,7 @@
         }
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = async () => {
         if (mode.value === 'selecting') {
             magnifierActive.value = false
             const { width, height } = selectionRect.value
@@ -224,6 +233,9 @@
             endY.value = normalizedBottom
 
             mode.value = 'confirming'
+
+            // Reposition webcam after selection is created
+            await repositionWebcam()
         } else if (mode.value === 'resizing') {
             magnifierActive.value = false
 
@@ -240,9 +252,15 @@
 
             mode.value = 'confirming'
             resizingHandle.value = null
+
+            // Reposition webcam after selection is resized
+            await repositionWebcam()
         } else if (mode.value === 'moving') {
             magnifierActive.value = false
             mode.value = 'confirming'
+
+            // Reposition webcam after selection is moved
+            await repositionWebcam()
         }
 
         // Toggle webcam back on if it was enabled before recording
@@ -407,6 +425,53 @@
         store.updateSetting('selectedMicrophoneDeviceId', null)
     }
 
+    const repositionWebcam = async (throttle = false) => {
+        if (!store.settings.webcamEnabled) return
+
+        // Throttle repositioning during drag/resize operations
+        if (throttle) {
+            if (webcamRepositionTimeout) return
+            webcamRepositionTimeout = setTimeout(() => {
+                webcamRepositionTimeout = null
+                repositionWebcam(false)
+            }, 50) // Update every 50ms during drag/resize
+            return
+        }
+
+        try {
+            // Check if webcam window exists
+            const windowCheck = await window.electronWindows?.getWindow?.('webcam')
+            if (!windowCheck?.exists) return
+
+            // Get the current window's display info to calculate webcam position
+            const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+            if (!displayInfo?.success) return
+
+            const display = displayInfo.display
+            const webcamWidth = 208
+            const webcamHeight = 208
+            const margin = 20
+
+            let x, y
+
+            if (isFullScreen.value) {
+                // Position at bottom-right of display
+                x = display.bounds.x + display.bounds.width - webcamWidth - margin
+                y = display.bounds.y + display.bounds.height - webcamHeight - margin
+            } else {
+                // Position at bottom-right of selection rectangle
+                const { left, top, width, height } = selectionRect.value
+                x = display.bounds.x + left + width - webcamWidth - margin
+                y = display.bounds.y + top + height - webcamHeight - margin
+            }
+
+            // Reposition the webcam window
+            await window.electronWindows?.moveWindow?.('webcam', x, y)
+        } catch (error) {
+            console.error('Error repositioning webcam window:', error)
+        }
+    }
+
     const enableWebcam = async () => {
         if (store.settings.webcamEnabled) {
             try {
@@ -425,6 +490,9 @@
                             selectionRect: selectionRect.value
                         })
                     }
+                } else {
+                    // Webcam window already exists, just reposition it
+                    await repositionWebcam()
                 }
             } catch (error) {
                 console.error('Error toggling webcam window:', error)
@@ -836,6 +904,12 @@
         if (isDraggingToolbar.value) {
             document.removeEventListener('mousemove', handleToolbarDragMove)
             document.removeEventListener('mouseup', handleToolbarDragEnd)
+        }
+
+        // Cleanup webcam reposition timeout
+        if (webcamRepositionTimeout) {
+            clearTimeout(webcamRepositionTimeout)
+            webcamRepositionTimeout = null
         }
 
         // Cleanup recording
