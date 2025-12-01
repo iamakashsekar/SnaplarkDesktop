@@ -5,7 +5,8 @@ const path = require('path')
 module.exports = {
     packagerConfig: {
         icon: 'src/assets/icons/icon', // Correct: No extension, points to src/assets/icon.icns for macOS
-        extraResource: ['./resources/icons']
+        extraResource: ['./resources/icons'],
+        asar: true // Required because fuses enforce OnlyLoadAppFromAsar and ASAR integrity validation
     },
     rebuildConfig: {},
     makers: [

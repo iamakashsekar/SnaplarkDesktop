@@ -24,6 +24,10 @@ class StoreService {
                     event.returnValue = this.store.get(key)
                     break
 
+                case 'getAll':
+                    event.returnValue = this.store.store
+                    break
+
                 case 'set':
                     event.returnValue = this.store.set(key, value)
                     break

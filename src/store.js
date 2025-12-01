@@ -88,7 +88,18 @@ export const useStore = defineStore('main', {
                 if (access_token) {
                     TokenManager.setToken(access_token)
                     console.log('Token set: ', access_token)
+
+                    // Verify token was saved
+                    const savedToken = TokenManager.getToken()
+                    if (!savedToken || savedToken !== access_token) {
+                        console.error('Token verification failed. Expected:', access_token, 'Got:', savedToken)
+                        throw new Error('Failed to save authentication token')
+                    }
+                    console.log('Token verified in storage:', savedToken ? '✓' : '✗')
+                } else {
+                    throw new Error('No access token provided')
                 }
+
                 try {
                     const response = await apiClient.get('/user')
                     if (response.data) {
