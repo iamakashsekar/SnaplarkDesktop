@@ -1,5 +1,6 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import fixWebmDuration from 'fix-webm-duration'
+import chunkUploadManager from '../services/chunk-upload-manager'
 
 export function useRecorder() {
     // Refs for video/canvas elements
@@ -24,6 +25,8 @@ export function useRecorder() {
     const isDownloading = ref(false)
     const savedFilePath = ref('')
     const tempRecordingPath = ref('')
+    const uploadProgress = ref({ uploaded: 0, total: 0, percentage: 0, isOnline: true })
+    const isUploading = ref(false)
 
     // Crop region - set externally via setCropRegion()
     const cropRegion = ref({
@@ -44,6 +47,7 @@ export function useRecorder() {
     let recordingDuration = 0
     let recordingTimestamp = null
     let recordingTempPath = null // Real-time disk write path
+    let totalChunks = 0 // Track total chunks for upload
 
     // Function to set crop region externally
     const setCropRegion = (x, y, width, height) => {
@@ -335,11 +339,34 @@ export function useRecorder() {
                 }
             }
 
+            // Initialize chunk upload session
+            totalChunks = 0
+            try {
+                const canvas = recordingCanvas.value
+                await chunkUploadManager.initializeSession({
+                    filename: filename.value,
+                    timestamp: recordingTimestamp,
+                    fps: fps.value,
+                    codec: options.mimeType,
+                    bitrate: options.videoBitsPerSecond,
+                    resolution: {
+                        width: canvas.width,
+                        height: canvas.height
+                    }
+                })
+                console.log('☁️ Upload session initialized')
+                isUploading.value = true
+            } catch (error) {
+                console.warn('⚠️ Could not initialize upload session (will retry when online):', error.message)
+                // Continue recording even if upload init fails
+            }
+
             let pendingWrites = 0
 
             mediaRecorder.ondataavailable = async (event) => {
                 if (event.data && event.data.size > 0) {
-                    console.log(`Chunk: ${(event.data.size / 1024).toFixed(2)} KB`)
+                    const chunkIndex = totalChunks++
+                    console.log(`Chunk ${chunkIndex}: ${(event.data.size / 1024).toFixed(2)} KB`)
 
                     // Write to disk immediately (streaming mode - no memory accumulation)
                     if (window.electron && recordingTempPath) {
@@ -355,6 +382,22 @@ export function useRecorder() {
                     } else {
                         // Fallback: keep in memory if disk streaming not available
                         recordedChunks.push(event.data)
+                    }
+
+                    // Queue chunk for upload (non-blocking)
+                    try {
+                        chunkUploadManager.queueChunk(event.data, chunkIndex)
+                        // Update upload progress
+                        const progress = chunkUploadManager.getProgress()
+                        uploadProgress.value = {
+                            uploaded: progress.uploaded,
+                            total: progress.totalQueued,
+                            percentage: progress.percentage,
+                            isOnline: progress.isOnline
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Error queueing chunk for upload:', error)
+                        // Continue recording even if upload queueing fails
                     }
                 }
             }
@@ -385,6 +428,40 @@ export function useRecorder() {
 
                     if (pendingWrites > 0) {
                         console.warn('⚠️ Warning: Some writes still pending')
+                    }
+
+                    // Finalize upload session
+                    console.log('☁️ Finalizing upload session...')
+                    try {
+                        const finalizeResult = await chunkUploadManager.finalizeSession({
+                            totalChunks: totalChunks,
+                            duration: recordingDuration
+                        })
+
+                        if (finalizeResult.success) {
+                            console.log(
+                                `✅ Upload completed: ${finalizeResult.uploadedChunks}/${finalizeResult.totalChunks} chunks uploaded`
+                            )
+                            if (finalizeResult.videoUrl) {
+                                console.log('📺 Video URL:', finalizeResult.videoUrl)
+                            }
+                        } else {
+                            console.warn('⚠️ Upload finalization failed:', finalizeResult.error)
+                            console.log(`📊 Uploaded ${finalizeResult.uploadedChunks} chunks before failure`)
+                        }
+                    } catch (error) {
+                        console.error('❌ Error finalizing upload:', error)
+                        // Continue with local file processing even if upload fails
+                    } finally {
+                        isUploading.value = false
+                        // Update final progress
+                        const progress = chunkUploadManager.getProgress()
+                        uploadProgress.value = {
+                            uploaded: progress.uploaded,
+                            total: progress.totalQueued,
+                            percentage: progress.percentage,
+                            isOnline: progress.isOnline
+                        }
                     }
 
                     // Close the disk write stream
@@ -552,6 +629,17 @@ export function useRecorder() {
                 } else {
                     recordingTime.value = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
                 }
+
+                // Update upload progress periodically
+                if (isUploading.value) {
+                    const progress = chunkUploadManager.getProgress()
+                    uploadProgress.value = {
+                        uploaded: progress.uploaded,
+                        total: progress.totalQueued,
+                        percentage: progress.percentage,
+                        isOnline: progress.isOnline
+                    }
+                }
             }, 1000)
 
             renderRecording()
@@ -674,6 +762,13 @@ export function useRecorder() {
         isProcessing.value = false
         recordingTime.value = '00:00'
         recordedChunks = []
+        totalChunks = 0
+        isUploading.value = false
+        uploadProgress.value = { uploaded: 0, total: 0, percentage: 0, isOnline: true }
+
+        // Reset upload manager
+        chunkUploadManager.reset()
+
         startPreview()
     }
 
@@ -687,6 +782,8 @@ export function useRecorder() {
         if (recordedVideoUrl.value && recordedVideoUrl.value.startsWith('blob:')) {
             URL.revokeObjectURL(recordedVideoUrl.value)
         }
+        // Reset upload manager on cleanup
+        chunkUploadManager.reset()
     }
 
     // Watchers
@@ -722,6 +819,8 @@ export function useRecorder() {
         isDownloading,
         tempRecordingPath,
         savedFilePath,
+        uploadProgress,
+        isUploading,
         cropRegion,
         setCropRegion,
         setEnableCrop,
