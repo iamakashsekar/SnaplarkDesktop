@@ -42,7 +42,8 @@ export const defaultState = {
 }
 
 // Keys that should NOT be persisted (runtime-only state)
-export const excludeFromPersist = ['isLoading', 'isOnline', 'authError']
+// Note: 'auth_token' is managed separately by TokenManager, not by Pinia state
+export const excludeFromPersist = ['isLoading', 'isOnline', 'authError', 'auth_token']
 
 // Helper to get only persistable defaults (for Electron Store)
 export const getPersistableDefaults = () => {

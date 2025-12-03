@@ -178,18 +178,36 @@ export const useStore = defineStore('main', {
 
         // Initialize store sync listener and watcher
         initializeStoreSync() {
+            // Helper function to check if a value can be safely serialized for IPC
+            const canSerialize = (value) => {
+                try {
+                    // Test if the value can be serialized using JSON
+                    JSON.stringify(value)
+                    return true
+                } catch (error) {
+                    return false
+                }
+            }
+
             // Track previous state to detect actual changes
             let previousState = {}
 
             // Listen for updates from other windows
             if (window.electronStore?.onUpdate) {
                 window.electronStore.onUpdate((key, value) => {
-                    // Update store without triggering sync (to prevent infinite loops)
-                    this._isReceivingSync = true
-                    this[key] = value
-                    // Update previous state to match
-                    previousState[key] = value
-                    this._isReceivingSync = false
+                    // Skip auth_token - it's managed separately by TokenManager
+                    if (key === 'auth_token') {
+                        return
+                    }
+                    // Only update if this key exists in the Pinia state
+                    if (key in this.$state) {
+                        // Update store without triggering sync (to prevent infinite loops)
+                        this._isReceivingSync = true
+                        this[key] = value
+                        // Update previous state to match
+                        previousState[key] = value
+                        this._isReceivingSync = false
+                    }
                 })
             }
 
@@ -219,7 +237,17 @@ export const useStore = defineStore('main', {
                 if (changedKeys.length > 0 && window.electronStore?.sync) {
                     console.log('Syncing changed keys to other windows:', changedKeys)
                     changedKeys.forEach((key) => {
-                        window.electronStore.sync(key, state[key])
+                        const value = state[key]
+                        // Only sync if the value can be safely serialized
+                        if (canSerialize(value)) {
+                            try {
+                                window.electronStore.sync(key, value)
+                            } catch (error) {
+                                console.warn(`Failed to sync key "${key}" to other windows:`, error.message)
+                            }
+                        } else {
+                            console.warn(`Skipping sync for key "${key}" - value is not serializable`)
+                        }
                     })
                 }
             })

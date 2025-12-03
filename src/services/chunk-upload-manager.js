@@ -13,20 +13,49 @@ import connectivityService from './connectivity.js'
 class ChunkUploadManager {
     constructor() {
         this.sessionId = null
-        this.uploadQueue = [] // Queue of chunks waiting to upload
+        this.uploadQueue = [] // Unified queue: init first, then chunks in order
         this.uploadedChunks = new Set() // Set of successfully uploaded chunk indices
         this.failedChunks = new Map() // Map of chunkIndex -> retry count
-        this.isUploading = false
-        this.maxConcurrentUploads = 2 // Upload 2 chunks in parallel
+        this.isProcessing = false // Processing flag (renamed from isUploading for clarity)
         this.maxRetries = 5 // Maximum retry attempts per chunk
         this.retryDelays = [1000, 2000, 4000, 8000, 16000] // Exponential backoff delays (ms)
         this.connectivityUnsubscribe = null
-        this.uploadPromises = new Map() // Track active upload promises
         this.metadata = null
+        this.initQueued = false // Track if init has been queued
+        this.recordingFinished = false // Track if recording has finished (no more chunks will be added)
+        this.expectedTotalChunks = null // Expected total number of chunks
     }
 
     /**
-     * Initialize upload session
+     * Queue init call (non-blocking)
+     * @param {Object} metadata - Recording metadata (filename, timestamp, fps, etc.)
+     */
+    queueInit(metadata) {
+        if (this.initQueued) {
+            console.log('⚠️ Init already queued, skipping')
+            return
+        }
+
+        this.metadata = metadata
+        this.initQueued = true
+
+        // Add init as first item in queue
+        this.uploadQueue.unshift({
+            type: 'init',
+            metadata: metadata,
+            timestamp: Date.now()
+        })
+
+        console.log('📋 Init queued (will process first)')
+
+        // Start processing queue if not already running
+        if (!this.isProcessing && connectivityService.isOnline) {
+            this.processQueue()
+        }
+    }
+
+    /**
+     * Initialize upload session (internal method - called by queue processor)
      * @param {Object} metadata - Recording metadata (filename, timestamp, fps, etc.)
      * @returns {Promise<string>} Session ID
      */
@@ -34,8 +63,6 @@ class ChunkUploadManager {
         try {
             if (!connectivityService.isOnline) {
                 console.log('📵 Offline - Session will be initialized when online')
-                // Store metadata for later initialization
-                this.metadata = metadata
                 return null
             }
 
@@ -57,8 +84,6 @@ class ChunkUploadManager {
             }
         } catch (error) {
             console.error('❌ Failed to initialize upload session:', error)
-            // Store metadata for retry when online
-            this.metadata = metadata
             throw error
         }
     }
@@ -75,11 +100,26 @@ class ChunkUploadManager {
             return
         }
 
-        // Add to queue
+        // Check if chunk already in queue
+        const alreadyQueued = this.uploadQueue.some((item) => item.type === 'chunk' && item.chunkIndex === chunkIndex)
+        if (alreadyQueued) {
+            console.log(`⏭️ Chunk ${chunkIndex} already in queue, skipping`)
+            return
+        }
+
+        // Add to queue (chunks are added after init)
         this.uploadQueue.push({
+            type: 'chunk',
             blob: chunkBlob,
             chunkIndex,
             timestamp: Date.now()
+        })
+
+        // Sort queue: init first, then chunks by index
+        this.uploadQueue.sort((a, b) => {
+            if (a.type === 'init') return -1
+            if (b.type === 'init') return 1
+            return a.chunkIndex - b.chunkIndex
         })
 
         console.log(
@@ -87,68 +127,84 @@ class ChunkUploadManager {
         )
 
         // Start processing queue if not already running
-        if (!this.isUploading && connectivityService.isOnline) {
+        if (!this.isProcessing && connectivityService.isOnline) {
             this.processQueue()
         }
     }
 
     /**
-     * Process upload queue with parallel uploads
+     * Process upload queue serially (one at a time, in order)
+     * Init must complete successfully before any chunks are processed
+     * Each chunk must succeed before moving to the next
      */
     async processQueue() {
-        if (this.isUploading || !this.sessionId || !connectivityService.isOnline) {
+        if (this.isProcessing) {
             return
         }
 
-        this.isUploading = true
+        this.isProcessing = true
 
-        // Try to initialize session if not initialized
-        if (!this.sessionId && this.metadata) {
-            try {
-                await this.initializeSession(this.metadata)
-            } catch (error) {
-                console.warn('⚠️ Could not initialize session, will retry later')
-                this.isUploading = false
-                return
+        try {
+            // Process queue serially while there are items and we're online
+            while (this.uploadQueue.length > 0 && connectivityService.isOnline) {
+                const item = this.uploadQueue[0] // Get first item (init or next chunk in order)
+
+                if (item.type === 'init') {
+                    // Process init first - must succeed before processing chunks
+                    try {
+                        await this.initializeSession(item.metadata)
+                        // Init successful - remove from queue
+                        this.uploadQueue.shift()
+                        console.log('✅ Init processed successfully, proceeding with chunks')
+                    } catch (error) {
+                        // Init failed - keep it in queue and retry later
+                        console.warn('⚠️ Init failed, will retry:', error.message)
+                        // Wait before retrying
+                        await new Promise((resolve) => setTimeout(resolve, 2000))
+                        // Continue loop to retry init
+                        continue
+                    }
+                } else if (item.type === 'chunk') {
+                    // Can only process chunks if session is initialized
+                    if (!this.sessionId) {
+                        console.log('⏸️ Waiting for session initialization before processing chunks')
+                        // Wait a bit and check again
+                        await new Promise((resolve) => setTimeout(resolve, 500))
+                        continue
+                    }
+
+                    // Skip if already uploaded
+                    if (this.uploadedChunks.has(item.chunkIndex)) {
+                        this.uploadQueue.shift()
+                        continue
+                    }
+
+                    // Upload chunk - must succeed before moving to next
+                    try {
+                        await this.uploadChunk(item.blob, item.chunkIndex)
+                        // Chunk successful - remove from queue
+                        this.uploadQueue.shift()
+                    } catch (error) {
+                        // Chunk failed - keep it in queue and retry
+                        console.warn(`⚠️ Chunk ${item.chunkIndex} failed, will retry:`, error.message)
+                        // Wait before retrying
+                        await new Promise((resolve) => setTimeout(resolve, 2000))
+                        // Continue loop to retry same chunk
+                        continue
+                    }
+                } else {
+                    // Unknown item type - remove it
+                    console.warn('⚠️ Unknown queue item type, removing:', item)
+                    this.uploadQueue.shift()
+                }
             }
-        }
+        } finally {
+            this.isProcessing = false
 
-        if (!this.sessionId) {
-            this.isUploading = false
-            return
-        }
-
-        // Process queue while there are chunks and we're online
-        while (this.uploadQueue.length > 0 && connectivityService.isOnline && this.sessionId) {
-            // Get up to maxConcurrentUploads chunks to upload in parallel
-            const chunksToUpload = this.uploadQueue
-                .filter((item) => !this.uploadedChunks.has(item.chunkIndex))
-                .slice(0, this.maxConcurrentUploads)
-
-            if (chunksToUpload.length === 0) {
-                // All chunks in queue are already uploaded, remove them
-                this.uploadQueue = this.uploadQueue.filter((item) => !this.uploadedChunks.has(item.chunkIndex))
-                break
+            // If queue still has items and we're online, process again
+            if (this.uploadQueue.length > 0 && connectivityService.isOnline) {
+                setTimeout(() => this.processQueue(), 100)
             }
-
-            // Upload chunks in parallel
-            const uploadPromises = chunksToUpload.map((item) => this.uploadChunk(item.blob, item.chunkIndex))
-
-            try {
-                await Promise.allSettled(uploadPromises)
-            } catch (error) {
-                console.error('Error in parallel upload batch:', error)
-            }
-
-            // Remove uploaded chunks from queue
-            this.uploadQueue = this.uploadQueue.filter((item) => !this.uploadedChunks.has(item.chunkIndex))
-        }
-
-        this.isUploading = false
-
-        // If queue still has items and we're online, process again
-        if (this.uploadQueue.length > 0 && connectivityService.isOnline && this.sessionId) {
-            setTimeout(() => this.processQueue(), 100)
         }
     }
 
@@ -156,6 +212,7 @@ class ChunkUploadManager {
      * Upload a single chunk with retry logic
      * @param {Blob} chunkBlob - Video chunk blob
      * @param {number} chunkIndex - Zero-based chunk index
+     * @throws {Error} If upload fails after max retries
      */
     async uploadChunk(chunkBlob, chunkIndex) {
         // Skip if already uploaded
@@ -165,22 +222,21 @@ class ChunkUploadManager {
 
         // Skip if offline
         if (!connectivityService.isOnline) {
-            console.log(`📵 Offline - Chunk ${chunkIndex} will be uploaded when online`)
-            return
+            throw new Error(`Offline - Chunk ${chunkIndex} will be uploaded when online`)
         }
 
         // Skip if no session
         if (!this.sessionId) {
-            console.log(`⏸️ No session - Chunk ${chunkIndex} will be uploaded when session is ready`)
-            return
+            throw new Error(`No session - Chunk ${chunkIndex} will be uploaded when session is ready`)
         }
 
         const retryCount = this.failedChunks.get(chunkIndex) || 0
 
         // Don't retry if exceeded max retries
         if (retryCount >= this.maxRetries) {
-            console.error(`❌ Chunk ${chunkIndex} exceeded max retries (${this.maxRetries}), giving up`)
-            return
+            const error = new Error(`Chunk ${chunkIndex} exceeded max retries (${this.maxRetries})`)
+            console.error(`❌ ${error.message}`)
+            throw error
         }
 
         try {
@@ -205,10 +261,9 @@ class ChunkUploadManager {
             const newRetryCount = retryCount + 1
             this.failedChunks.set(chunkIndex, newRetryCount)
 
-            // If it's a network error and we're offline, don't retry immediately
+            // If it's a network error and we're offline, throw to pause processing
             if (!connectivityService.isOnline || error.isNetworkError) {
-                console.log(`📵 Network error uploading chunk ${chunkIndex}, will retry when online`)
-                return
+                throw new Error(`Network error uploading chunk ${chunkIndex}, will retry when online`)
             }
 
             // Calculate retry delay (exponential backoff)
@@ -219,20 +274,42 @@ class ChunkUploadManager {
                 error.message
             )
 
-            // Retry after delay
+            // Wait before retrying
             await new Promise((resolve) => setTimeout(resolve, delay))
 
-            // Retry upload
+            // Retry upload (recursive call)
             return this.uploadChunk(chunkBlob, chunkIndex)
         }
     }
 
     /**
-     * Finalize upload session
+     * Mark recording as finished - no more chunks will be added
+     * @param {number} expectedTotalChunks - Expected total number of chunks
+     */
+    markRecordingFinished(expectedTotalChunks) {
+        this.recordingFinished = true
+        this.expectedTotalChunks = expectedTotalChunks
+        console.log(`📋 Recording finished. Expected ${expectedTotalChunks} chunks total.`)
+
+        // Ensure queue processing continues if there are chunks
+        if (this.uploadQueue.length > 0 && !this.isProcessing && connectivityService.isOnline) {
+            this.processQueue()
+        }
+    }
+
+    /**
+     * Finalize upload session - waits for ALL chunks to be uploaded before calling API
      * @param {Object} finalMetadata - Final metadata (duration, totalChunks, etc.)
      * @returns {Promise<Object>} Finalization result
      */
     async finalizeSession(finalMetadata = {}) {
+        const expectedChunks = finalMetadata.totalChunks || this.expectedTotalChunks
+
+        // Mark recording as finished
+        if (!this.recordingFinished && expectedChunks !== undefined) {
+            this.markRecordingFinished(expectedChunks)
+        }
+
         if (!this.sessionId) {
             // Try to initialize session if we have metadata
             if (this.metadata && connectivityService.isOnline) {
@@ -247,25 +324,82 @@ class ChunkUploadManager {
             }
         }
 
-        // Wait for all pending uploads to complete (with timeout)
-        console.log('⏳ Waiting for pending uploads to complete...')
-        const maxWaitTime = 60000 // 60 seconds max wait
+        // Wait for ALL chunks to be uploaded before finalizing
+        console.log(`⏳ Waiting for all chunks to be uploaded (expected: ${expectedChunks})...`)
+        const maxWaitTime = 300000 // 5 minutes max wait (for slow connections)
         const startTime = Date.now()
+        const checkInterval = 500 // Check every 500ms
 
-        while ((this.uploadQueue.length > 0 || this.isUploading) && Date.now() - startTime < maxWaitTime) {
-            await new Promise((resolve) => setTimeout(resolve, 500))
+        while (Date.now() - startTime < maxWaitTime) {
+            // Check if all expected chunks are uploaded
+            if (expectedChunks !== undefined && this.uploadedChunks.size >= expectedChunks) {
+                // Verify we have chunks 0 through expectedChunks-1
+                let allChunksUploaded = true
+                for (let i = 0; i < expectedChunks; i++) {
+                    if (!this.uploadedChunks.has(i)) {
+                        allChunksUploaded = false
+                        break
+                    }
+                }
+
+                if (allChunksUploaded && this.uploadQueue.length === 0 && !this.isProcessing) {
+                    console.log(`✅ All ${expectedChunks} chunks uploaded successfully!`)
+                    break
+                }
+            }
+
+            // If recording is finished and queue is empty and not processing, we're done
+            if (this.recordingFinished && this.uploadQueue.length === 0 && !this.isProcessing) {
+                // Double-check: if we have expected count, verify all are uploaded
+                if (expectedChunks === undefined || this.uploadedChunks.size >= expectedChunks) {
+                    console.log(
+                        `✅ All chunks processed (uploaded: ${this.uploadedChunks.size}, expected: ${expectedChunks || 'unknown'})`
+                    )
+                    break
+                }
+            }
+
+            // Continue processing queue if there are items
+            if (this.uploadQueue.length > 0 && !this.isProcessing && connectivityService.isOnline) {
+                // Queue will process automatically, but ensure it's running
+                this.processQueue()
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, checkInterval))
+        }
+
+        // Final check: if timeout reached but chunks still pending, log warning
+        if (expectedChunks !== undefined && this.uploadedChunks.size < expectedChunks) {
+            const missing = []
+            for (let i = 0; i < expectedChunks; i++) {
+                if (!this.uploadedChunks.has(i)) {
+                    missing.push(i)
+                }
+            }
+            console.warn(`⚠️ Timeout reached. Missing chunks: ${missing.join(', ')}`)
+            console.warn(
+                `📊 Uploaded: ${this.uploadedChunks.size}/${expectedChunks}, Queue: ${this.uploadQueue.length}, Processing: ${this.isProcessing}`
+            )
         }
 
         // Upload any remaining failed chunks one more time
         if (this.uploadQueue.length > 0 && connectivityService.isOnline) {
-            console.log(`🔄 Retrying ${this.uploadQueue.length} remaining chunks...`)
+            console.log(`🔄 Retrying ${this.uploadQueue.length} remaining chunks before finalizing...`)
             await this.processQueue()
+
+            // Wait a bit more for retries to complete
+            await new Promise((resolve) => setTimeout(resolve, 2000))
+        }
+
+        // Only call finalize API if we have all chunks or recording is finished
+        if (expectedChunks !== undefined && this.uploadedChunks.size < expectedChunks) {
+            console.warn(`⚠️ Finalizing with incomplete chunks: ${this.uploadedChunks.size}/${expectedChunks}`)
         }
 
         try {
             const response = await apiClient.post('/videos/finalize', {
                 sessionId: this.sessionId,
-                totalChunks: finalMetadata.totalChunks || this.uploadedChunks.size,
+                totalChunks: expectedChunks || this.uploadedChunks.size,
                 uploadedChunks: Array.from(this.uploadedChunks).sort((a, b) => a - b),
                 duration: finalMetadata.duration,
                 metadata: {
@@ -282,7 +416,7 @@ class ChunkUploadManager {
                 videoId: response.data?.videoId,
                 videoUrl: response.data?.videoUrl,
                 uploadedChunks: this.uploadedChunks.size,
-                totalChunks: finalMetadata.totalChunks || this.uploadedChunks.size
+                totalChunks: expectedChunks || this.uploadedChunks.size
             }
         } catch (error) {
             console.error('❌ Failed to finalize upload session:', error)
@@ -302,21 +436,12 @@ class ChunkUploadManager {
         this.connectivityUnsubscribe = connectivityService.on('restored', () => {
             console.log('🔄 Connectivity restored - resuming uploads...')
 
-            // Try to initialize session if not initialized
-            if (!this.sessionId && this.metadata) {
-                this.initializeSession(this.metadata)
-                    .then(() => {
-                        // Process queue after session is initialized
-                        if (this.uploadQueue.length > 0) {
-                            this.processQueue()
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('Failed to initialize session after connectivity restore:', error)
-                    })
-            } else if (this.sessionId && this.uploadQueue.length > 0) {
-                // Resume processing queue
+            // Resume processing queue (init will be processed first if needed)
+            if (this.uploadQueue.length > 0) {
                 this.processQueue()
+            } else if (!this.sessionId && this.metadata) {
+                // If no queue but we have metadata, queue the init
+                this.queueInit(this.metadata)
             }
         })
 
@@ -356,9 +481,11 @@ class ChunkUploadManager {
         this.uploadQueue = []
         this.uploadedChunks.clear()
         this.failedChunks.clear()
-        this.isUploading = false
+        this.isProcessing = false
         this.metadata = null
-        this.uploadPromises.clear()
+        this.initQueued = false
+        this.recordingFinished = false
+        this.expectedTotalChunks = null
 
         if (this.connectivityUnsubscribe) {
             this.connectivityUnsubscribe()

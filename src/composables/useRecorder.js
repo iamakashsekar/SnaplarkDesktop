@@ -339,27 +339,21 @@ export function useRecorder() {
                 }
             }
 
-            // Initialize chunk upload session
+            // Initialize chunk upload session (non-blocking - queued for background processing)
             totalChunks = 0
-            try {
-                const canvas = recordingCanvas.value
-                await chunkUploadManager.initializeSession({
-                    filename: filename.value,
-                    timestamp: recordingTimestamp,
-                    fps: fps.value,
-                    codec: options.mimeType,
-                    bitrate: options.videoBitsPerSecond,
-                    resolution: {
-                        width: canvas.width,
-                        height: canvas.height
-                    }
-                })
-                console.log('☁️ Upload session initialized')
-                isUploading.value = true
-            } catch (error) {
-                console.warn('⚠️ Could not initialize upload session (will retry when online):', error.message)
-                // Continue recording even if upload init fails
-            }
+            chunkUploadManager.queueInit({
+                filename: filename.value,
+                timestamp: recordingTimestamp,
+                fps: fps.value,
+                codec: options.mimeType,
+                bitrate: options.videoBitsPerSecond,
+                resolution: {
+                    width: canvas.width,
+                    height: canvas.height
+                }
+            })
+            console.log('☁️ Upload session init queued (will process in background)')
+            isUploading.value = true
 
             let pendingWrites = 0
 
@@ -417,6 +411,7 @@ export function useRecorder() {
                     // Calculate actual duration
                     recordingDuration = Date.now() - recordingStartTime
                     console.log(`📊 Duration: ${(recordingDuration / 1000).toFixed(1)}s`)
+                    console.log(`📦 Total chunks recorded: ${totalChunks}`)
 
                     // Wait for all pending writes to complete
                     console.log('⏳ Waiting for disk writes to complete...')
@@ -430,8 +425,15 @@ export function useRecorder() {
                         console.warn('⚠️ Warning: Some writes still pending')
                     }
 
-                    // Finalize upload session
-                    console.log('☁️ Finalizing upload session...')
+                    // Mark recording as finished - no more chunks will be added
+                    // This allows the upload manager to know when all chunks are queued
+                    chunkUploadManager.markRecordingFinished(totalChunks)
+
+                    // Wait a moment for any final chunks to be queued (ondataavailable might fire after onstop)
+                    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+                    // Finalize upload session - will wait for ALL chunks to be uploaded
+                    console.log('☁️ Finalizing upload session (waiting for all chunks to upload)...')
                     try {
                         const finalizeResult = await chunkUploadManager.finalizeSession({
                             totalChunks: totalChunks,
