@@ -17,13 +17,20 @@ class ChunkUploadManager {
         this.uploadedChunks = new Set() // Set of successfully uploaded chunk indices
         this.failedChunks = new Map() // Map of chunkIndex -> retry count
         this.isProcessing = false // Processing flag (renamed from isUploading for clarity)
-        this.maxRetries = 5 // Maximum retry attempts per chunk
+        // No maximum retry limit - will retry until successful
         this.retryDelays = [1000, 2000, 4000, 8000, 16000] // Exponential backoff delays (ms)
+        // After exhausting delays, use max delay of 16 seconds for subsequent retries
         this.connectivityUnsubscribe = null
         this.metadata = null
         this.initQueued = false // Track if init has been queued
         this.recordingFinished = false // Track if recording has finished (no more chunks will be added)
         this.expectedTotalChunks = null // Expected total number of chunks
+
+        // S3 multipart upload requires parts to be at least 5MB (except the last part)
+        this.minChunkSize = 5 * 1024 * 1024 // 5MB in bytes
+        this.chunkBuffer = [] // Buffer to accumulate chunks until they reach minChunkSize
+        this.chunkBufferSize = 0 // Current size of buffer in bytes
+        this.nextChunkIndex = 0 // Index for the next chunk to be created from buffer
     }
 
     /**
@@ -89,11 +96,80 @@ class ChunkUploadManager {
     }
 
     /**
-     * Queue a chunk for upload
-     * @param {Blob} chunkBlob - Video chunk blob
+     * Add data to buffer and create 5MB chunks when buffer reaches threshold
+     * @param {Blob} chunkBlob - Video chunk blob from MediaRecorder
+     * @param {number} originalChunkIndex - Original chunk index from MediaRecorder (for logging)
+     */
+    addToBuffer(chunkBlob, originalChunkIndex) {
+        if (!chunkBlob || chunkBlob.size === 0) {
+            return
+        }
+
+        // Add to buffer
+        this.chunkBuffer.push(chunkBlob)
+        this.chunkBufferSize += chunkBlob.size
+
+        console.log(
+            `📥 Added chunk ${originalChunkIndex} to buffer (${(chunkBlob.size / 1024).toFixed(2)} KB). Buffer size: ${(this.chunkBufferSize / 1024 / 1024).toFixed(2)} MB`
+        )
+
+        // Check if buffer has reached minimum chunk size (5MB)
+        while (this.chunkBufferSize >= this.minChunkSize) {
+            // Create a 5MB chunk from buffer
+            const chunksToCombine = []
+            let combinedSize = 0
+
+            // Take chunks from buffer until we have at least 5MB
+            while (combinedSize < this.minChunkSize && this.chunkBuffer.length > 0) {
+                const chunk = this.chunkBuffer.shift()
+                chunksToCombine.push(chunk)
+                combinedSize += chunk.size
+            }
+
+            // Create combined blob
+            const combinedBlob = new Blob(chunksToCombine, { type: 'video/webm' })
+            this.chunkBufferSize -= combinedSize
+
+            // Queue the combined chunk
+            this.queueChunkDirectly(combinedBlob, this.nextChunkIndex++)
+
+            console.log(
+                `📦 Created 5MB chunk ${this.nextChunkIndex - 1} from buffer (${(combinedBlob.size / 1024 / 1024).toFixed(2)} MB). Remaining buffer: ${(this.chunkBufferSize / 1024 / 1024).toFixed(2)} MB`
+            )
+        }
+    }
+
+    /**
+     * Flush remaining buffer as the last chunk (can be < 5MB)
+     */
+    flushBuffer() {
+        if (this.chunkBuffer.length === 0 || this.chunkBufferSize === 0) {
+            console.log('📭 Buffer is empty, nothing to flush')
+            return
+        }
+
+        // Combine all remaining chunks
+        const combinedBlob = new Blob(this.chunkBuffer, { type: 'video/webm' })
+        const chunkIndex = this.nextChunkIndex++
+
+        console.log(
+            `📤 Flushing buffer as final chunk ${chunkIndex} (${(combinedBlob.size / 1024 / 1024).toFixed(2)} MB)`
+        )
+
+        // Queue the final chunk
+        this.queueChunkDirectly(combinedBlob, chunkIndex)
+
+        // Clear buffer
+        this.chunkBuffer = []
+        this.chunkBufferSize = 0
+    }
+
+    /**
+     * Queue a chunk directly for upload (internal method - used after buffering)
+     * @param {Blob} chunkBlob - Video chunk blob (should be >= 5MB except for last chunk)
      * @param {number} chunkIndex - Zero-based chunk index
      */
-    queueChunk(chunkBlob, chunkIndex) {
+    queueChunkDirectly(chunkBlob, chunkIndex) {
         // Don't queue if already uploaded
         if (this.uploadedChunks.has(chunkIndex)) {
             console.log(`⏭️ Chunk ${chunkIndex} already uploaded, skipping`)
@@ -105,6 +181,13 @@ class ChunkUploadManager {
         if (alreadyQueued) {
             console.log(`⏭️ Chunk ${chunkIndex} already in queue, skipping`)
             return
+        }
+
+        // Verify chunk size (warn if < 5MB and not the last chunk)
+        if (chunkBlob.size < this.minChunkSize && !this.recordingFinished) {
+            console.warn(
+                `⚠️ Chunk ${chunkIndex} is ${(chunkBlob.size / 1024 / 1024).toFixed(2)} MB (less than 5MB). This may cause S3 upload issues.`
+            )
         }
 
         // Add to queue (chunks are added after init)
@@ -123,13 +206,23 @@ class ChunkUploadManager {
         })
 
         console.log(
-            `📦 Chunk ${chunkIndex} queued (${(chunkBlob.size / 1024).toFixed(2)} KB). Queue size: ${this.uploadQueue.length}`
+            `📦 Chunk ${chunkIndex} queued for upload (${(chunkBlob.size / 1024 / 1024).toFixed(2)} MB). Queue size: ${this.uploadQueue.length}`
         )
 
         // Start processing queue if not already running
         if (!this.isProcessing && connectivityService.isOnline) {
             this.processQueue()
         }
+    }
+
+    /**
+     * Queue a chunk for upload (public method - handles buffering)
+     * @param {Blob} chunkBlob - Video chunk blob from MediaRecorder
+     * @param {number} originalChunkIndex - Original chunk index from MediaRecorder (for logging)
+     */
+    queueChunk(chunkBlob, originalChunkIndex) {
+        // Add to buffer (will create 5MB chunks automatically)
+        this.addToBuffer(chunkBlob, originalChunkIndex)
     }
 
     /**
@@ -232,13 +325,7 @@ class ChunkUploadManager {
 
         const retryCount = this.failedChunks.get(chunkIndex) || 0
 
-        // Don't retry if exceeded max retries
-        if (retryCount >= this.maxRetries) {
-            const error = new Error(`Chunk ${chunkIndex} exceeded max retries (${this.maxRetries})`)
-            console.error(`❌ ${error.message}`)
-            throw error
-        }
-
+        // No retry limit - will keep trying until successful
         try {
             const formData = new FormData()
             formData.append('sessionId', this.sessionId)
@@ -246,8 +333,8 @@ class ChunkUploadManager {
             formData.append('chunk', chunkBlob, `chunk_${chunkIndex}.webm`)
 
             const response = await apiClient.post('/videos/chunk', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                timeout: 30000 // 30 second timeout per chunk
+                headers: { 'Content-Type': 'multipart/form-data' }
+                // No timeout - will wait indefinitely for upload to complete
             })
 
             // Mark as uploaded
@@ -267,10 +354,12 @@ class ChunkUploadManager {
             }
 
             // Calculate retry delay (exponential backoff)
-            const delay = this.retryDelays[Math.min(newRetryCount - 1, this.retryDelays.length - 1)]
+            // After exhausting predefined delays, use max delay of 16 seconds
+            const maxDelay = this.retryDelays[this.retryDelays.length - 1] // 16000ms
+            const delay = this.retryDelays[Math.min(newRetryCount - 1, this.retryDelays.length - 1)] || maxDelay
 
             console.warn(
-                `⚠️ Failed to upload chunk ${chunkIndex} (attempt ${newRetryCount}/${this.maxRetries}). Retrying in ${delay}ms...`,
+                `⚠️ Failed to upload chunk ${chunkIndex} (attempt ${newRetryCount}). Retrying in ${delay}ms...`,
                 error.message
             )
 
@@ -284,12 +373,17 @@ class ChunkUploadManager {
 
     /**
      * Mark recording as finished - no more chunks will be added
-     * @param {number} expectedTotalChunks - Expected total number of chunks
+     * @param {number} expectedTotalChunks - Expected total number of chunks from MediaRecorder
      */
     markRecordingFinished(expectedTotalChunks) {
         this.recordingFinished = true
-        this.expectedTotalChunks = expectedTotalChunks
-        console.log(`📋 Recording finished. Expected ${expectedTotalChunks} chunks total.`)
+
+        // Flush any remaining buffer as the final chunk
+        this.flushBuffer()
+
+        // Note: expectedTotalChunks is from MediaRecorder, but actual chunks will be different
+        // due to 5MB buffering. We'll track actual chunks uploaded instead.
+        console.log(`📋 Recording finished. Flushed buffer. MediaRecorder created ${expectedTotalChunks} chunks.`)
 
         // Ensure queue processing continues if there are chunks
         if (this.uploadQueue.length > 0 && !this.isProcessing && connectivityService.isOnline) {
@@ -325,35 +419,47 @@ class ChunkUploadManager {
         }
 
         // Wait for ALL chunks to be uploaded before finalizing
-        console.log(`⏳ Waiting for all chunks to be uploaded (expected: ${expectedChunks})...`)
+        // Note: After 5MB buffering, actual chunk count will differ from MediaRecorder's count
+        console.log(`⏳ Waiting for all chunks to be uploaded...`)
         const maxWaitTime = 300000 // 5 minutes max wait (for slow connections)
         const startTime = Date.now()
         const checkInterval = 500 // Check every 500ms
 
         while (Date.now() - startTime < maxWaitTime) {
-            // Check if all expected chunks are uploaded
-            if (expectedChunks !== undefined && this.uploadedChunks.size >= expectedChunks) {
-                // Verify we have chunks 0 through expectedChunks-1
+            // Ensure buffer is flushed (should already be done in markRecordingFinished)
+            if (this.recordingFinished && this.chunkBuffer.length > 0) {
+                console.log('⚠️ Recording finished but buffer not flushed, flushing now...')
+                this.flushBuffer()
+            }
+
+            // If recording is finished, buffer is empty, queue is empty, and not processing, we're done
+            if (
+                this.recordingFinished &&
+                this.chunkBuffer.length === 0 &&
+                this.chunkBufferSize === 0 &&
+                this.uploadQueue.length === 0 &&
+                !this.isProcessing
+            ) {
+                // Get the highest chunk index that should exist
+                const maxChunkIndex = Math.max(...Array.from(this.uploadedChunks), -1)
+
+                // Verify all chunks from 0 to maxChunkIndex are uploaded
                 let allChunksUploaded = true
-                for (let i = 0; i < expectedChunks; i++) {
-                    if (!this.uploadedChunks.has(i)) {
-                        allChunksUploaded = false
-                        break
+                if (maxChunkIndex >= 0) {
+                    for (let i = 0; i <= maxChunkIndex; i++) {
+                        if (!this.uploadedChunks.has(i)) {
+                            allChunksUploaded = false
+                            console.warn(
+                                `⚠️ Missing chunk ${i} (uploaded: ${this.uploadedChunks.size}, max: ${maxChunkIndex})`
+                            )
+                            break
+                        }
                     }
                 }
 
-                if (allChunksUploaded && this.uploadQueue.length === 0 && !this.isProcessing) {
-                    console.log(`✅ All ${expectedChunks} chunks uploaded successfully!`)
-                    break
-                }
-            }
-
-            // If recording is finished and queue is empty and not processing, we're done
-            if (this.recordingFinished && this.uploadQueue.length === 0 && !this.isProcessing) {
-                // Double-check: if we have expected count, verify all are uploaded
-                if (expectedChunks === undefined || this.uploadedChunks.size >= expectedChunks) {
+                if (allChunksUploaded) {
                     console.log(
-                        `✅ All chunks processed (uploaded: ${this.uploadedChunks.size}, expected: ${expectedChunks || 'unknown'})`
+                        `✅ All chunks uploaded successfully! (${this.uploadedChunks.size} chunks total, max index: ${maxChunkIndex})`
                     )
                     break
                 }
@@ -369,16 +475,19 @@ class ChunkUploadManager {
         }
 
         // Final check: if timeout reached but chunks still pending, log warning
-        if (expectedChunks !== undefined && this.uploadedChunks.size < expectedChunks) {
+        if (this.uploadQueue.length > 0 || this.chunkBuffer.length > 0 || this.isProcessing) {
+            const maxChunkIndex = Math.max(...Array.from(this.uploadedChunks), -1)
             const missing = []
-            for (let i = 0; i < expectedChunks; i++) {
-                if (!this.uploadedChunks.has(i)) {
-                    missing.push(i)
+            if (maxChunkIndex >= 0) {
+                for (let i = 0; i <= maxChunkIndex; i++) {
+                    if (!this.uploadedChunks.has(i)) {
+                        missing.push(i)
+                    }
                 }
             }
-            console.warn(`⚠️ Timeout reached. Missing chunks: ${missing.join(', ')}`)
+            console.warn(`⚠️ Timeout reached. Missing chunks: ${missing.length > 0 ? missing.join(', ') : 'none'}`)
             console.warn(
-                `📊 Uploaded: ${this.uploadedChunks.size}/${expectedChunks}, Queue: ${this.uploadQueue.length}, Processing: ${this.isProcessing}`
+                `📊 Uploaded: ${this.uploadedChunks.size}, Queue: ${this.uploadQueue.length}, Buffer: ${this.chunkBuffer.length}, Processing: ${this.isProcessing}`
             )
         }
 
@@ -391,15 +500,27 @@ class ChunkUploadManager {
             await new Promise((resolve) => setTimeout(resolve, 2000))
         }
 
-        // Only call finalize API if we have all chunks or recording is finished
-        if (expectedChunks !== undefined && this.uploadedChunks.size < expectedChunks) {
-            console.warn(`⚠️ Finalizing with incomplete chunks: ${this.uploadedChunks.size}/${expectedChunks}`)
+        // Use actual uploaded chunk count (after 5MB buffering, this differs from MediaRecorder count)
+        const actualTotalChunks = this.uploadedChunks.size
+        const maxChunkIndex = Math.max(...Array.from(this.uploadedChunks), -1)
+
+        if (actualTotalChunks === 0) {
+            console.warn('⚠️ No chunks were uploaded, cannot finalize')
+            return {
+                success: false,
+                error: 'No chunks uploaded',
+                uploadedChunks: 0
+            }
         }
+
+        console.log(
+            `📊 Finalizing with ${actualTotalChunks} chunks (indices 0-${maxChunkIndex}). MediaRecorder created ${expectedChunks || 'unknown'} chunks.`
+        )
 
         try {
             const response = await apiClient.post('/videos/finalize', {
                 sessionId: this.sessionId,
-                totalChunks: expectedChunks || this.uploadedChunks.size,
+                totalChunks: actualTotalChunks, // Use actual count after buffering
                 uploadedChunks: Array.from(this.uploadedChunks).sort((a, b) => a - b),
                 duration: finalMetadata.duration,
                 metadata: {
@@ -413,10 +534,9 @@ class ChunkUploadManager {
             return {
                 success: true,
                 sessionId: this.sessionId,
-                videoId: response.data?.videoId,
-                videoUrl: response.data?.videoUrl,
+                key: response.data?.key,
                 uploadedChunks: this.uploadedChunks.size,
-                totalChunks: expectedChunks || this.uploadedChunks.size
+                totalChunks: this.uploadedChunks.size // Use actual count after buffering
             }
         } catch (error) {
             console.error('❌ Failed to finalize upload session:', error)
@@ -486,6 +606,11 @@ class ChunkUploadManager {
         this.initQueued = false
         this.recordingFinished = false
         this.expectedTotalChunks = null
+
+        // Reset buffer
+        this.chunkBuffer = []
+        this.chunkBufferSize = 0
+        this.nextChunkIndex = 0
 
         if (this.connectivityUnsubscribe) {
             this.connectivityUnsubscribe()

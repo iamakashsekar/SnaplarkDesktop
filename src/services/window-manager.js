@@ -535,7 +535,7 @@ class WindowManager {
                 window.setMovable(true)
 
                 // Enable shadow for the window
-                // window.setHasShadow(true)
+                window.setHasShadow(true)
 
                 window.setBounds({
                     x: toolbarPosition.x,

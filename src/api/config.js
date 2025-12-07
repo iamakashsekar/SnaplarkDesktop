@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Single API Configuration - everything in one place
-export const BASE_URL = 'https://snaplark.test'
+export const BASE_URL = 'https://snaplark.com'
 export const API_VERSION = 'v1'
 export const PROTOCOL = 'snaplark'
 

@@ -1,6 +1,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import fixWebmDuration from 'fix-webm-duration'
 import chunkUploadManager from '../services/chunk-upload-manager'
+import { BASE_URL } from '../api/config'
 
 export function useRecorder() {
     // Refs for video/canvas elements
@@ -444,8 +445,9 @@ export function useRecorder() {
                             console.log(
                                 `✅ Upload completed: ${finalizeResult.uploadedChunks}/${finalizeResult.totalChunks} chunks uploaded`
                             )
-                            if (finalizeResult.videoUrl) {
-                                console.log('📺 Video URL:', finalizeResult.videoUrl)
+                            if (finalizeResult.key) {
+                                window.electron.openExternal(BASE_URL + '/' + finalizeResult.key)
+                                console.log('📺 Video Key:', finalizeResult.key)
                             }
                         } else {
                             console.warn('⚠️ Upload finalization failed:', finalizeResult.error)
