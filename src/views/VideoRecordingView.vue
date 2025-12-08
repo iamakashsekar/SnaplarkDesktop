@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+    import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
     import { useRecorder } from '@/composables/useRecorder'
     import { useStore } from '../store'
     import VideoPreview from '../components/VideoPreview.vue'
@@ -102,7 +102,6 @@
     const isDraggingToolbar = ref(false)
     const toolbarDragStart = ref({ x: 0, y: 0 })
     const toolbarContainerRef = ref(null)
-    const toolbarScreenPositionBeforeRecording = ref(null) // Store toolbar's screen position before recording
 
     const toolbarStyle = computed(() => {
         // If user has custom position, use that
@@ -525,16 +524,6 @@
         window.electronWindows?.closeWindow?.('webcam')
     }
 
-    const handleUpload = () => {
-        // TODO: Implement video upload
-        console.log('Upload video')
-    }
-
-    const handleCopy = () => {
-        // TODO: Implement video copy to clipboard
-        console.log('Copy video')
-    }
-
     const handleEscapeKeyCancel = (event) => {
         // If called from button click (no event) or Escape key, cancel screenshot mode
         if (event.key === 'Escape') {
@@ -681,9 +670,6 @@
         // When recording starts, toolbar becomes centered in the window, so we need to maintain the center position
         const toolbarCenterX = rect.left + rect.width / 2
         const toolbarCenterY = rect.top + rect.height / 2
-        const toolbarWidth = rect.width
-        const toolbarHeight = rect.height
-
         // Get window's screen position to convert viewport coords to screen coords
         const windowBounds = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
         let toolbarScreenPosition = null
@@ -702,9 +688,6 @@
             }
         }
 
-        // Store this for later use (store as center position)
-        toolbarScreenPositionBeforeRecording.value = toolbarScreenPosition
-
         return {
             position: toolbarScreenPosition
         }
@@ -715,17 +698,14 @@
         uiMode,
         recordingCanvas,
         screenVideo,
-        recordedVideo,
         sources,
         selectedSourceId,
         audioDevices,
         selectedAudioDeviceId,
         windowType,
-        fps,
         isRecording,
         recordingTime,
         filename,
-        isProcessing,
         setCropRegion,
         setEnableCrop,
         startRecording,

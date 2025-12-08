@@ -1,4 +1,4 @@
-import { app, ipcMain, screen, desktopCapturer, dialog, shell } from 'electron'
+import { ipcMain, screen, desktopCapturer, dialog, shell } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'

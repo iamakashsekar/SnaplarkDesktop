@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import chunkUploadManager from '../services/chunk-upload-manager'
 import { BASE_URL } from '../api/config'
 
