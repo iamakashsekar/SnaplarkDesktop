@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { pathToFileURL } from 'url'
 
 // ==================== UTILITIES ====================
 
@@ -33,22 +32,6 @@ contextBridge.exposeInMainWorld('electron', {
     initRecordingStream: (timestamp) => ipcRenderer.invoke('init-recording-stream', timestamp),
     appendRecordingChunk: (chunk) => ipcRenderer.invoke('append-recording-chunk', chunk),
     stopRecordingStream: () => ipcRenderer.invoke('stop-recording-stream'),
-    finalizeRecording: (filename) => ipcRenderer.invoke('finalize-recording', filename),
-    showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
-    // Convert a filesystem path to a file:// URL for safe use in <video src>
-    getFileUrl: (fsPath) => pathToFileURL(fsPath).href,
-    // Make a temp recording file more playable by remuxing container metadata via ffmpeg
-    makeRecordingPlayable: (inputPath) => ipcRenderer.invoke('make-recording-playable', inputPath),
-    // Get file stats (size, etc)
-    getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
-
-    // Streaming video save methods (for legacy download feature)
-    initVideoSave: (filename, fileSize) => ipcRenderer.invoke('init-video-save', filename, fileSize),
-    appendVideoChunk: (chunk, chunkIndex, totalChunks) =>
-        ipcRenderer.invoke('append-video-chunk', chunk, chunkIndex, totalChunks),
-    finalizeVideoSave: () => ipcRenderer.invoke('finalize-video-save'),
-
-    showSaveDialog: () => ipcRenderer.invoke('show-save-dialog'),
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),

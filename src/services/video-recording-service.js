@@ -1,8 +1,7 @@
-import { ipcMain, screen, desktopCapturer, dialog, shell } from 'electron'
+import { ipcMain, screen, desktopCapturer } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
-import { spawn } from 'node:child_process'
 
 class VideoRecordingService {
     constructor(windowManager, store) {
@@ -346,7 +345,9 @@ class VideoRecordingService {
                 fs.writeFileSync(filepath, Buffer.from(buffer))
 
                 const fileSize = buffer.byteLength
-                console.log(`💾 Video saved to Snaplark folder: ${filepath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
+                console.log(
+                    `💾 Video saved to Snaplark folder: ${filepath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`
+                )
 
                 return { success: true, path: filepath, size: fileSize }
             } catch (error) {
@@ -358,7 +359,6 @@ class VideoRecordingService {
         // Real-time recording to disk - prevents memory overflow
         // Store active write stream and file path
         let activeWriteStream = null
-        let activeFilePath = null
         let activeTempPath = null
 
         // Initialize recording stream - creates single file and starts writing immediately
@@ -480,249 +480,6 @@ class VideoRecordingService {
                 console.error('❌ Error stopping recording stream:', error)
                 return { success: false, error: error.message }
             }
-        })
-
-        // Create a remuxed copy that is more broadly playable (rewrites container metadata)
-        ipcMain.handle('make-recording-playable', async (event, inputPath) => {
-            try {
-                if (!inputPath || !fs.existsSync(inputPath)) {
-                    throw new Error('Input file not found.')
-                }
-
-                let ffmpegPath
-                try {
-                    ffmpegPath = require('ffmpeg-static')
-                } catch (e) {
-                    ffmpegPath = 'ffmpeg'
-                }
-
-                const dir = path.dirname(inputPath)
-                const base = path.basename(inputPath, path.extname(inputPath))
-                const stagingPath = path.join(dir, `${base}_staging.webm`)
-
-                if (fs.existsSync(stagingPath)) {
-                    fs.unlinkSync(stagingPath)
-                }
-
-                await new Promise((resolve, reject) => {
-                    const args = ['-y', '-i', inputPath, '-c', 'copy', '-fflags', '+genpts', '-map', '0', stagingPath]
-                    const proc = spawn(ffmpegPath, args, { stdio: 'ignore' })
-                    proc.once('error', reject)
-                    proc.once('close', (code) => {
-                        if (code === 0) resolve()
-                        else reject(new Error(`ffmpeg exited with code ${code}`))
-                    })
-                })
-
-                // Replace original file atomically
-                try {
-                    fs.unlinkSync(inputPath)
-                } catch (e) {
-                    // ignore if already removed
-                }
-                fs.renameSync(stagingPath, inputPath)
-
-                activeTempPath = inputPath
-                return { success: true, path: inputPath }
-            } catch (error) {
-                console.error('Error making recording playable:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        // Save WebM file to Snaplark folder (called when user clicks download)
-        ipcMain.handle('finalize-recording', async (event, finalFilename) => {
-            try {
-                if (!activeTempPath || !fs.existsSync(activeTempPath)) {
-                    throw new Error('No temp file found to finalize.')
-                }
-
-                // Get Snaplark folder path from settings
-                const snaplarkDir = this.ensureScreenshotsDirectory()
-                const mp4Path = path.join(snaplarkDir, `${finalFilename}.mp4`)
-
-                // Get ffmpeg path
-                let ffmpegPath
-                try {
-                    ffmpegPath = require('ffmpeg-static')
-                } catch (e) {
-                    ffmpegPath = 'ffmpeg'
-                }
-
-                console.log('🔄 Converting WebM to MP4 and saving to Snaplark folder...')
-
-                // Convert WebM to MP4 using ffmpeg
-                await new Promise((resolve, reject) => {
-                    const args = [
-                        '-y', // Overwrite output file
-                        '-i',
-                        activeTempPath, // Input file
-                        '-c:v',
-                        'libx264', // Video codec
-                        '-preset',
-                        'ultrafast', // Fastest encoding (2-5 min for 1hr @ 1080p)
-                        '-crf',
-                        '23', // Quality (lower = better, 23 is default)
-                        '-c:a',
-                        'aac', // Audio codec
-                        '-b:a',
-                        '128k', // Audio bitrate
-                        '-movflags',
-                        '+faststart', // Enable fast start for web playback
-                        mp4Path // Output file
-                    ]
-
-                    const proc = spawn(ffmpegPath, args, { stdio: 'ignore' })
-                    proc.once('error', reject)
-                    proc.once('close', (code) => {
-                        if (code === 0) resolve()
-                        else reject(new Error(`ffmpeg conversion failed with code ${code}`))
-                    })
-                })
-
-                // Keep the temp WebM file for now (user might want to download again)
-                // It will be cleaned up on app close or new recording
-
-                activeFilePath = mp4Path
-                const fileSize = fs.statSync(activeFilePath).size
-                console.log(
-                    `💾 Video converted and saved as MP4: ${activeFilePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`
-                )
-
-                const filepath = activeFilePath
-
-                // Clean up
-                activeTempPath = null
-                activeFilePath = null
-
-                return { success: true, path: filepath, size: fileSize }
-            } catch (error) {
-                console.error('Error finalizing recording:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        // Show file in folder (file explorer)
-        ipcMain.handle('show-item-in-folder', async (event, filePath) => {
-            try {
-                if (!filePath || !fs.existsSync(filePath)) {
-                    throw new Error('File not found')
-                }
-                shell.showItemInFolder(filePath)
-                return { success: true }
-            } catch (error) {
-                console.error('Error showing file in folder:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-
-        // Legacy: Initialize video save - create file and write stream (for download feature)
-        ipcMain.handle('init-video-save', async (event, filename, fileSize) => {
-            try {
-                // Clean up any existing stream
-                if (activeWriteStream) {
-                    activeWriteStream.end()
-                    activeWriteStream = null
-                }
-
-                // Get Snaplark folder path from settings
-                const snaplarkDir = this.ensureScreenshotsDirectory()
-                activeFilePath = path.join(snaplarkDir, `${filename || 'recording'}.webm`)
-
-                // Create write stream
-                activeWriteStream = fs.createWriteStream(activeFilePath)
-
-                console.log(`Initializing video save: ${activeFilePath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
-
-                return { success: true }
-            } catch (error) {
-                console.error('Error initializing video save:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        // Append a single chunk to the video file
-        ipcMain.handle('append-video-chunk', async (event, chunk, chunkIndex, totalChunks) => {
-            try {
-                if (!activeWriteStream) {
-                    throw new Error('No active write stream. Call init-video-save first.')
-                }
-
-                // Write chunk to stream
-                await new Promise((resolve, reject) => {
-                    const buffer = Buffer.from(chunk)
-                    const canContinue = activeWriteStream.write(buffer)
-
-                    if (canContinue) {
-                        resolve()
-                    } else {
-                        // Wait for drain event if buffer is full
-                        activeWriteStream.once('drain', resolve)
-                        activeWriteStream.once('error', reject)
-                    }
-                })
-
-                // Log progress
-                const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100)
-                console.log(`Writing chunk ${chunkIndex + 1}/${totalChunks} (${progress}%)`)
-
-                return { success: true }
-            } catch (error) {
-                console.error('Error appending video chunk:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        // Finalize video save - close the stream
-        ipcMain.handle('finalize-video-save', async (event) => {
-            try {
-                if (!activeWriteStream) {
-                    throw new Error('No active write stream to finalize.')
-                }
-
-                // Close the stream
-                await new Promise((resolve, reject) => {
-                    activeWriteStream.end(() => resolve())
-                    activeWriteStream.once('error', reject)
-                })
-
-                console.log(`Video saved successfully: ${activeFilePath}`)
-
-                const filepath = activeFilePath
-
-                // Clean up
-                activeWriteStream = null
-                activeFilePath = null
-
-                return { success: true, path: filepath }
-            } catch (error) {
-                console.error('Error finalizing video save:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        // Get file stats
-        ipcMain.handle('get-file-stats', async (event, filePath) => {
-            try {
-                if (!fs.existsSync(filePath)) {
-                    throw new Error('File not found')
-                }
-                const stats = fs.statSync(filePath)
-                return { success: true, size: stats.size, modified: stats.mtime }
-            } catch (error) {
-                console.error('Error getting file stats:', error)
-                return { success: false, error: error.message }
-            }
-        })
-
-        // Handle opening save dialog
-        ipcMain.handle('show-save-dialog', async () => {
-            const result = await dialog.showSaveDialog(mainWindow, {
-                defaultPath: `recording_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`,
-                filters: [{ name: 'Videos', extensions: ['webm', 'mp4'] }]
-            })
-            return result
         })
     }
 

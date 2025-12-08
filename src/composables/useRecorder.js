@@ -22,7 +22,6 @@ export function useRecorder() {
     const recordedVideoUrl = ref('')
     const filename = ref(null)
     const isProcessing = ref(false)
-    const isDownloading = ref(false)
     const savedFilePath = ref('')
     const tempRecordingPath = ref('')
     const uploadProgress = ref({ uploaded: 0, total: 0, percentage: 0, isOnline: true })
@@ -681,42 +680,6 @@ export function useRecorder() {
         isRecording.value = false
     }
 
-    const downloadVideo = async () => {
-        try {
-            isDownloading.value = true
-            isProcessing.value = true // Show processing overlay during conversion
-
-            if (window.electron && tempRecordingPath.value) {
-                console.log('tempRecordingPath', tempRecordingPath.value)
-
-                // Convert WebM to MP4 and save to Snaplark folder
-                const filenameWithoutExt = filename.value.replace('.webm', '')
-                const result = await window.electron.finalizeRecording(filenameWithoutExt)
-                console.log('result', result)
-
-                if (result.success) {
-                    savedFilePath.value = result.path
-                    const fileSizeMB = (result.size / 1024 / 1024).toFixed(2)
-
-                    // Show file location in file explorer
-                    // await window.electron.showItemInFolder(result.path)
-
-                    alert(
-                        `✅ Video converted and saved as MP4!\n\nFile Size: ${fileSizeMB} MB\nLocation: ${result.path}`
-                    )
-                } else {
-                    throw new Error('Failed to convert and save video')
-                }
-            }
-        } catch (error) {
-            console.error('Error converting video:', error)
-            alert('❌ Error converting to MP4: ' + error.message)
-        } finally {
-            isDownloading.value = false
-            isProcessing.value = false
-        }
-    }
-
     const resetRecording = () => {
         if (recordedVideoUrl.value && recordedVideoUrl.value.startsWith('blob:')) {
             URL.revokeObjectURL(recordedVideoUrl.value)
@@ -781,7 +744,6 @@ export function useRecorder() {
         recordedVideoUrl,
         filename,
         isProcessing,
-        isDownloading,
         tempRecordingPath,
         savedFilePath,
         uploadProgress,
@@ -793,7 +755,6 @@ export function useRecorder() {
         refreshSources,
         startRecording,
         stopRecording,
-        downloadVideo,
         resetRecording,
         initialize,
         cleanup
