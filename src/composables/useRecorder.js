@@ -1,5 +1,4 @@
 import { ref, computed, watch, nextTick } from 'vue'
-import fixWebmDuration from 'fix-webm-duration'
 import chunkUploadManager from '../services/chunk-upload-manager'
 import { BASE_URL } from '../api/config'
 
@@ -28,6 +27,7 @@ export function useRecorder() {
     const tempRecordingPath = ref('')
     const uploadProgress = ref({ uploaded: 0, total: 0, percentage: 0, isOnline: true })
     const isUploading = ref(false)
+    const windowType = ref(null)
 
     // Crop region - set externally via setCropRegion()
     const cropRegion = ref({
@@ -433,41 +433,6 @@ export function useRecorder() {
                     // Wait a moment for any final chunks to be queued (ondataavailable might fire after onstop)
                     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-                    // Finalize upload session - will wait for ALL chunks to be uploaded
-                    console.log('☁️ Finalizing upload session (waiting for all chunks to upload)...')
-                    try {
-                        const finalizeResult = await chunkUploadManager.finalizeSession({
-                            totalChunks: totalChunks,
-                            duration: recordingDuration
-                        })
-
-                        if (finalizeResult.success) {
-                            console.log(
-                                `✅ Upload completed: ${finalizeResult.uploadedChunks}/${finalizeResult.totalChunks} chunks uploaded`
-                            )
-                            if (finalizeResult.key) {
-                                window.electron.openExternal(BASE_URL + '/' + finalizeResult.key)
-                                console.log('📺 Video Key:', finalizeResult.key)
-                            }
-                        } else {
-                            console.warn('⚠️ Upload finalization failed:', finalizeResult.error)
-                            console.log(`📊 Uploaded ${finalizeResult.uploadedChunks} chunks before failure`)
-                        }
-                    } catch (error) {
-                        console.error('❌ Error finalizing upload:', error)
-                        // Continue with local file processing even if upload fails
-                    } finally {
-                        isUploading.value = false
-                        // Update final progress
-                        const progress = chunkUploadManager.getProgress()
-                        uploadProgress.value = {
-                            uploaded: progress.uploaded,
-                            total: progress.totalQueued,
-                            percentage: progress.percentage,
-                            isOnline: progress.isOnline
-                        }
-                    }
-
                     // Close the disk write stream
                     if (window.electron && recordingTempPath) {
                         try {
@@ -478,45 +443,11 @@ export function useRecorder() {
                             console.log('⏳ Waiting for file write to complete...')
                             await new Promise((resolve) => setTimeout(resolve, 1000))
 
-                            // Read the temp file
-                            console.log('📖 Reading temp file...')
-                            const fileData = await window.electron.readTempFile(recordingTempPath)
-
-                            if (!fileData || fileData.byteLength === 0) {
-                                throw new Error('Video file is empty or could not be read')
-                            }
-
-                            console.log('📊 Original file size:', (fileData.byteLength / 1024 / 1024).toFixed(2), 'MB')
-
-                            // Fix WebM duration metadata
-                            console.log('🔧 Fixing WebM duration metadata...')
-                            const originalBlob = new Blob([fileData], { type: 'video/webm' })
-                            let fixedBlob
-
-                            try {
-                                fixedBlob = await fixWebmDuration(originalBlob, recordingDuration, { logger: false })
-                                console.log('✅ Duration metadata fixed')
-                                console.log('📊 Fixed file size:', (fixedBlob.size / 1024 / 1024).toFixed(2), 'MB')
-                            } catch (error) {
-                                console.warn('⚠️ Could not fix duration, using original:', error)
-                                fixedBlob = originalBlob
-                            }
-
-                            // Save the fixed file back
-                            console.log('💾 Saving fixed file...')
-                            const fixedArrayBuffer = await fixedBlob.arrayBuffer()
-                            const saveResult = await window.electron.saveVideo(fixedArrayBuffer, filename.value)
-
-                            if (!saveResult.success) {
-                                throw new Error('Failed to save fixed video')
-                            }
-
-                            // Use the fixed file for preview
-                            tempRecordingPath.value = saveResult.path
-                            const fileUrl = 'local-video://' + saveResult.path
+                            // Use the single file directly for preview (no duplicate file creation)
+                            tempRecordingPath.value = recordingTempPath
+                            const fileUrl = 'local-video://' + recordingTempPath
                             recordedVideoUrl.value = fileUrl
 
-                            console.log('💾 Fixed video saved to:', saveResult.path)
                             console.log('📺 Preview URL set:', recordedVideoUrl.value)
                             console.log('✅ File ready for preview')
                         } catch (error) {
@@ -530,16 +461,10 @@ export function useRecorder() {
                             }
                         }
                     } else if (recordedChunks.length > 0) {
-                        // Fallback: save from memory chunks
+                        // Fallback: save from memory chunks (only if disk streaming not available)
                         console.log('Fallback: saving from memory chunks')
                         const mimeType = options.mimeType || 'video/webm'
-                        let videoBlob = new Blob(recordedChunks, { type: mimeType })
-
-                        try {
-                            videoBlob = await fixWebmDuration(videoBlob, recordingDuration, { logger: false })
-                        } catch (e) {
-                            console.warn('Could not fix duration:', e)
-                        }
+                        const videoBlob = new Blob(recordedChunks, { type: mimeType })
 
                         if (window.electron) {
                             const arrayBuffer = await videoBlob.arrayBuffer()
@@ -595,6 +520,42 @@ export function useRecorder() {
                     console.log('✅ Recording ready for playback')
                     console.log('🔍 Debug - recordedVideoUrl:', recordedVideoUrl.value)
                     console.log('🔍 Debug - isProcessing:', isProcessing.value)
+
+                    // Finalize upload session last so the window can close immediately after
+                    console.log('☁️ Finalizing upload session (waiting for all chunks to upload)...')
+                    try {
+                        const finalizeResult = await chunkUploadManager.finalizeSession({
+                            totalChunks: totalChunks,
+                            duration: recordingDuration
+                        })
+
+                        if (finalizeResult.success) {
+                            console.log(
+                                `✅ Upload completed: ${finalizeResult.uploadedChunks}/${finalizeResult.totalChunks} chunks uploaded`
+                            )
+                            if (finalizeResult.key) {
+                                await window.electron.openExternal(BASE_URL + '/' + finalizeResult.key)
+                                console.log('📺 Video Key:', finalizeResult.key)
+                                await window.electronWindows?.closeWindow?.(windowType.value)
+                            }
+                        } else {
+                            console.warn('⚠️ Upload finalization failed:', finalizeResult.error)
+                            console.log(`📊 Uploaded ${finalizeResult.uploadedChunks} chunks before failure`)
+                        }
+                    } catch (error) {
+                        console.error('❌ Error finalizing upload:', error)
+                        // Continue with local file processing even if upload fails
+                    } finally {
+                        isUploading.value = false
+                        // Update final progress
+                        const progress = chunkUploadManager.getProgress()
+                        uploadProgress.value = {
+                            uploaded: progress.uploaded,
+                            total: progress.totalQueued,
+                            percentage: progress.percentage,
+                            isOnline: progress.isOnline
+                        }
+                    }
                 } catch (error) {
                     console.error('❌ Error in onstop:', error)
                     alert('Error processing recording: ' + error.message)
@@ -728,7 +689,7 @@ export function useRecorder() {
             if (window.electron && tempRecordingPath.value) {
                 console.log('tempRecordingPath', tempRecordingPath.value)
 
-                // Convert WebM to MP4 and save to Downloads
+                // Convert WebM to MP4 and save to Snaplark folder
                 const filenameWithoutExt = filename.value.replace('.webm', '')
                 const result = await window.electron.finalizeRecording(filenameWithoutExt)
                 console.log('result', result)
@@ -826,6 +787,7 @@ export function useRecorder() {
         uploadProgress,
         isUploading,
         cropRegion,
+        windowType,
         setCropRegion,
         setEnableCrop,
         refreshSources,

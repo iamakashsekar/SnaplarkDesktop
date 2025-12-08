@@ -34,7 +34,6 @@ contextBridge.exposeInMainWorld('electron', {
     appendRecordingChunk: (chunk) => ipcRenderer.invoke('append-recording-chunk', chunk),
     stopRecordingStream: () => ipcRenderer.invoke('stop-recording-stream'),
     finalizeRecording: (filename) => ipcRenderer.invoke('finalize-recording', filename),
-    readTempFile: (path) => ipcRenderer.invoke('read-temp-file', path),
     showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
     // Convert a filesystem path to a file:// URL for safe use in <video src>
     getFileUrl: (fsPath) => pathToFileURL(fsPath).href,

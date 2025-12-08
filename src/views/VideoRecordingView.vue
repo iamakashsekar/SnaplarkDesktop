@@ -401,7 +401,8 @@
 
         // Make window normal and resize to toolbar size
         // Pass toolbar position and size to maintain its screen location
-        await window.electronWindows?.makeWindowNonBlocking?.(`recording-${displayId.value}`, toolbarInfo.position, {
+        windowType.value = `recording-${displayId.value}`
+        await window.electronWindows?.makeWindowNonBlocking?.(windowType.value, toolbarInfo.position, {
             width: showToolbar.value ? 450 : 215,
             height: 45
         })
@@ -720,6 +721,7 @@
         selectedSourceId,
         audioDevices,
         selectedAudioDeviceId,
+        windowType,
         fps,
         isRecording,
         recordingTime,

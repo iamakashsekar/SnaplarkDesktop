@@ -332,24 +332,21 @@ class VideoRecordingService {
             }
         })
 
-        // Handle saving video file to temp folder (for processing before download)
+        // Handle saving video file to Snaplark folder (fallback when disk streaming not available)
         ipcMain.handle('save-video', async (event, buffer, filename) => {
             try {
-                // Get temp folder path
-                const tempDir = app.getPath('temp')
+                // Get Snaplark folder path from settings
+                const snaplarkDir = this.ensureScreenshotsDirectory()
 
                 // Ensure filename doesn't already have .webm extension
                 const baseName = filename || 'recording'
                 const finalName = baseName.endsWith('.webm') ? baseName : `${baseName}.webm`
-                const filepath = path.join(tempDir, finalName)
+                const filepath = path.join(snaplarkDir, finalName)
 
                 fs.writeFileSync(filepath, Buffer.from(buffer))
 
                 const fileSize = buffer.byteLength
-                console.log(`💾 Video saved to temp: ${filepath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
-
-                // Store the temp path for later conversion
-                activeTempPath = filepath
+                console.log(`💾 Video saved to Snaplark folder: ${filepath} (${(fileSize / 1024 / 1024).toFixed(2)} MB)`)
 
                 return { success: true, path: filepath, size: fileSize }
             } catch (error) {
@@ -364,7 +361,7 @@ class VideoRecordingService {
         let activeFilePath = null
         let activeTempPath = null
 
-        // Initialize recording stream - creates temp file and starts writing immediately
+        // Initialize recording stream - creates single file and starts writing immediately
         ipcMain.handle('init-recording-stream', async (event, timestamp) => {
             try {
                 // Clean up any existing stream
@@ -373,9 +370,9 @@ class VideoRecordingService {
                     activeWriteStream = null
                 }
 
-                // Create temp file in system temp directory
-                const tempDir = app.getPath('temp')
-                activeTempPath = path.join(tempDir, `recording_${timestamp}_temp.webm`)
+                // Create single file in Snaplark folder (from settings)
+                const snaplarkDir = this.ensureScreenshotsDirectory()
+                activeTempPath = path.join(snaplarkDir, `recording_${timestamp}.webm`)
 
                 // Create write stream with high water mark for better performance
                 activeWriteStream = fs.createWriteStream(activeTempPath, {
@@ -533,16 +530,16 @@ class VideoRecordingService {
             }
         })
 
-        // Save WebM file to Downloads folder (called when user clicks download)
+        // Save WebM file to Snaplark folder (called when user clicks download)
         ipcMain.handle('finalize-recording', async (event, finalFilename) => {
             try {
                 if (!activeTempPath || !fs.existsSync(activeTempPath)) {
                     throw new Error('No temp file found to finalize.')
                 }
 
-                // Get Downloads folder path
-                const downloadsDir = app.getPath('downloads')
-                const mp4Path = path.join(downloadsDir, `${finalFilename}.mp4`)
+                // Get Snaplark folder path from settings
+                const snaplarkDir = this.ensureScreenshotsDirectory()
+                const mp4Path = path.join(snaplarkDir, `${finalFilename}.mp4`)
 
                 // Get ffmpeg path
                 let ffmpegPath
@@ -552,7 +549,7 @@ class VideoRecordingService {
                     ffmpegPath = 'ffmpeg'
                 }
 
-                console.log('🔄 Converting WebM to MP4 and saving to Downloads...')
+                console.log('🔄 Converting WebM to MP4 and saving to Snaplark folder...')
 
                 // Convert WebM to MP4 using ffmpeg
                 await new Promise((resolve, reject) => {
@@ -619,31 +616,6 @@ class VideoRecordingService {
             }
         })
 
-        // Read temp file for duration fixing
-        ipcMain.handle('read-temp-file', async (event, filePath) => {
-            try {
-                if (!fs.existsSync(filePath)) {
-                    throw new Error('Temp file not found')
-                }
-
-                const stats = fs.statSync(filePath)
-                const fileSizeMB = (stats.size / 1024 / 1024).toFixed(2)
-                console.log(`📖 Reading temp file: ${fileSizeMB} MB`)
-
-                // Check if file is too large for memory (> 4GB)
-                if (stats.size > 4 * 1024 * 1024 * 1024) {
-                    console.warn('⚠️ File too large to load into memory, may cause issues')
-                }
-
-                const buffer = fs.readFileSync(filePath)
-                console.log(`✅ File read successfully: ${fileSizeMB} MB`)
-
-                return buffer
-            } catch (error) {
-                console.error('❌ Error reading temp file:', error)
-                return null
-            }
-        })
 
         // Legacy: Initialize video save - create file and write stream (for download feature)
         ipcMain.handle('init-video-save', async (event, filename, fileSize) => {
@@ -654,9 +626,9 @@ class VideoRecordingService {
                     activeWriteStream = null
                 }
 
-                // Get Downloads folder path
-                const downloadsDir = app.getPath('downloads')
-                activeFilePath = path.join(downloadsDir, `${filename || 'recording'}.webm`)
+                // Get Snaplark folder path from settings
+                const snaplarkDir = this.ensureScreenshotsDirectory()
+                activeFilePath = path.join(snaplarkDir, `${filename || 'recording'}.webm`)
 
                 // Create write stream
                 activeWriteStream = fs.createWriteStream(activeFilePath)
