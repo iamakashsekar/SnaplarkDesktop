@@ -713,7 +713,6 @@
     // Start recording functionality
     const {
         uiMode,
-        previewCanvas,
         recordingCanvas,
         screenVideo,
         recordedVideo,
@@ -725,45 +724,15 @@
         fps,
         isRecording,
         recordingTime,
-        recordedVideoUrl,
         filename,
         isProcessing,
-        isDownloading,
-        tempRecordingPath,
-        savedFilePath,
-        cropRegion,
         setCropRegion,
         setEnableCrop,
-        refreshSources,
         startRecording,
         stopRecording,
-        downloadVideo,
-        resetRecording,
         initialize,
         cleanup
     } = useRecorder()
-    // End recording functionality
-
-    // Watch showToolbar to resize window when toolbar expands/collapses
-    // watch(showToolbar, async (newValue) => {
-    //     if (isRecording.value) {
-    //         // Wait for animation to complete (300ms) plus a small buffer for smooth transition
-    //         await new Promise((resolve) => setTimeout(resolve, 350))
-
-    //         // Ensure DOM has fully updated
-    //         await nextTick()
-
-    //         // Small delay to ensure measurements are accurate
-    //         await new Promise((resolve) =>
-    //             requestAnimationFrame(() => {
-    //                 requestAnimationFrame(resolve)
-    //             })
-    //         )
-
-    //         // Resize window while maintaining toolbar's screen position
-    //         await resizeWindowToToolbar()
-    //     }
-    // })
 
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
@@ -1450,13 +1419,7 @@
     <VideoPreview
         v-if="uiMode == 'preview'"
         :filename="filename"
-        :recorded-video-url="recordedVideoUrl"
-        :is-processing="isProcessing"
-        :is-downloading="isDownloading"
-        @cancel="handleCancel"
-        @upload="handleUpload"
-        @copy="handleCopy"
-        @download="downloadVideo" />
+        @cancel="handleCancel" />
 
     <canvas
         ref="recordingCanvas"
