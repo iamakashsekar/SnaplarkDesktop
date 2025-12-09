@@ -537,11 +537,38 @@ class WindowManager {
                 // Enable shadow for the window
                 window.setHasShadow(true)
 
+                const bounds = window.getBounds()
+
+                // Positioning rules:
+                // - If both position (center) and dimensions are provided, place window so its center
+                //   stays exactly where the toolbar was on the fullscreen selection window.
+                // - Otherwise, fall back to current bounds to avoid jumps.
+                let nextX = bounds.x
+                let nextY = bounds.y
+                let nextWidth = bounds.width
+                let nextHeight = bounds.height
+
+                if (toolbarDimensions?.width && toolbarDimensions?.height) {
+                    nextWidth = Math.round(toolbarDimensions.width)
+                    nextHeight = Math.round(toolbarDimensions.height)
+                }
+
+                if (toolbarPosition?.x !== undefined && toolbarPosition?.y !== undefined) {
+                    if (toolbarDimensions?.width && toolbarDimensions?.height) {
+                        nextX = Math.round(toolbarPosition.x - nextWidth / 2)
+                        nextY = Math.round(toolbarPosition.y - nextHeight / 2)
+                    } else {
+                        // If we only have a position, treat it as the top-left to preserve behavior
+                        nextX = Math.round(toolbarPosition.x)
+                        nextY = Math.round(toolbarPosition.y)
+                    }
+                }
+
                 window.setBounds({
-                    x: toolbarPosition.x,
-                    y: toolbarPosition.y,
-                    width: toolbarDimensions.width,
-                    height: toolbarDimensions.height
+                    x: nextX,
+                    y: nextY,
+                    width: nextWidth,
+                    height: nextHeight
                 })
             } catch (error) {
                 console.error(`Error making window ${type} non-blocking:`, error)
