@@ -1,10 +1,15 @@
 <script setup>
-    import { ref, onMounted, onUnmounted } from 'vue'
+    import { computed, onMounted, onUnmounted, ref } from 'vue'
+    import { useStore } from '@/store'
+
+    const store = useStore()
 
     const videoElement = ref(null)
     const stream = ref(null)
     const isLoading = ref(true)
     const hasError = ref(false)
+
+    const flipCamera = computed(() => store.settings.flipCamera)
 
     const startWebcam = async () => {
         try {
@@ -104,6 +109,7 @@
                 v-show="!isLoading && !hasError"
                 ref="videoElement"
                 class="size-52 rounded-full bg-black object-cover"
+                :style="{ transform: flipCamera ? 'scaleX(-1)' : 'none' }"
                 autoplay
                 muted
                 playsinline></video>
