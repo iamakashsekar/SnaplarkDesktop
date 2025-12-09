@@ -16,6 +16,7 @@
     const mouseX = ref(0)
     const mouseY = ref(0)
     const displayId = ref(null)
+    const displayScaleFactor = ref(window.devicePixelRatio || 1)
     const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving'
     const resizingHandle = ref(null)
 
@@ -384,8 +385,15 @@
         const { left, top, width, height } = selectionRect.value
 
         if (!isFullScreen.value) {
+            const scale = displayScaleFactor.value || 1
+            // Crop region must be in device pixels (desktopCapturer/video frames), so scale from CSS px
+            const scaledLeft = Math.round(left * scale)
+            const scaledTop = Math.round(top * scale)
+            const scaledWidth = Math.round(width * scale)
+            const scaledHeight = Math.round(height * scale)
+
             setEnableCrop(true)
-            setCropRegion(Math.round(left), Math.round(top), Math.round(width), Math.round(height))
+            setCropRegion(scaledLeft, scaledTop, scaledWidth, scaledHeight)
         }
 
         // Prepare toolbar for recording transition
@@ -747,6 +755,16 @@
 
         // Initialize recording
         await initialize()
+
+        // Capture display scale factor for accurate cropping on HiDPI/Retina
+        try {
+            const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+            if (displayInfo?.display?.scaleFactor) {
+                displayScaleFactor.value = displayInfo.display.scaleFactor
+            }
+        } catch (error) {
+            console.error('Failed to get display scale factor:', error)
+        }
 
         // Load saved microphone device ID from settings
         const savedMicrophoneDeviceId = store.settings.selectedMicrophoneDeviceId
