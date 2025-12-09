@@ -29,7 +29,7 @@ export const defaultState = {
 
         // Capture
         showMagnifier: true,
-        showCrosshair: false,
+        showCrosshair: true,
         showCursor: true,
 
         // Recording
