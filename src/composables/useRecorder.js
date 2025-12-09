@@ -1,8 +1,10 @@
 import { ref, watch, nextTick } from 'vue'
 import chunkUploadManager from '../services/chunk-upload-manager'
 import { BASE_URL } from '../api/config'
+import { useStore } from '../store'
 
 export function useRecorder() {
+    const store = useStore()
     // Refs for video/canvas elements
     const previewCanvas = ref(null)
     const recordingCanvas = ref(null)
@@ -266,10 +268,11 @@ export function useRecorder() {
 
             if (selectedAudioDeviceId.value) {
                 try {
-                    audioStream = await navigator.mediaDevices.getUserMedia({
-                        audio: { deviceId: selectedAudioDeviceId.value },
-                        video: false
-                    })
+                    const audioConstraints = { deviceId: selectedAudioDeviceId.value }
+                    // Force channel count based on setting to avoid defaulting to mono
+                    audioConstraints.channelCount = store.settings.recordAudioMono ? 1 : 2
+
+                    audioStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false })
                 } catch (error) {
                     console.error('Error getting audio:', error)
                 }
