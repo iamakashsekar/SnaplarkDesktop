@@ -132,7 +132,7 @@
     })
 
     const handleMouseDown = async (e) => {
-        if (mode.value === 'confirming' || mode.value === 'editing' || mode.value === 'edited') return
+        if (mode.value === 'editing' || mode.value === 'edited') return
 
         // Close other screenshot windows when user starts selecting on this monitor
         try {

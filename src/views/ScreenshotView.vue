@@ -201,7 +201,7 @@
     })
 
     const handleMouseDown = async (e) => {
-        if (mode.value === 'confirming' || mode.value === 'editing' || mode.value === 'edited') return
+        if (mode.value === 'editing' || mode.value === 'edited') return
 
         // Close other screenshot windows when user starts selecting on this monitor
         try {
@@ -1020,7 +1020,8 @@
             v-if="mode === 'confirming' || mode === 'edited'"
             class="toolbar-container absolute z-50 flex items-center gap-4 transition-shadow"
             :class="{ 'shadow-2xl': isDraggingToolbar }"
-            :style="toolbarStyle">
+            :style="toolbarStyle"
+            @mousedown.stop>
             <!-- Drag Handle -->
             <div class="group relative">
                 <div
