@@ -103,7 +103,7 @@
                 <button
                     type="button"
                     @click="takeScreenshot"
-                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-3 py-2 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                     <svg
                         width="28"
                         height="25"

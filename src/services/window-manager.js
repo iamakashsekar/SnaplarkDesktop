@@ -382,6 +382,9 @@ class WindowManager {
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                 window.setIgnoreMouseEvents(true, { forward: true })
 
+                // Exclude from recordings/screenshots (macOS/Windows)
+                window.setContentProtection(true)
+
                 window.showInactive() // Show without focusing
             } else {
                 window.show()

@@ -39,10 +39,10 @@
         <div
             class="pointer-events-none absolute z-[9999] box-border border-2 border-red-500"
             :style="{
-                left: `${selection.left}px`,
-                top: `${selection.top}px`,
-                width: `${selection.width}px`,
-                height: `${selection.height}px`
+                left: `${selection.left - 2}px`,
+                top: `${selection.top - 2}px`,
+                width: `${selection.width + 4}px`,
+                height: `${selection.height + 4}px`
             }"></div>
     </div>
 </template>
