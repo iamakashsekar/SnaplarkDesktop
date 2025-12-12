@@ -966,6 +966,12 @@
                     zIndex: 40
                 }"
                 @mousedown="handleSelectionMouseDown">
+                <!-- Size Indicator Pill -->
+                <div
+                    class="absolute -top-[30px] left-0 z-50 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm">
+                    {{ Math.round(selectionRect.width) }} x {{ Math.round(selectionRect.height) }}
+                </div>
+
                 <!-- Resize handles -->
                 <div v-if="mode === 'confirming' || mode === 'resizing'">
                     <div
@@ -1036,11 +1042,6 @@
                     class="h-full w-full"
                     :width="magnifierSize"
                     :height="magnifierSize"></canvas>
-                <div
-                    v-if="mode === 'selecting' || mode === 'resizing'"
-                    class="absolute -top-[30px] left-1/2 -translate-x-1/2 rounded bg-black/80 px-2 py-1 text-xs whitespace-nowrap text-white">
-                    <p>{{ Math.round(selectionRect.width) }} x {{ Math.round(selectionRect.height) }}</p>
-                </div>
             </div>
         </div>
         <!-- Action Toolbar -->
