@@ -394,6 +394,28 @@
 
             setEnableCrop(true)
             setCropRegion(scaledLeft, scaledTop, scaledWidth, scaledHeight)
+
+            // Create overlay window to show border around selection
+            try {
+                const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+                if (displayInfo?.success) {
+                    await window.electronWindows?.createWindow?.(`recording-overlay-${displayId.value}`, {
+                        displayInfo: displayInfo.display,
+                        params: {
+                            selX: Math.round(left),
+                            selY: Math.round(top),
+                            selW: Math.round(width),
+                            selH: Math.round(height)
+                        }
+                    })
+
+                    // Ensure the overlay window is set to ignore mouse events (click-through)
+                    // Although the view calls it on mount, we can also reinforce it here if needed.
+                    // The view handles it fine.
+                }
+            } catch (error) {
+                console.error('Error creating overlay window:', error)
+            }
         }
 
         // Prepare toolbar for recording transition
@@ -522,6 +544,7 @@
         stopRecording()
 
         await window.electronWindows?.closeWindow?.('webcam')
+        await window.electronWindows?.closeWindow?.(`recording-overlay-${displayId.value}`)
 
         window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 800, 600)
         window.electronWindows?.centerWindow?.(`recording-${displayId.value}`)
@@ -530,6 +553,7 @@
     const handleCancel = (event) => {
         window.electron?.cancelVideoRecordingMode()
         window.electronWindows?.closeWindow?.('webcam')
+        window.electronWindows?.closeWindow?.(`recording-overlay-${displayId.value}`)
     }
 
     const handleEscapeKeyCancel = (event) => {

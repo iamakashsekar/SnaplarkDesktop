@@ -11,6 +11,7 @@ import NotificationsView from '../views/NotificationsView.vue'
 import { useStore } from '../store'
 import VideoRecordingView from '../views/VideoRecordingView.vue'
 import WebcamView from '../views/WebcamView.vue'
+import RecordingOverlayView from '../views/RecordingOverlayView.vue'
 
 const routes = [
     {
@@ -72,6 +73,12 @@ const routes = [
         name: 'notifications',
         component: NotificationsView,
         meta: { windowType: 'notifications' }
+    },
+    {
+        path: '/recording-overlay',
+        name: 'recording-overlay',
+        component: RecordingOverlayView,
+        meta: { windowType: 'recording-overlay' }
     }
 ]
 

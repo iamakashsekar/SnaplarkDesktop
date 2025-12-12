@@ -139,6 +139,31 @@ class WindowManager {
                 })
             },
 
+            'recording-overlay': {
+                frame: false,
+                transparent: true,
+                alwaysOnTop: true,
+                skipTaskbar: true,
+                movable: false,
+                resizable: false,
+                hasShadow: false,
+                show: false,
+                enableLargerThanScreen: true,
+                fullscreenable: false,
+                fullscreen: false, // will manually set bounds
+                focusable: false, // Don't steal focus
+                acceptFirstMouse: false,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true
+                },
+                ...(process.platform === 'win32' && {
+                    backgroundColor: '#00000000',
+                    titleBarStyle: 'hidden',
+                    titleBarOverlay: false
+                })
+            },
+
             webcam: {
                 frame: false,
                 transparent: true,
@@ -201,7 +226,8 @@ class WindowManager {
 
     createWindow(type, options = {}) {
         const isScreenshotWindow = type.startsWith('screenshot')
-        const isVideoRecordingWindow = type.startsWith('recording')
+        const isRecordingOverlay = type.includes('recording-overlay')
+        const isVideoRecordingWindow = type.startsWith('recording') && !isRecordingOverlay
         const isWebcamWindow = type === 'webcam'
         const isSelectionWindow = isScreenshotWindow || isVideoRecordingWindow
 
@@ -215,7 +241,15 @@ class WindowManager {
             this.windows.delete(type)
         }
 
-        const baseType = isScreenshotWindow ? 'screenshot' : isVideoRecordingWindow ? 'recording' : type
+        // If it's a recording overlay, we treat it as a separate type so it doesn't get caught in the
+        // "isSelectionWindow" logic (which suppresses showing) and uses the correct config.
+        const baseType = isScreenshotWindow
+            ? 'screenshot'
+            : isVideoRecordingWindow
+              ? 'recording'
+              : isRecordingOverlay
+                ? 'recording-overlay'
+                : type
         const config = { ...this.windowConfigs[baseType], ...options }
         const parentWindow = this.windows.get('main') || null
 
@@ -333,6 +367,22 @@ class WindowManager {
                 setTimeout(bringToFront, 200)
                 // One more time to ensure it stays on top
                 setTimeout(bringToFront, 500)
+            } else if (isRecordingOverlay && options.displayInfo) {
+                // Position overlay to cover the entire display
+                const display = options.displayInfo.display || options.displayInfo
+                window.setBounds({
+                    x: display.bounds.x,
+                    y: display.bounds.y,
+                    width: display.bounds.width,
+                    height: display.bounds.height
+                })
+
+                // Ensure it's on top but doesn't steal focus
+                window.setAlwaysOnTop(true, 'screen-saver')
+                window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+                window.setIgnoreMouseEvents(true, { forward: true })
+
+                window.showInactive() // Show without focusing
             } else {
                 window.show()
                 window.focus()
@@ -378,6 +428,10 @@ class WindowManager {
             windowType = 'screenshot'
         } else if (type.startsWith('recording')) {
             windowType = 'recording'
+            // Map recording-overlay to its own window type in router
+            if (type.includes('recording-overlay')) {
+                windowType = 'recording-overlay'
+            }
         }
         const urlParams = new URLSearchParams({ window: windowType, ...params })
 
@@ -677,6 +731,15 @@ class WindowManager {
 
         ipcMain.handle('center-window', (event, type) => {
             return this.center(type)
+        })
+
+        ipcMain.handle('set-ignore-mouse-events', (event, ignore, options) => {
+            const window = BrowserWindow.fromWebContents(event.sender)
+            if (window) {
+                window.setIgnoreMouseEvents(ignore, options)
+                return { success: true }
+            }
+            return { success: false, error: 'Window not found' }
         })
 
         ipcMain.handle('resize-window', (event, type, width, height) => {
