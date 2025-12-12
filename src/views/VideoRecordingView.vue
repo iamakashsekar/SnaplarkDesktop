@@ -4,6 +4,7 @@
     import { useStore } from '../store'
     import VideoPreview from '../components/VideoPreview.vue'
     import Tooltip from '../components/Tooltip.vue'
+    import SizeIndicatorPill from '../components/SizeIndicatorPill.vue'
 
     const store = useStore()
 
@@ -967,10 +968,9 @@
                 }"
                 @mousedown="handleSelectionMouseDown">
                 <!-- Size Indicator Pill -->
-                <div
-                    class="absolute -top-[30px] left-0 z-50 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm">
-                    {{ Math.round(selectionRect.width) }} x {{ Math.round(selectionRect.height) }}
-                </div>
+                <SizeIndicatorPill
+                    :width="selectionRect.width"
+                    :height="selectionRect.height" />
 
                 <!-- Resize handles -->
                 <div v-if="mode === 'confirming' || mode === 'resizing'">
