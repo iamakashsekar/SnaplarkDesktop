@@ -72,6 +72,12 @@ const createWindow = () => {
 
     tray = new SystemTray(mainWindow)
 
+    // Automatically show main window near tray icon on app startup
+    // Delay to ensure tray icon is fully positioned in the system tray before calculating window position
+    setTimeout(() => {
+        tray.showMainAtTray(null, { force: true, gap: 0 })
+    }, 200)
+
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url)
         return { action: 'deny' }
