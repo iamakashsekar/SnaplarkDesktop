@@ -54,6 +54,14 @@ class NotificationService {
                     win.show()
                 }
 
+                // After a brief moment, allow the notification to go behind other windows
+                // This keeps it on top initially but lets it go underneath when user focuses elsewhere
+                setTimeout(() => {
+                    if (!win.isDestroyed()) {
+                        win.setAlwaysOnTop(false)
+                    }
+                }, 500)
+
                 if (win.webContents.isLoadingMainFrame()) {
                     win.webContents.once('did-finish-load', () => {
                         setTimeout(() => {
