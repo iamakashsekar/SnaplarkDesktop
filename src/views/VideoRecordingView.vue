@@ -898,9 +898,6 @@
 
         selectedSourceId.value = sources.value.find((s) => s.display_id === displayId.value)?.id || ''
 
-        // Restore webcam window if enabled
-        await enableWebcam()
-
         // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
             console.log(`Display ${displayId.value} activation changed:`, activationData.isActive)
