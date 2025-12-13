@@ -37,7 +37,8 @@ export const defaultState = {
         recordAudioMono: false,
         recordingCountdown: true,
         selectedMicrophoneDeviceId: null, // null means muted, otherwise stores the deviceId
-        webcamEnabled: false // Whether webcam overlay is enabled by default
+        webcamEnabled: false, // Whether webcam overlay is enabled by default
+        selectedWebcamDeviceId: null // Selected webcam device ID, null means use default or none
     }
 }
 

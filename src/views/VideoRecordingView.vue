@@ -541,6 +541,68 @@
         }
     }
 
+    // Webcam settings dropdown logic
+    const showWebcamSettings = ref(false)
+    const webcamDropdownPosition = ref('bottom')
+    const webcamSettingsButtonRef = ref(null)
+    const webcamDropdownRef = ref(null)
+    const selectedWebcamDeviceId = ref(null)
+
+    const toggleWebcamSettings = async () => {
+        showWebcamSettings.value = !showWebcamSettings.value
+        if (showWebcamSettings.value) {
+            // Close audio settings if open
+            showAudioSettings.value = false
+            await nextTick()
+            updateWebcamDropdownPosition()
+        }
+    }
+
+    const updateWebcamDropdownPosition = () => {
+        if (!webcamSettingsButtonRef.value || !webcamDropdownRef.value) return
+
+        const buttonRect = webcamSettingsButtonRef.value.getBoundingClientRect()
+        const dropdownHeight = webcamDropdownRef.value.offsetHeight
+        const spaceBelow = window.innerHeight - buttonRect.bottom
+        const spaceAbove = buttonRect.top
+
+        // If space below is less than dropdown height + padding (e.g. 20px), and space above is more, show on top
+        if (spaceBelow < dropdownHeight + 20 && spaceAbove > dropdownHeight + 20) {
+            webcamDropdownPosition.value = 'top'
+        } else {
+            webcamDropdownPosition.value = 'bottom'
+        }
+    }
+
+    const selectWebcamDevice = async (device) => {
+        selectedWebcamDeviceId.value = device.deviceId
+        showWebcamSettings.value = false
+        // Save to settings
+        store.updateSetting('selectedWebcamDeviceId', device.deviceId)
+        store.updateSetting('webcamEnabled', true)
+
+        // Close and reopen webcam window with new device
+        await window.electronWindows?.closeWindow?.('webcam')
+        await enableWebcam()
+    }
+
+    const disableWebcam = async () => {
+        selectedWebcamDeviceId.value = null
+        showWebcamSettings.value = false
+        // Save disabled state to settings
+        store.updateSetting('selectedWebcamDeviceId', null)
+        store.updateSetting('webcamEnabled', false)
+        await window.electronWindows?.closeWindow?.('webcam')
+    }
+
+    const closeWebcamSettings = (e) => {
+        // Close if clicking outside the webcam settings container
+        const container = webcamSettingsButtonRef.value?.closest('.webcam-settings-container')
+        if (showWebcamSettings.value && container && !container.contains(e.target)) {
+            showWebcamSettings.value = false
+        }
+    }
+
     const handleStop = async () => {
         stopRecording()
 
@@ -674,13 +736,16 @@
 
     onMounted(() => {
         document.addEventListener('click', closeAudioSettings)
+        document.addEventListener('click', closeWebcamSettings)
         window.addEventListener('resize', () => {
             if (showAudioSettings.value) updateDropdownPosition()
+            if (showWebcamSettings.value) updateWebcamDropdownPosition()
         })
     })
 
     onUnmounted(() => {
         document.removeEventListener('click', closeAudioSettings)
+        document.removeEventListener('click', closeWebcamSettings)
     })
 
     // Prepare toolbar for recording: capture position and size
@@ -735,6 +800,7 @@
         selectedSourceId,
         audioDevices,
         selectedAudioDeviceId,
+        videoDevices,
         windowType,
         isRecording,
         recordingTime,
@@ -808,7 +874,32 @@
             selectedAudioDeviceId.value = null
         }
 
+        // Load saved webcam device ID from settings
+        const savedWebcamDeviceId = store.settings.selectedWebcamDeviceId
+        if (savedWebcamDeviceId !== undefined && savedWebcamDeviceId !== null) {
+            // Check if the saved device still exists in the available devices
+            const webcamExists = videoDevices.value.some((device) => device.deviceId === savedWebcamDeviceId)
+            if (webcamExists) {
+                selectedWebcamDeviceId.value = savedWebcamDeviceId
+            } else {
+                // Device no longer exists, clear the setting
+                selectedWebcamDeviceId.value = null
+                store.updateSetting('selectedWebcamDeviceId', null)
+                // Also disable webcam if device no longer exists
+                if (store.settings.webcamEnabled) {
+                    store.updateSetting('webcamEnabled', false)
+                }
+            }
+        } else if (store.settings.webcamEnabled && videoDevices.value.length > 0) {
+            // Webcam is enabled but no device selected - select the first available
+            selectedWebcamDeviceId.value = videoDevices.value[0].deviceId
+            store.updateSetting('selectedWebcamDeviceId', videoDevices.value[0].deviceId)
+        }
+
         selectedSourceId.value = sources.value.find((s) => s.display_id === displayId.value)?.id || ''
+
+        // Restore webcam window if enabled
+        await enableWebcam()
 
         // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
@@ -1184,11 +1275,17 @@
                     v-if="showToolbar"
                     class="flex items-center gap-4">
                     <div class="flex items-center gap-4 rounded-full bg-white/90">
-                        <div class="group relative overflow-visible">
+                        <!-- Webcam Controls -->
+                        <div class="group webcam-settings-container relative overflow-visible">
                             <button
-                                @click="toggleWebcam"
-                                :class="{ 'bg-blue-100': store.settings.webcamEnabled }"
-                                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors hover:bg-gray-100">
+                                ref="webcamSettingsButtonRef"
+                                @click="toggleWebcamSettings"
+                                type="button"
+                                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors hover:bg-gray-100"
+                                :class="{
+                                    'bg-blue-100': store.settings.webcamEnabled,
+                                    'bg-gray-100': showWebcamSettings
+                                }">
                                 <svg
                                     v-if="store.settings.webcamEnabled"
                                     width="24"
@@ -1239,11 +1336,76 @@
                                 </svg>
                             </button>
 
+                            <!-- Webcam Settings Dropdown -->
+                            <div
+                                v-if="showWebcamSettings"
+                                ref="webcamDropdownRef"
+                                class="absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
+                                :class="[webcamDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
+                                <div class="flex flex-col">
+                                    <div
+                                        v-for="device in videoDevices"
+                                        :key="device.deviceId"
+                                        @click="selectWebcamDevice(device)"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                        :class="[
+                                            selectedWebcamDeviceId === device.deviceId
+                                                ? 'font-medium text-blue-600'
+                                                : 'text-gray-700'
+                                        ]">
+                                        <span class="truncate">{{ device.label }}</span>
+                                        <svg
+                                            v-if="selectedWebcamDeviceId === device.deviceId"
+                                            width="24"
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
+                                                stroke="#2178FF"
+                                                stroke-width="2.0625"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+
+                                    <div
+                                        v-if="videoDevices.length === 0"
+                                        class="px-4 py-2.5 text-sm text-gray-500">
+                                        No cameras found
+                                    </div>
+
+                                    <!-- Disable Option -->
+                                    <div
+                                        @click="disableWebcam"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50"
+                                        :class="{ 'font-medium': !store.settings.webcamEnabled }">
+                                        <span>Disable Camera</span>
+                                        <svg
+                                            v-if="!store.settings.webcamEnabled"
+                                            width="24"
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
+                                                stroke="#2178FF"
+                                                stroke-width="2.0625"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
                             <Tooltip
+                                v-if="!showWebcamSettings"
                                 :showToolbar="showToolbar"
                                 :displayId="displayId"
                                 :isRecording="isRecording"
-                                :text="(store.settings.webcamEnabled ? 'Disable' : 'Enable') + ' webcam'"
+                                text="Webcam settings"
                                 position="bottom" />
                         </div>
 

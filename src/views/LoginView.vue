@@ -105,10 +105,10 @@
         class="login-container relative min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 select-none">
         <button
             @click="quitApp"
-            class="absolute top-4 right-4 z-50 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+            class="absolute top-4 right-4 z-50 flex size-7 cursor-pointer items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200">
             <svg
                 xmlns="http://www.w3.org/2000/svg"
-                class="size-5"
+                class="size-3.5"
                 viewBox="0 0 20 20"
                 fill="currentColor">
                 <path

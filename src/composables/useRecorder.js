@@ -17,6 +17,8 @@ export function useRecorder() {
     const selectedSourceId = ref('')
     const audioDevices = ref([])
     const selectedAudioDeviceId = ref('default')
+    const videoDevices = ref([])
+    const selectedVideoDeviceId = ref(null)
     const fps = ref(30)
     const enableCrop = ref(false)
     const isRecording = ref(false)
@@ -78,6 +80,15 @@ export function useRecorder() {
             audioDevices.value = devices.filter((device) => device.kind === 'audioinput')
         } catch (error) {
             console.error('Error getting audio devices:', error)
+        }
+    }
+
+    const getVideoDevices = async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices()
+            videoDevices.value = devices.filter((device) => device.kind === 'videoinput')
+        } catch (error) {
+            console.error('Error getting video devices:', error)
         }
     }
 
@@ -703,12 +714,23 @@ export function useRecorder() {
         startPreview()
     }
 
+    const handleDeviceChange = async () => {
+        await getAudioDevices()
+        await getVideoDevices()
+    }
+
     const initialize = async () => {
         await refreshSources()
         await getAudioDevices()
+        await getVideoDevices()
+
+        // Listen for device changes
+        navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange)
     }
 
     const cleanup = () => {
+        navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange)
+
         stopPreview()
         if (recordedVideoUrl.value && recordedVideoUrl.value.startsWith('blob:')) {
             URL.revokeObjectURL(recordedVideoUrl.value)
@@ -740,6 +762,8 @@ export function useRecorder() {
         selectedSourceId,
         audioDevices,
         selectedAudioDeviceId,
+        videoDevices,
+        selectedVideoDeviceId,
         fps,
         enableCrop,
         isRecording,

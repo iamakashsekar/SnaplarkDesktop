@@ -98,7 +98,7 @@
 <template>
     <div class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
         <!-- Capture Actions -->
-        <div class="space-y-4">
+        <div class="space-y-2">
             <div class="group relative">
                 <button
                     type="button"
@@ -187,10 +187,10 @@
             </div>
         </div>
 
-        <hr class="dark:border-dark-700 my-4 border-gray-400" />
+        <hr class="dark:border-dark-700 my-3 border-gray-400" />
 
         <!-- Media Actions -->
-        <div class="space-y-4">
+        <div class="space-y-2">
             <div class="group relative">
                 <button
                     :disabled="!store.lastCapture"
@@ -319,10 +319,10 @@
             </button>
         </div>
 
-        <hr class="dark:border-dark-700 my-4 border-gray-400" />
+        <hr class="dark:border-dark-700 my-3 border-gray-400" />
 
         <!-- App Actions -->
-        <div class="space-y-6">
+        <div class="space-y-4">
             <div class="group relative">
                 <button
                     type="button"
