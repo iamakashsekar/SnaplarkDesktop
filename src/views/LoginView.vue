@@ -11,6 +11,10 @@
 
     const { hideWindow, resizeWindowTo } = useWindows()
 
+    const quitApp = () => {
+        window.electron.quitApp()
+    }
+
     const carouselConfig = {
         autoplay: 5000,
         itemsToShow: 1,
@@ -98,7 +102,21 @@
 <template>
     <div
         :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
-        class="login-container min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 select-none">
+        class="login-container relative min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 select-none">
+        <button
+            @click="quitApp"
+            class="absolute top-4 right-4 z-50 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition-all duration-200 hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="size-5"
+                viewBox="0 0 20 20"
+                fill="currentColor">
+                <path
+                    fill-rule="evenodd"
+                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                    clip-rule="evenodd" />
+            </svg>
+        </button>
         <div class="dark:bg-dark-blue space-y-6 rounded-2xl bg-white px-2 py-3">
             <div class="mx-auto w-3/4 space-y-6">
                 <div class="pt-7 text-center">
