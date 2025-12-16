@@ -99,7 +99,9 @@ contextBridge.exposeInMainWorld('electronNotifications', {
     onAdd: (callback) => ipcRenderer.on('notifications:add', (e, n) => callback(n)),
     resize: (height) => ipcRenderer.send('notifications:resize', height),
     reposition: () => ipcRenderer.send('notifications:reposition'),
-    close: () => ipcRenderer.send('notifications:close')
+    close: () => ipcRenderer.send('notifications:close'),
+    hide: () => ipcRenderer.send('notifications:hide'),
+    show: () => ipcRenderer.send('notifications:show')
 })
 
 // ==================== STORE/PERSISTENCE APIs ====================

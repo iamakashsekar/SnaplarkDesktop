@@ -105,6 +105,20 @@ class NotificationService {
                 win.close()
             }
         })
+
+        ipcMain.on('notifications:hide', () => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win) {
+                win.hide()
+            }
+        })
+
+        ipcMain.on('notifications:show', () => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win) {
+                win.showInactive()
+            }
+        })
     }
 }
 

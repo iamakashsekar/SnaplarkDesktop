@@ -57,6 +57,7 @@
         if (notification) {
             // Show notification (useful for failed uploads that were hidden)
             notification._hidden = false
+            window.electronNotifications?.show()
         }
         nextTick(() => {
             recalc()
@@ -109,10 +110,17 @@
         (newNotifications) => {
             const visibleNotifications = newNotifications.filter((n) => !n._hidden)
             if (visibleNotifications.length === 0) {
-                console.log('No visible notifications, closing window')
-                setTimeout(() => {
-                    window.electronNotifications?.close()
-                }, 200)
+                if (newNotifications.length > 0) {
+                    console.log('Hidden notifications exist, hiding window')
+                    setTimeout(() => {
+                        window.electronNotifications?.hide()
+                    }, 200)
+                } else {
+                    console.log('No visible notifications, closing window')
+                    setTimeout(() => {
+                        window.electronNotifications?.close()
+                    }, 200)
+                }
             }
         },
         { deep: true, immediate: false }
@@ -149,8 +157,9 @@
             enter-from-class="opacity-0 -translate-y-1.5"
             leave-to-class="opacity-0 -translate-y-1.5">
             <div
-                v-for="n in notifications.filter((n) => !n._hidden)"
+                v-for="n in notifications"
                 :key="n.id"
+                v-show="!n._hidden"
                 class="size-full rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md">
                 <div class="rounded-2xl bg-white p-5">
                     <UploadNotification
