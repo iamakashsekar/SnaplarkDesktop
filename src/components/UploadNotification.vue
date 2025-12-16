@@ -290,14 +290,9 @@
         <template v-if="uploadStatus === 'pending' || uploadStatus === 'error'">
             <div class="flex items-end justify-between">
                 <p class="text-xs text-slate-500">{{ fileInfo.fileSize }}</p>
-                <p
-                    v-if="uploadStatus === 'pending'"
-                    class="text-sm font-semibold">
-                    {{ `${uploadProgress}%` }}
-                </p>
                 <button
                     @click="uploadFile"
-                    v-else
+                    v-if="uploadStatus === 'error'"
                     class="group relative">
                     <svg
                         class="size-8"
@@ -323,14 +318,18 @@
                     </div>
                 </button>
             </div>
-            <div class="relative mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+
+            <div class="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
                 <div
                     v-if="uploadStatus === 'pending'"
-                    :style="{ width: `${uploadProgress}%` }"
-                    class="let-0 absolute inset-y-0 bg-linear-to-r from-blue-500 to-cyan-500 transition-all duration-150 ease-out"></div>
+                    class="animate-indeterminate absolute inset-y-0 left-0 w-1/3 rounded-full bg-linear-to-r from-blue-500 to-cyan-500"></div>
+                <div
+                    v-if="uploadStatus === 'error'"
+                    class="h-full w-full rounded-full bg-red-500"></div>
             </div>
+
             <p class="mt-2 text-right text-xs text-slate-400">
-                {{ uploadStatus === 'pending' ? '12 Second Remaining' : 'Error 500  API not working' }}
+                {{ uploadStatus === 'pending' ? 'Processing...' : 'Error 500 API not working' }}
             </p>
         </template>
 
@@ -434,5 +433,18 @@
 
     .box-shadow {
         box-shadow: 0px 11px 35px 0px #2178ff4a;
+    }
+
+    .animate-indeterminate {
+        animation: indeterminate 1.5s infinite linear;
+    }
+
+    @keyframes indeterminate {
+        0% {
+            left: -40%;
+        }
+        100% {
+            left: 100%;
+        }
     }
 </style>
