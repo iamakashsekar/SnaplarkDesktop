@@ -24,7 +24,7 @@
             _paused: n.variant === 'upload' || n.variant === 'video-upload',
             _remaining: n.timeoutMs ?? 5000,
             _start: Date.now(),
-            _hidden: false
+            _hidden: n.hidden || false
         })
 
         nextTick(() => {

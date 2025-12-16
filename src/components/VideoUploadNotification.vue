@@ -81,6 +81,7 @@
 
             console.log('Received finalize signal')
             status.value = 'finalizing'
+            emit('show') // Show notification when finalizing starts
 
             try {
                 const result = await manager.value.finalizeSession(payload.metadata)

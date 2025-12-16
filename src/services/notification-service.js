@@ -36,7 +36,7 @@ class NotificationService {
                 const win =
                     this.windowManager.getWindow('notifications') || this.windowManager.createWindow('notifications')
 
-                win.webContents.openDevTools()
+                // win.webContents.openDevTools()
 
                 if (process.platform === 'darwin') {
                     win.setAlwaysOnTop(true, 'screen-saver')

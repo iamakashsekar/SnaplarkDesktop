@@ -370,10 +370,11 @@ export function useRecorder() {
                     }
                 }
 
-                // Show notification immediately
+                // Show notification immediately (hidden initially)
                 window.electronNotifications.notify({
                     variant: 'video-upload',
                     id: uploadId,
+                    hidden: true,
                     fileInfo: {
                         metadata: metadata
                     }
