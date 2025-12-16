@@ -1,5 +1,5 @@
 import { ref, watch, nextTick } from 'vue'
-import chunkUploadManager from '../services/chunk-upload-manager'
+
 import { BASE_URL } from '../api/config'
 import { useStore } from '../store'
 
@@ -52,6 +52,7 @@ export function useRecorder() {
     let recordingTimestamp = null
     let recordingTempPath = null // Real-time disk write path
     let totalChunks = 0 // Track total chunks for upload
+    let uploadId = null // Unique ID for upload session
 
     // Function to set crop region externally
     const setCropRegion = (x, y, width, height) => {
@@ -353,20 +354,34 @@ export function useRecorder() {
                 }
             }
 
-            // Initialize chunk upload session (non-blocking - queued for background processing)
+            // Initialize chunk upload session (via notification system)
             totalChunks = 0
-            chunkUploadManager.queueInit({
-                filename: filename.value,
-                timestamp: recordingTimestamp,
-                fps: fps.value,
-                codec: options.mimeType,
-                bitrate: options.videoBitsPerSecond,
-                resolution: {
-                    width: canvas.width,
-                    height: canvas.height
+            if (window.electronNotifications) {
+                uploadId = crypto.randomUUID()
+                const metadata = {
+                    filename: filename.value,
+                    timestamp: recordingTimestamp,
+                    fps: fps.value,
+                    codec: options.mimeType,
+                    bitrate: options.videoBitsPerSecond,
+                    resolution: {
+                        width: canvas.width,
+                        height: canvas.height
+                    }
                 }
-            })
-            console.log('☁️ Upload session init queued (will process in background)')
+
+                // Show notification immediately
+                window.electronNotifications.notify({
+                    variant: 'video-upload',
+                    id: uploadId,
+                    fileInfo: {
+                        metadata: metadata
+                    }
+                })
+
+                console.log('☁️ Upload notification started:', uploadId)
+            }
+
             isUploading.value = true
 
             let pendingWrites = 0
@@ -392,16 +407,17 @@ export function useRecorder() {
                         recordedChunks.push(event.data)
                     }
 
-                    // Queue chunk for upload (non-blocking)
+                    // Queue chunk for upload (via notification system)
                     try {
-                        chunkUploadManager.queueChunk(event.data, chunkIndex)
-                        // Update upload progress
-                        const progress = chunkUploadManager.getProgress()
-                        uploadProgress.value = {
-                            uploaded: progress.uploaded,
-                            total: progress.totalQueued,
-                            percentage: progress.percentage,
-                            isOnline: progress.isOnline
+                        if (uploadId && window.electronNotifications) {
+                            // Convert Blob to ArrayBuffer for IPC
+                            const buffer = await event.data.arrayBuffer()
+                            // Send as Uint8Array (which Electron handles well)
+                            window.electronNotifications.sendVideoChunk({
+                                id: uploadId,
+                                chunk: new Uint8Array(buffer),
+                                chunkIndex: chunkIndex
+                            })
                         }
                     } catch (error) {
                         console.warn('⚠️ Error queueing chunk for upload:', error)
@@ -440,8 +456,8 @@ export function useRecorder() {
                     }
 
                     // Mark recording as finished - no more chunks will be added
-                    // This allows the upload manager to know when all chunks are queued
-                    chunkUploadManager.markRecordingFinished(totalChunks)
+                    // Notification system handles the rest
+                    console.log('✅ Recording finished locally')
 
                     // Wait a moment for any final chunks to be queued (ondataavailable might fire after onstop)
                     await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -534,39 +550,30 @@ export function useRecorder() {
                     console.log('🔍 Debug - recordedVideoUrl:', recordedVideoUrl.value)
                     console.log('🔍 Debug - isProcessing:', isProcessing.value)
 
-                    // Finalize upload session last so the window can close immediately after
-                    console.log('☁️ Finalizing upload session (waiting for all chunks to upload)...')
-                    try {
-                        const finalizeResult = await chunkUploadManager.finalizeSession({
-                            totalChunks: totalChunks,
-                            duration: recordingDuration
-                        })
+                    // Finalize upload session (non-blocking)
+                    console.log('☁️ Sending finalize signal to notification...')
+                    if (uploadId && window.electronNotifications) {
+                        try {
+                            window.electronNotifications.sendVideoFinalize({
+                                id: uploadId,
+                                metadata: {
+                                    totalChunks: totalChunks,
+                                    duration: recordingDuration
+                                }
+                            })
 
-                        if (finalizeResult.success) {
-                            console.log(
-                                `✅ Upload completed: ${finalizeResult.uploadedChunks}/${finalizeResult.totalChunks} chunks uploaded`
-                            )
-                            if (finalizeResult.key) {
-                                await window.electron.openExternal(BASE_URL + '/' + finalizeResult.key)
-                                console.log('📺 Video Key:', finalizeResult.key)
-                                await window.electronWindows?.closeWindow?.(windowType.value)
+                            // Close window immediately if it's a dedicated recording window
+                            // We don't wait for upload to finish anymore!
+                            if (windowType.value) {
+                                console.log('� Closing recording window (upload continues in notification)')
+                                setTimeout(() => {
+                                    window.electronWindows?.closeWindow?.(windowType.value)
+                                }, 500)
                             }
-                        } else {
-                            console.warn('⚠️ Upload finalization failed:', finalizeResult.error)
-                            console.log(`📊 Uploaded ${finalizeResult.uploadedChunks} chunks before failure`)
-                        }
-                    } catch (error) {
-                        console.error('❌ Error finalizing upload:', error)
-                        // Continue with local file processing even if upload fails
-                    } finally {
-                        isUploading.value = false
-                        // Update final progress
-                        const progress = chunkUploadManager.getProgress()
-                        uploadProgress.value = {
-                            uploaded: progress.uploaded,
-                            total: progress.totalQueued,
-                            percentage: progress.percentage,
-                            isOnline: progress.isOnline
+                        } catch (error) {
+                            console.error('❌ Error sending finalize signal:', error)
+                        } finally {
+                            isUploading.value = false
                         }
                     }
                 } catch (error) {
@@ -606,17 +613,6 @@ export function useRecorder() {
                     recordingTime.value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
                 } else {
                     recordingTime.value = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-                }
-
-                // Update upload progress periodically
-                if (isUploading.value) {
-                    const progress = chunkUploadManager.getProgress()
-                    uploadProgress.value = {
-                        uploaded: progress.uploaded,
-                        total: progress.totalQueued,
-                        percentage: progress.percentage,
-                        isOnline: progress.isOnline
-                    }
                 }
             }, 1000)
 
@@ -682,7 +678,7 @@ export function useRecorder() {
     }
 
     const stopRecording = () => {
-        uiMode.value = 'preview'
+        // uiMode.value = 'preview'
 
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             // Request any remaining data before stopping
@@ -709,7 +705,7 @@ export function useRecorder() {
         uploadProgress.value = { uploaded: 0, total: 0, percentage: 0, isOnline: true }
 
         // Reset upload manager
-        chunkUploadManager.reset()
+        uploadId = null
 
         startPreview()
     }
@@ -736,7 +732,7 @@ export function useRecorder() {
             URL.revokeObjectURL(recordedVideoUrl.value)
         }
         // Reset upload manager on cleanup
-        chunkUploadManager.reset()
+        uploadId = null
     }
 
     // Watchers

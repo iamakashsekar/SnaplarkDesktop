@@ -36,6 +36,8 @@ class NotificationService {
                 const win =
                     this.windowManager.getWindow('notifications') || this.windowManager.createWindow('notifications')
 
+                win.webContents.openDevTools()
+
                 if (process.platform === 'darwin') {
                     win.setAlwaysOnTop(true, 'screen-saver')
                     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
@@ -117,6 +119,22 @@ class NotificationService {
             const win = this.windowManager.getWindow('notifications')
             if (win) {
                 win.showInactive()
+            }
+        })
+
+        // Forward video chunks to notification window
+        ipcMain.on('notifications:video-chunk', (event, payload) => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('notifications:video-chunk', payload)
+            }
+        })
+
+        // Forward video finalize to notification window
+        ipcMain.on('notifications:video-finalize', (event, payload) => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('notifications:video-finalize', payload)
             }
         })
     }

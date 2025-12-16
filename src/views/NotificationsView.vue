@@ -1,6 +1,7 @@
 <script setup>
     import { onMounted, ref, watch, nextTick } from 'vue'
     import UploadNotification from '../components/UploadNotification.vue'
+    import VideoUploadNotification from '../components/VideoUploadNotification.vue'
 
     let idCounter = 1
 
@@ -20,7 +21,7 @@
             variant: n.variant || 'info',
             timeoutMs: n.timeoutMs ?? 5000,
             fileInfo: n.fileInfo ?? {},
-            _paused: n.variant === 'upload',
+            _paused: n.variant === 'upload' || n.variant === 'video-upload',
             _remaining: n.timeoutMs ?? 5000,
             _start: Date.now(),
             _hidden: false
@@ -167,6 +168,13 @@
                         @close="dismiss(n.id)"
                         @hide="hide(n.id)"
                         @show="show(n.id)"
+                        :fileInfo="n.fileInfo" />
+                    <VideoUploadNotification
+                        v-if="n.variant === 'video-upload'"
+                        @close="dismiss(n.id)"
+                        @hide="hide(n.id)"
+                        @show="show(n.id)"
+                        :notificationId="n.id"
                         :fileInfo="n.fileInfo" />
                 </div>
             </div>

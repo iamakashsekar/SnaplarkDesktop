@@ -627,4 +627,5 @@ const chunkUploadManager = new ChunkUploadManager()
 // Setup connectivity listeners
 chunkUploadManager.setupConnectivityListeners()
 
+export { ChunkUploadManager }
 export default chunkUploadManager

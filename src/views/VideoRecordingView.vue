@@ -609,8 +609,8 @@
         await window.electronWindows?.closeWindow?.('webcam')
         await window.electronWindows?.closeWindow?.(`recording-overlay-${displayId.value}`)
 
-        window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 800, 600)
-        window.electronWindows?.centerWindow?.(`recording-${displayId.value}`)
+        // window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 800, 600)
+        // window.electronWindows?.centerWindow?.(`recording-${displayId.value}`)
     }
 
     const handleCancel = (event) => {

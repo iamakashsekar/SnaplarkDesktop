@@ -97,6 +97,13 @@ contextBridge.exposeInMainWorld('electronWindows', {
 contextBridge.exposeInMainWorld('electronNotifications', {
     notify: (payload) => ipcRenderer.invoke('notify', payload),
     onAdd: (callback) => ipcRenderer.on('notifications:add', (e, n) => callback(n)),
+
+    // Video upload specific
+    sendVideoChunk: (payload) => ipcRenderer.send('notifications:video-chunk', payload),
+    sendVideoFinalize: (payload) => ipcRenderer.send('notifications:video-finalize', payload),
+    onVideoChunk: (callback) => ipcRenderer.on('notifications:video-chunk', (e, payload) => callback(payload)),
+    onVideoFinalize: (callback) => ipcRenderer.on('notifications:video-finalize', (e, payload) => callback(payload)),
+
     resize: (height) => ipcRenderer.send('notifications:resize', height),
     reposition: () => ipcRenderer.send('notifications:reposition'),
     close: () => ipcRenderer.send('notifications:close'),
