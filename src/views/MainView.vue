@@ -41,7 +41,7 @@
     const uploadMedia = async () => {
         console.log('Upload media')
         console.log('Opening design workspace')
-        await createWindow('design')
+        await createWindow('permissions')
         // TODO: Implement media upload
     }
 

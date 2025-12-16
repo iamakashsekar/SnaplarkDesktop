@@ -1,4 +1,15 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, screen, net, dialog, globalShortcut } from 'electron'
+import {
+    app,
+    BrowserWindow,
+    shell,
+    ipcMain,
+    protocol,
+    screen,
+    net,
+    dialog,
+    globalShortcut,
+    systemPreferences
+} from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -65,23 +76,65 @@ let storeService
 let currentScreenshotShortcut = null
 let currentRecordingShortcut = null
 
+const checkAppPermissions = () => {
+    if (process.platform !== 'darwin') {
+        return {
+            allGranted: true,
+            statuses: {
+                camera: true,
+                microphone: true,
+                screen: true,
+                accessibility: true
+            }
+        }
+    }
+
+    const camera = systemPreferences.getMediaAccessStatus('camera') === 'granted'
+    const microphone = systemPreferences.getMediaAccessStatus('microphone') === 'granted'
+    const screen = systemPreferences.getMediaAccessStatus('screen') === 'granted'
+    const accessibility = systemPreferences.isTrustedAccessibilityClient(false)
+
+    return {
+        allGranted: camera && microphone && screen && accessibility,
+        statuses: {
+            camera,
+            microphone,
+            screen,
+            accessibility
+        }
+    }
+}
+
 const createWindow = () => {
     windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME)
 
     const mainWindow = windowManager.createWindow('main')
 
-    tray = new SystemTray(mainWindow)
-
-    // Automatically show main window near tray icon on app startup
-    // Delay to ensure tray icon is fully positioned in the system tray before calculating window position
-    setTimeout(() => {
-        tray.showMainAtTray(null, { force: true, gap: 0 })
-    }, 200)
+    // Initialize StoreService early so IPC handlers are ready for any window (including permissions)
+    storeService = new StoreService(windowManager, store)
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url)
         return { action: 'deny' }
     })
+
+    // On macOS, check permissions before initializing services or showing welcome
+    if (process.platform === 'darwin') {
+        const { allGranted } = checkAppPermissions()
+        if (!allGranted) {
+            // Close main window or just leave it hidden
+            // Show permissions window
+            windowManager.createWindow('permissions').show()
+            return
+        }
+    }
+
+    tray = new SystemTray(mainWindow)
+
+    // Automatically show main window near tray icon on app startup
+    setTimeout(() => {
+        tray.showMainAtTray(null, { force: true, gap: 0 })
+    }, 200)
 
     const welcomeCompleted = store.get('welcomeCompleted')
     if (!welcomeCompleted) {
@@ -91,7 +144,6 @@ const createWindow = () => {
     screenshotService = new ScreenshotService(windowManager, store)
     videoRecordingService = new VideoRecordingService(windowManager, store)
     notificationService = new NotificationService(windowManager)
-    storeService = new StoreService(windowManager, store)
 }
 
 // ==================== GLOBAL SHORTCUTS ====================
@@ -442,6 +494,40 @@ function setupIPCHandlers() {
             type: 'status-update',
             ...data
         })
+    })
+    // Permission Management Handlers
+    ipcMain.handle('check-system-permissions', () => {
+        return checkAppPermissions().statuses
+    })
+
+    ipcMain.handle('request-system-permission', async (event, permissionId) => {
+        if (process.platform !== 'darwin') return true
+
+        if (permissionId === 'camera') {
+            return systemPreferences.askForMediaAccess('camera')
+        } else if (permissionId === 'microphone') {
+            return systemPreferences.askForMediaAccess('microphone')
+        } else if (permissionId === 'screen') {
+            // Screen recording permission is tricky.
+            // Often triggered by capturing, but we can open settings.
+            await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+            return false
+        } else if (permissionId === 'accessibility') {
+            const entrusted = systemPreferences.isTrustedAccessibilityClient(true)
+            if (!entrusted) {
+                // If prompt didn't help or already denied, open settings
+                await shell.openExternal(
+                    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
+                )
+            }
+            return entrusted
+        }
+        return false
+    })
+
+    ipcMain.handle('relaunch-app', () => {
+        app.relaunch()
+        app.quit()
     })
 }
 

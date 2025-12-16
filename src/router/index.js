@@ -79,6 +79,12 @@ const routes = [
         name: 'recording-overlay',
         component: RecordingOverlayView,
         meta: { windowType: 'recording-overlay' }
+    },
+    {
+        path: '/permissions',
+        name: 'permissions',
+        component: () => import('../views/PermissionsView.vue'),
+        meta: { windowType: 'permissions' }
     }
 ]
 

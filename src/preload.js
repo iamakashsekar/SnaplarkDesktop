@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('electron', {
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+    checkSystemPermissions: () => ipcRenderer.invoke('check-system-permissions'),
+    requestSystemPermission: (id) => ipcRenderer.invoke('request-system-permission', id),
+    relaunchApp: () => ipcRenderer.invoke('relaunch-app'),
+
     ipcRenderer: {
         on: (channel, callback) => ipcRenderer.on(channel, callback),
         removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)

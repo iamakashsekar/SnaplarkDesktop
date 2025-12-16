@@ -218,6 +218,18 @@ class WindowManager {
                 fullscreenable: false,
                 hasShadow: false,
                 roundedCorners: true
+            },
+
+            permissions: {
+                ...common,
+                width: 450,
+                height: 700,
+                resizable: true,
+                alwaysOnTop: true,
+                skipTaskbar: false,
+                title: 'Snaplark Permissions',
+                show: false,
+                modal: false
             }
         }
     }
