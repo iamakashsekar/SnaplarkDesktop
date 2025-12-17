@@ -281,6 +281,11 @@ class WindowManager {
         })
 
         this.applyPlatformSpecificSettings(window, type, isSelectionWindow, config)
+
+        if (isVideoRecordingWindow) {
+            window.setContentProtection(true)
+        }
+
         this.loadWindowContent(window, type, options.params)
 
         if (type === 'main') {
