@@ -547,7 +547,7 @@
                     <!-- Tooltip -->
                     <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
                         <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            Open in file manager
+                            Show in folder
                             <div
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
                         </div>
