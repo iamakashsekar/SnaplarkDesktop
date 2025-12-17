@@ -376,6 +376,8 @@ export function useRecorder() {
                     id: uploadId,
                     hidden: true,
                     fileInfo: {
+                        fileName: filename.value,
+                        path: tempRecordingPath.value,
                         metadata: metadata
                     }
                 })

@@ -83,6 +83,17 @@
     }
 
     // --- Actions ---
+    const openInFileManager = async () => {
+        try {
+            await window.electron.showItemInFolder(props.fileInfo.path)
+
+            setTimeout(() => {
+                emit('close')
+            }, 1000)
+        } catch (error) {
+            console.error('Failed to open file in file manager:', error)
+        }
+    }
 
     const copyToClipboard = async () => {
         try {
@@ -499,6 +510,49 @@
                     class="flex-1 truncate rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-sm text-blue-500">
                     {{ link }}
                 </div>
+                <!-- Open in file manager -->
+                <button
+                    v-if="fileInfo.path"
+                    @click="openInFileManager"
+                    class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="size-5"
+                        viewBox="0 0 24 24"
+                        fill="none">
+                        <g clip-path="url(#clip0_4418_9182)">
+                            <path
+                                d="M22 11V17C22 21 21 22 17 22H7C3 22 2 21 2 17V7C2 3 3 2 7 2H8.5C10 2 10.33 2.44 10.9 3.2L12.4 5.2C12.78 5.7 13 6 14 6H17C21 6 22 7 22 11Z"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-miterlimit="10" />
+                            <path
+                                d="M8 2H17C19 2 20 3 20 5V6.38"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-miterlimit="10"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_4418_9182">
+                                <rect
+                                    width="24"
+                                    height="24"
+                                    fill="white" />
+                            </clipPath>
+                        </defs>
+                    </svg>
+
+                    <!-- Tooltip -->
+                    <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
+                        <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
+                            Open in file manager
+                            <div
+                                class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
+                        </div>
+                    </div>
+                </button>
                 <!-- Copy Button -->
                 <button
                     @click="copyToClipboard"

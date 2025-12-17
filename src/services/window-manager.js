@@ -216,7 +216,7 @@ class WindowManager {
                 alwaysOnTop: true,
                 skipTaskbar: true,
                 show: false,
-                focusable: false,
+                focusable: true,
                 fullscreenable: false,
                 hasShadow: false,
                 roundedCorners: true
