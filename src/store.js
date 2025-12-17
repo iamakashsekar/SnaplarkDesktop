@@ -106,7 +106,12 @@ export const useStore = defineStore('main', {
                         this.user = response.data
                         this.isAuthenticated = true
                         await router.push('/')
-                        window.electron.showMainAtTray({ force: true, gap: 0 })
+                        const welcomeCompleted = window.electronStore.get('welcomeCompleted')
+                        if (!welcomeCompleted) {
+                            window.electronWindows.createWindow('welcome')
+                        } else {
+                            window.electron.showMainAtTray({ force: true, gap: 0 })
+                        }
                     }
                     return true
                 } catch (error) {

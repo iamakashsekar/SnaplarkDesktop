@@ -136,10 +136,10 @@ const createWindow = () => {
         tray.showMainAtTray(null, { force: true, gap: 5 })
     }, 200)
 
-    const welcomeCompleted = store.get('welcomeCompleted')
-    if (!welcomeCompleted) {
-        windowManager.createWindow('welcome')
-    }
+    // const welcomeCompleted = store.get('welcomeCompleted')
+    // if (!welcomeCompleted) {
+    //     windowManager.createWindow('welcome')
+    // }
 
     screenshotService = new ScreenshotService(windowManager, store)
     videoRecordingService = new VideoRecordingService(windowManager, store)

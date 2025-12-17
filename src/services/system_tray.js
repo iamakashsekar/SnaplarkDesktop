@@ -66,6 +66,12 @@ class SystemTray {
     }
 
     onTrayRightClick() {
+        // Hide main window if visible
+        const mainWindow = this.windowManager.getWindow('main')
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+            mainWindow.hide()
+        }
+
         const contextMenu = Menu.buildFromTemplate([
             {
                 label: 'Open Widget',
