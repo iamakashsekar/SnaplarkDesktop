@@ -2,8 +2,8 @@
     import { ref, onMounted } from 'vue'
     import { useWindows } from '../composables/useWindows'
     import { useStore } from '../store'
+    import CloseButton from '@/components/CloseButton.vue'
 
-    const store = useStore()
     const { closeWindow, closeAllWindows } = useWindows()
     const permissions = ref([
         {
@@ -80,32 +80,13 @@
 </script>
 
 <template>
-    <div
-        :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
-        class="login-container relative min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 select-none">
+    <div class="relative rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md select-none">
         <div
             class="drag relative flex h-full w-full flex-col items-center justify-center rounded-xl bg-white p-6 shadow-xl select-none dark:bg-zinc-900">
             <!-- Close / Minimize (Mac style) matches image but usually these modal windows might not need standard controls if they are blocking. 
              However, user image shows them. -->
-            <div class="no-drag absolute top-4 right-4 flex space-x-2">
-                <!-- Windows controls if needed, but user specified Mac style in image -->
-                <!-- actually image shows custom close/minimize. leaving for now or using standard frame logic -->
-                <button
-                    @click="quitApp"
-                    class="rounded-full p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
-                    <svg
-                        class="h-6 w-6 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
+
+            <CloseButton @click="quitApp" />
 
             <div class="mb-8 flex flex-col items-center">
                 <img
