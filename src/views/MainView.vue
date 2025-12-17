@@ -16,6 +16,7 @@
     }
 
     const openSettings = async () => {
+        isUserMenuOpen.value = false
         hideWindow('main')
         await createWindow('settings')
     }
@@ -426,10 +427,10 @@
 
                             <span>Help</span>
                         </a>
-                        <a
+                        <button
                             @click="openSettings"
-                            href="#"
-                            class="dark:hover:bg-dark-700 dark:group-hover:text-primary-blue flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200/10 dark:text-white">
+                            type="button"
+                            class="dark:hover:bg-dark-700 dark:group-hover:text-primary-blue flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200/10 dark:text-white">
                             <svg
                                 width="29"
                                 height="29"
@@ -442,7 +443,7 @@
                             </svg>
 
                             <span>Settings</span>
-                        </a>
+                        </button>
 
                         <hr class="dark:border-dark-700 my-2 border-gray-400" />
                         <a
