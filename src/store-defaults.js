@@ -18,6 +18,7 @@ export const defaultState = {
     settings: {
         // General
         launchAtStartup: false,
+        openInBrowser: false,
         language: 'en',
         defaultSaveFolder: '~/Pictures/Snaplark',
         promptForSaveLocation: true,

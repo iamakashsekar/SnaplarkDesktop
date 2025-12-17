@@ -25,6 +25,9 @@
     const link = ref('')
     const tooltipText = ref('Copy Link')
 
+    const autoCloseCountdown = ref(0)
+    const autoCloseTimer = ref(null)
+
     const updateProgress = () => {
         if (!manager.value) return
         const p = manager.value.getProgress()
@@ -38,7 +41,7 @@
 
     const copyToClipboard = async () => {
         try {
-            await navigator.clipboard.writeText(link.value)
+            await window.electron.writeToClipboard(link.value)
             tooltipText.value = 'Copied'
             setTimeout(() => {
                 tooltipText.value = 'Copy Link'
@@ -56,6 +59,25 @@
     const openLink = () => {
         window.electron.openExternal(link.value)
         emit('close')
+    }
+
+    const startAutoCloseCountdown = () => {
+        autoCloseCountdown.value = 10
+        autoCloseTimer.value = setInterval(() => {
+            autoCloseCountdown.value--
+            if (autoCloseCountdown.value <= 0) {
+                clearInterval(autoCloseTimer.value)
+                emit('close')
+            }
+        }, 1000)
+    }
+
+    const cancelAutoClose = () => {
+        if (autoCloseTimer.value) {
+            clearInterval(autoCloseTimer.value)
+            autoCloseTimer.value = null
+            autoCloseCountdown.value = 0
+        }
     }
 
     onMounted(() => {
@@ -94,11 +116,13 @@
                     link.value = BASE_URL + '/' + result.key
                     store.lastCapture = link.value // Automatic sync will handle this
 
-                    // Open in external browser
-                    // window.electron.openExternal(link.value)
-
-                    // Close notification immediately
-                    // emit('close')
+                    if (store.settings.openInBrowser) {
+                        await window.electron.openExternal(link.value)
+                        emit('close')
+                    } else {
+                        // Start auto-close countdown for successful uploads
+                        startAutoCloseCountdown()
+                    }
                 } else {
                     status.value = 'error'
                     console.error('Upload finalization failed:', result.error)
@@ -119,6 +143,7 @@
 
         onUnmounted(() => {
             clearInterval(interval)
+            cancelAutoClose()
             // Cleanup listeners if we could (electronNotifications.removeListener...)
             // Currently preload doesn't expose removeListener for these specific ones,
             // but Vue component unmounts usually happen when notification is removed.
@@ -324,6 +349,18 @@
                 </button>
             </div>
         </template>
+
+        <!-- Auto-close countdown -->
+        <div
+            v-if="autoCloseCountdown > 0"
+            class="mt-3 flex items-center justify-between text-xs text-gray-500">
+            <span>Auto-closing in {{ autoCloseCountdown }}s</span>
+            <button
+                @click="cancelAutoClose"
+                class="text-blue-500 underline hover:text-blue-600">
+                Cancel
+            </button>
+        </div>
     </div>
 </template>
 

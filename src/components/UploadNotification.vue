@@ -61,7 +61,7 @@
 
     const copyToClipboard = async () => {
         try {
-            await navigator.clipboard.writeText(link.value)
+            await window.electron.writeToClipboard(link.value)
             // Change tooltip to "Copied" on successful copy
             tooltipText.value = 'Copied'
             // Reset tooltip back to "Copy Link" after 2 seconds
@@ -164,8 +164,13 @@
                 emit('close')
             }
 
-            // Start auto-close countdown for successful uploads
-            startAutoCloseCountdown()
+            if (store.settings.openInBrowser) {
+                await window.electron.openExternal(link.value)
+                emit('close')
+            } else {
+                // Start auto-close countdown for successful uploads
+                startAutoCloseCountdown()
+            }
         } catch (error) {
             uploadStatus.value = 'error'
             console.error('Upload failed:', error)

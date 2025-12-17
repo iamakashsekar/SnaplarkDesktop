@@ -8,7 +8,8 @@ import {
     net,
     dialog,
     globalShortcut,
-    systemPreferences
+    systemPreferences,
+    clipboard
 } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
@@ -406,6 +407,11 @@ function setupIPCHandlers() {
 
     ipcMain.handle('show-item-in-folder', (event, filePath) => {
         shell.showItemInFolder(filePath)
+    })
+
+    ipcMain.handle('write-to-clipboard', (event, text) => {
+        clipboard.writeText(text)
+        return { success: true }
     })
 
     // File system handlers

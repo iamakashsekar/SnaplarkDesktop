@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electron', {
     quitApp: () => ipcRenderer.send('quit-app'),
     showMainAtTray: (options) => ipcRenderer.invoke('show-main-at-tray', options),
     readFileAsBuffer: (filePath) => ipcRenderer.invoke('read-file-as-buffer', filePath),
+    writeToClipboard: (text) => ipcRenderer.invoke('write-to-clipboard', text),
 
     // Screenshot functionality
     startScreenshotMode: () => ipcRenderer.invoke('start-screenshot-mode'),

@@ -1,5 +1,5 @@
 <script setup>
-    import { onMounted, ref, watch, nextTick } from 'vue'
+    import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
     import UploadNotification from '../components/UploadNotification.vue'
     import VideoUploadNotification from '../components/VideoUploadNotification.vue'
 
@@ -7,13 +7,22 @@
 
     const notifications = ref([])
     const wrap = ref(null)
+    let resizeObserver = null
 
     const recalc = () => {
         requestAnimationFrame(() => {
             const height = wrap.value?.scrollHeight || 0
-            window.electronNotifications?.resize(height + 36)
+            // Add a bit more padding/margin safely
+            window.electronNotifications?.resize(height + 20)
         })
     }
+
+    onUnmounted(() => {
+        if (resizeObserver) {
+            resizeObserver.disconnect()
+        }
+        window.removeEventListener('resize', recalc)
+    })
 
     const addOrMerge = (n) => {
         notifications.value.unshift({
@@ -134,6 +143,14 @@
             addOrMerge(payload)
         })
 
+        // Use ResizeObserver to detect all size changes (children added/removed, animating, internal state changes)
+        if (window.ResizeObserver && wrap.value) {
+            resizeObserver = new ResizeObserver(() => {
+                recalc()
+            })
+            resizeObserver.observe(wrap.value)
+        }
+
         window.addEventListener('resize', () => recalc())
         window.electronNotifications?.reposition()
 
@@ -148,7 +165,7 @@
 
 <template>
     <div
-        class="mt-4 p-2.5 select-none"
+        class="mt-4 p-2.5"
         ref="wrap">
         <transition-group
             tag="div"
