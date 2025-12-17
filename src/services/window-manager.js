@@ -283,6 +283,14 @@ class WindowManager {
         this.applyPlatformSpecificSettings(window, type, isSelectionWindow, config)
         this.loadWindowContent(window, type, options.params)
 
+        if (type === 'main') {
+            window.on('blur', () => {
+                if (!window.webContents.isDevToolsOpened()) {
+                    window.hide()
+                }
+            })
+        }
+
         window.on('closed', () => {
             // Clean up any intervals when window is closed
             if (window._keepOnTopInterval) {

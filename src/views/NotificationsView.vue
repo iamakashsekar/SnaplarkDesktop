@@ -11,7 +11,7 @@
     const recalc = () => {
         requestAnimationFrame(() => {
             const height = wrap.value?.scrollHeight || 0
-            window.electronNotifications?.resize(height + 20)
+            window.electronNotifications?.resize(height + 36)
         })
     }
 
@@ -148,7 +148,7 @@
 
 <template>
     <div
-        class="p-2.5 select-none"
+        class="mt-4 p-2.5 select-none"
         ref="wrap">
         <transition-group
             tag="div"
