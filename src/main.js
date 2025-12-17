@@ -129,7 +129,7 @@ const createWindow = () => {
         }
     }
 
-    tray = new SystemTray(mainWindow)
+    tray = new SystemTray(windowManager)
 
     // Automatically show main window near tray icon on app startup
     setTimeout(() => {
