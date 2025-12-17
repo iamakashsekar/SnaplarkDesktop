@@ -62,11 +62,11 @@ class SystemTray {
     }
 
     onTrayClick(event, bounds) {
-        this.showMainAtTray(bounds, { gap: 0 })
+        this.showMainAtTray(bounds, { gap: 5 })
     }
 
     onTrayRightClick(event, bounds) {
-        this.showMainAtTray(bounds, { gap: 0 })
+        this.showMainAtTray(bounds, { gap: 5 })
     }
 }
 

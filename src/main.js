@@ -133,7 +133,7 @@ const createWindow = () => {
 
     // Automatically show main window near tray icon on app startup
     setTimeout(() => {
-        tray.showMainAtTray(null, { force: true, gap: 0 })
+        tray.showMainAtTray(null, { force: true, gap: 5 })
     }, 200)
 
     const welcomeCompleted = store.get('welcomeCompleted')
