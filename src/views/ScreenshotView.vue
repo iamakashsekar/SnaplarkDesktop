@@ -468,6 +468,7 @@
             if (saveResult?.success) {
                 // Window is closed by the main process after successful save
                 console.log('Screenshot saved successfully:', saveResult.path)
+                store.lastCapture = saveResult.path
             } else if (saveResult?.canceled) {
                 // User canceled, windows are shown again by main process
                 console.log('Save canceled by user')

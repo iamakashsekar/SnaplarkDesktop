@@ -404,6 +404,10 @@ function setupIPCHandlers() {
         shell.openExternal(url)
     })
 
+    ipcMain.handle('show-item-in-folder', (event, filePath) => {
+        shell.showItemInFolder(filePath)
+    })
+
     // File system handlers
     ipcMain.handle('read-file-as-buffer', async (event, filePath) => {
         try {

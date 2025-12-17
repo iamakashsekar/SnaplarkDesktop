@@ -36,7 +36,11 @@
     const openLastCapture = () => {
         if (store.lastCapture) {
             hideWindow('main')
-            store.openExternal(store.lastCapture)
+            if (store.lastCapture.startsWith('http')) {
+                store.openExternal(store.lastCapture)
+            } else {
+                window.electron.showItemInFolder(store.lastCapture)
+            }
         }
     }
 
@@ -166,7 +170,7 @@
                     </span>
                 </div>
 
-                <div class="group relative">
+                <!-- <div class="group relative">
                     <button
                         type="button"
                         @click="recordGIF"
@@ -190,7 +194,7 @@
                         class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
                         {{ store.settings.hotkeyRecording }}
                     </span>
-                </div>
+                </div> -->
             </div>
 
             <hr class="dark:border-dark-700 my-3 border-gray-400" />

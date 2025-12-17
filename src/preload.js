@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electron', {
     // System
     platform: process.platform,
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
     getDeviceName: () => ipcRenderer.invoke('get-device-name'),
     quitApp: () => ipcRenderer.send('quit-app'),
     showMainAtTray: (options) => ipcRenderer.invoke('show-main-at-tray', options),

@@ -1,7 +1,7 @@
 <script setup>
     import { onMounted, onUnmounted, ref } from 'vue'
     import { apiClient, BASE_URL } from '../api/config'
-    import { useStore } from '@/store'
+    import { useStore } from '../store'
 
     const props = defineProps({
         fileInfo: Object

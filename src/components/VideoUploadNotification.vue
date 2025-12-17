@@ -2,6 +2,7 @@
     import { ref, onMounted, onUnmounted } from 'vue'
     import { ChunkUploadManager } from '../services/chunk-upload-manager'
     import { BASE_URL } from '../api/config'
+    import { useStore } from '../store'
 
     const props = defineProps({
         notificationId: {
@@ -15,6 +16,8 @@
     })
 
     const emit = defineEmits(['close', 'hide', 'show'])
+
+    const store = useStore()
 
     const manager = ref(null)
     const progress = ref({ uploaded: 0, total: 0, percentage: 0, isOnline: true })
@@ -89,12 +92,13 @@
                 if (result.success) {
                     status.value = 'success'
                     link.value = BASE_URL + '/' + result.key
+                    store.lastCapture = link.value // Automatic sync will handle this
 
                     // Open in external browser
-                    window.electron.openExternal(link.value)
+                    // window.electron.openExternal(link.value)
 
                     // Close notification immediately
-                    emit('close')
+                    // emit('close')
                 } else {
                     status.value = 'error'
                     console.error('Upload finalization failed:', result.error)
