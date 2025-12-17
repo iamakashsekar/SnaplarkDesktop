@@ -82,9 +82,7 @@
         <transition
             name="slide-fade"
             mode="out-in">
-            <GradientFrame
-                v-if="!showTour"
-                closeAction="close">
+            <GradientFrame v-if="!showTour">
                 <div
                     key="welcome"
                     class="welcome-screen dark:bg-dark-900 drag relative flex size-[450px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-white">
@@ -193,7 +191,7 @@
                 v-else
                 key="tour"
                 class="tour-screen flex flex-col items-center justify-center gap-4">
-                <GradientFrame closeAction="close">
+                <GradientFrame>
                     <div class="drag relative w-[420px] rounded-2xl bg-white px-5 py-6">
                         <div
                             class="bg-primary-blue absolute top-4 left-0 rounded-tr-2xl rounded-br-2xl py-3.5 pr-6 pl-8 text-white">

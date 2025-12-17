@@ -100,11 +100,9 @@
 </script>
 
 <template>
-    <GradientFrame
-        closeAction="close"
-        closeButtonClass="absolute top-4 right-4">
+    <GradientFrame>
         <div
-            class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 pt-10 pb-6 select-none">
+            class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
             <!-- Capture Actions -->
             <div class="space-y-2">
                 <div class="group relative">

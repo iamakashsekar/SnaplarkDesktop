@@ -1,4 +1,4 @@
-import { app, Tray } from 'electron'
+import { app, Tray, Menu } from 'electron'
 import path from 'node:path'
 
 class SystemTray {
@@ -65,8 +65,23 @@ class SystemTray {
         this.showMainAtTray(bounds, { gap: 5 })
     }
 
-    onTrayRightClick(event, bounds) {
-        this.showMainAtTray(bounds, { gap: 5 })
+    onTrayRightClick() {
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: 'Open Widget',
+                click: () => {
+                    this.showMainAtTray(null, { gap: 5 })
+                }
+            },
+            { type: 'separator' },
+            {
+                label: 'Quit',
+                click: () => {
+                    app.quit()
+                }
+            }
+        ])
+        this.tray.popUpContextMenu(contextMenu)
     }
 }
 

@@ -40,7 +40,7 @@ class WindowManager {
                 width: 232,
                 height: 300,
                 resizable: false,
-                alwaysOnTop: true,
+                alwaysOnTop: false,
                 skipTaskbar: true,
                 roundedCorners: true,
                 show: false,
@@ -58,7 +58,9 @@ class WindowManager {
                 skipTaskbar: true,
                 title: 'Snaplark Settings',
                 show: false,
-                modal: false
+                modal: false,
+                frame: true,
+                transparent: false
             },
 
             welcome: {
@@ -229,7 +231,9 @@ class WindowManager {
                 skipTaskbar: false,
                 title: 'Snaplark Permissions',
                 show: false,
-                modal: false
+                modal: false,
+                frame: true,
+                transparent: false
             }
         }
     }
