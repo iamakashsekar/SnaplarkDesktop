@@ -194,7 +194,7 @@ export const useStore = defineStore('main', {
                 }
             }
 
-            // Track previous state to detect actual changes
+            // Track previous state to detect actual changes (stores JSON strings for deep comparison)
             let previousState = {}
 
             // Listen for updates from other windows
@@ -209,8 +209,12 @@ export const useStore = defineStore('main', {
                         // Update store without triggering sync (to prevent infinite loops)
                         this._isReceivingSync = true
                         this[key] = value
-                        // Update previous state to match
-                        previousState[key] = value
+                        // Update previous state to match (store as string)
+                        try {
+                            previousState[key] = JSON.stringify(value)
+                        } catch (e) {
+                            console.warn('Failed to stringify synced value for previousState:', e)
+                        }
                         this._isReceivingSync = false
                     }
                 })
@@ -221,7 +225,11 @@ export const useStore = defineStore('main', {
 
             // Initialize previous state
             syncableKeys.forEach((key) => {
-                previousState[key] = this[key]
+                try {
+                    previousState[key] = JSON.stringify(this[key])
+                } catch (e) {
+                    console.warn('Failed to initialize previousState for key:', key)
+                }
             })
 
             // Watch for local store changes and sync to other windows
@@ -232,9 +240,16 @@ export const useStore = defineStore('main', {
                 // Check which syncable properties actually changed
                 const changedKeys = []
                 syncableKeys.forEach((key) => {
-                    if (state[key] !== previousState[key]) {
+                    let currentValueStr
+                    try {
+                        currentValueStr = JSON.stringify(state[key])
+                    } catch (e) {
+                        return // Skip if not serializable
+                    }
+
+                    if (currentValueStr !== previousState[key]) {
                         changedKeys.push(key)
-                        previousState[key] = state[key]
+                        previousState[key] = currentValueStr
                     }
                 })
 
