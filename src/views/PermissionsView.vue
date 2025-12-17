@@ -3,6 +3,7 @@
     import { useWindows } from '../composables/useWindows'
     import { useStore } from '../store'
     import CloseButton from '@/components/CloseButton.vue'
+    import GradientFrame from '@/components/GradientFrame.vue'
 
     const { closeWindow, closeAllWindows } = useWindows()
     const permissions = ref([
@@ -80,14 +81,9 @@
 </script>
 
 <template>
-    <div class="relative rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md select-none">
+    <GradientFrame closeAction="quit">
         <div
-            class="drag relative flex h-full w-full flex-col items-center justify-center rounded-xl bg-white p-6 shadow-xl select-none dark:bg-zinc-900">
-            <!-- Close / Minimize (Mac style) matches image but usually these modal windows might not need standard controls if they are blocking. 
-             However, user image shows them. -->
-
-            <CloseButton @click="quitApp" />
-
+            class="drag flex h-full w-full flex-col items-center justify-center rounded-xl bg-white p-6 shadow-xl select-none dark:bg-zinc-900">
             <div class="mb-8 flex flex-col items-center">
                 <img
                     class="mb-4 size-16"
@@ -230,5 +226,5 @@
                 </button>
             </div>
         </div>
-    </div>
+    </GradientFrame>
 </template>

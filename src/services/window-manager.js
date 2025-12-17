@@ -222,9 +222,9 @@ class WindowManager {
 
             permissions: {
                 ...common,
-                width: 450,
-                height: 700,
-                resizable: true,
+                width: 400,
+                height: 650,
+                resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: false,
                 title: 'Snaplark Permissions',

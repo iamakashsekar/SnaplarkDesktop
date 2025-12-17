@@ -2,7 +2,7 @@
     defineProps({
         positionClasses: {
             type: String,
-            default: 'absolute top-4 right-4'
+            default: 'absolute top-5 right-4'
         }
     })
 
