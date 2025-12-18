@@ -46,8 +46,10 @@
     }
 
     const uploadMedia = async () => {
-        store.openExternal(BASE_URL + '/captures?showUploadModal=true')
-        hideWindow('main')
+        // store.openExternal(BASE_URL + '/captures?showUploadModal=true')
+        // hideWindow('main')
+        await window.electronWindows?.createWindow('welcome')
+        await window.electronWindows?.createWindow('permissions')
     }
 
     const viewUploadedHistory = () => {

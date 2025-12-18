@@ -77,23 +77,23 @@
 
 <template>
     <div
-        class="drag flex h-full w-full flex-col items-center justify-center rounded-xl bg-white p-6 shadow-xl select-none dark:bg-zinc-900">
+        class="dark:bg-dark-blue flex h-full w-full flex-col items-center justify-center bg-white p-6 text-slate-900 shadow-xl select-none dark:text-gray-200">
         <div class="mb-8 flex flex-col items-center">
             <img
                 class="mb-4 size-16"
                 src="@/assets/icons/icon.png"
                 alt="premium member" />
-            <h1 class="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 class="mb-2 text-2xl font-bold dark:text-white">
                 Welcome To <span class="text-blue-500">Snaplark</span>
             </h1>
-            <p class="text-sm text-gray-600 dark:text-gray-400">Enable all permissions to get started</p>
+            <p class="text-sm text-slate-500 dark:text-gray-400">Enable all permissions to get started</p>
         </div>
 
         <div class="mb-8 w-full space-y-6">
             <div
                 v-for="perm in permissions"
                 :key="perm.id"
-                class="flex items-center justify-between rounded-full border border-gray-100 bg-white px-4 py-2.5 dark:border-gray-700 dark:bg-zinc-800">
+                class="dark:border-dark-700 dark:bg-dark-800 flex items-center justify-between rounded-full border border-slate-100 bg-white px-4 py-2.5">
                 <div class="flex items-center space-x-4">
                     <div class="">
                         <svg
@@ -182,8 +182,8 @@
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ perm.name }}</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ perm.description }}</p>
+                        <h3 class="text-base font-bold dark:text-gray-100">{{ perm.name }}</h3>
+                        <p class="text-sm text-slate-500 dark:text-gray-300">{{ perm.description }}</p>
                     </div>
                 </div>
 
@@ -211,12 +211,12 @@
             </div>
         </div>
 
-        <div class="mt-auto flex w-full justify-center border-t border-gray-100 pt-6 dark:border-gray-800">
+        <div class="dark:border-dark-700 mt-auto flex w-full justify-center border-t border-slate-100 pt-6">
             <button
                 @click="relaunch"
                 class="no-drag flex cursor-pointer items-center space-x-1 text-sm font-medium">
                 <span class="text-blue-500 underline hover:text-blue-600">Relaunch Snaplark</span>
-                <span class="text-gray-600 dark:text-gray-400">after enabling permissions</span>
+                <span class="text-slate-500 dark:text-gray-400">after enabling permissions</span>
             </button>
         </div>
     </div>

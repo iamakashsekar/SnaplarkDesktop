@@ -2,6 +2,8 @@
     import { ref, watch, onMounted } from 'vue'
     import { useWindows } from '@/composables/useWindows'
     import { useStore } from '@/store'
+    import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
+    import Switch from '@/components/Switch.vue'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()
@@ -35,9 +37,9 @@
     const previousHotkeyValue = ref({})
 
     const mainTabs = [
-        { id: 'general', label: 'General', height: 700 },
+        { id: 'general', label: 'General', height: 750 },
         { id: 'hotkeys', label: 'Hotkeys', height: 440 },
-        { id: 'capture', label: 'Capture', height: 660 }
+        { id: 'capture', label: 'Capture', height: 680 }
     ]
 
     const browseSaveFolder = async () => {
@@ -114,7 +116,7 @@
 
     onMounted(async () => {
         // Init window to the General tab height
-        await resizeWindowTo('settings', 600, 600)
+        await resizeWindowTo('settings', 600, 700)
     })
 </script>
 
@@ -145,7 +147,7 @@
             </button>
         </nav>
 
-        <div class="no-drag custom-scrollbar flex-1 overflow-y-auto pr-2">
+        <div class="no-drag custom-scrollbar flex-1 overflow-y-auto rounded-xl pr-2">
             <transition
                 mode="out-in"
                 enter-active-class="transition duration-150 ease-out"
@@ -160,73 +162,22 @@
                     <!-- GENERAL TAB -->
                     <template v-if="activeTab === 'general'">
                         <!-- Launch at Startup -->
-                        <div
-                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Launch at Startup</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                        Start Snaplark when your system boots
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.launchAtStartup"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <SettingsSwitchItem
+                            title="Launch at Startup"
+                            description="Start Snaplark when your system boots"
+                            v-model="settings.launchAtStartup" />
 
                         <!-- Dark Mode -->
-                        <div
-                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Dark Mode</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                        Enable dark theme for the application
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.darkMode"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <SettingsSwitchItem
+                            title="Dark Mode"
+                            description="Enable dark theme for the application"
+                            v-model="settings.darkMode" />
 
                         <!-- Open in Browser -->
-                        <div
-                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Open in Browser</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                        Automatically open the uploaded capture link
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.openInBrowser"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <SettingsSwitchItem
+                            title="Open in Browser"
+                            description="Automatically open the uploaded capture link"
+                            v-model="settings.openInBrowser" />
 
                         <!-- Language Selection -->
                         <div
@@ -246,27 +197,10 @@
                         </div>
 
                         <!-- Save Location Behavior -->
-                        <div
-                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Prompt for Save Location</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                        Ask where to save each screenshot
-                                    </p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.promptForSaveLocation"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <SettingsSwitchItem
+                            title="Prompt for Save Location"
+                            description="Ask where to save each screenshot"
+                            v-model="settings.promptForSaveLocation" />
 
                         <!-- Default Save Folder -->
                         <div
@@ -387,46 +321,25 @@
                                 <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
                                     >Show Magnifier</label
                                 >
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.showMagnifier"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <Switch
+                                    v-model="settings.showMagnifier"
+                                    size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
                                     >Show Crosshair</label
                                 >
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.showCrosshair"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <Switch
+                                    v-model="settings.showCrosshair"
+                                    size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-slate-700 dark:text-gray-100">Show Cursor</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.showCursor"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <Switch
+                                    v-model="settings.showCursor"
+                                    size="md" />
                             </div>
                         </div>
 
@@ -444,32 +357,18 @@
                                 <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
                                     >Mirror Webcam</label
                                 >
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.flipCamera"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <Switch
+                                    v-model="settings.flipCamera"
+                                    size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
                                     >3 Second Countdown</label
                                 >
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.recordingCountdown"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="dark:bg-dark-700 absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <Switch
+                                    v-model="settings.recordingCountdown"
+                                    size="md" />
                             </div>
                         </div>
                     </template>

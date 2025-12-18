@@ -85,7 +85,7 @@
             <GradientFrame v-if="!showTour">
                 <div
                     key="welcome"
-                    class="welcome-screen dark:bg-dark-900 drag relative flex size-[450px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-white">
+                    class="welcome-screen dark:bg-dark-blue drag relative flex size-[450px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-white">
                     <!-- Background shapes -->
                     <img
                         src="@/assets/images/welcome-shape.png"
@@ -192,7 +192,7 @@
                 key="tour"
                 class="tour-screen flex flex-col items-center justify-center gap-4">
                 <GradientFrame>
-                    <div class="drag relative w-[420px] rounded-2xl bg-white px-5 py-6">
+                    <div class="drag dark:bg-dark-blue relative w-[420px] rounded-2xl bg-white px-5 py-6">
                         <div
                             class="bg-primary-blue absolute top-4 left-0 rounded-tr-2xl rounded-br-2xl py-3.5 pr-6 pl-8 text-white">
                             <span class="text-lg font-bold">{{ steps[currentStep].id }}</span>
@@ -201,7 +201,7 @@
                             name="slide-fade"
                             mode="out-in">
                             <div :key="currentStep">
-                                <h1 class="text-gray-black mt-2 ml-14 text-base font-medium">
+                                <h1 class="mt-2 ml-14 text-base font-medium text-gray-900 dark:text-gray-100">
                                     {{ steps[currentStep].title }}
                                 </h1>
                                 <img
@@ -214,7 +214,7 @@
                         <div class="mt-4 flex items-center justify-between">
                             <button
                                 @click="finishSetup"
-                                class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-300 transition-all duration-300 ease-in-out">
+                                class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-400 transition-all duration-300 ease-in-out dark:text-gray-500">
                                 Skip Tour
                             </button>
 
@@ -234,7 +234,7 @@
                         @click="goToStep(index)"
                         :class="[
                             'h-2.5 w-10 rounded-full focus:outline-none',
-                            currentStep === index ? 'bg-white' : 'bg-gray-200/60'
+                            currentStep === index ? 'bg-blue-500' : 'bg-gray-200/60 dark:bg-gray-600'
                         ]"></button>
                 </div>
             </div>
