@@ -58,13 +58,14 @@ export const useStore = defineStore('main', {
         canMakeRequests: (state) => state.isOnline && state.isAuthenticated,
 
         // Settings Getters
-        appSettings: (state) => state.settings
+        appSettings: (state) => state.settings,
+        isDarkMode: (state) => state.settings.darkMode
     },
 
     actions: {
         // UI Actions
         toggleDarkMode() {
-            this.isDarkMode = !this.isDarkMode
+            this.settings.darkMode = !this.settings.darkMode
         },
 
         // Auth Actions
@@ -110,7 +111,7 @@ export const useStore = defineStore('main', {
                         if (!welcomeCompleted) {
                             window.electronWindows.createWindow('welcome')
                         } else {
-                            window.electron.showMainAtTray({ force: true, gap: 0 })
+                            window.electron.showMainAtTray({ force: true, gap: 5 })
                         }
                     }
                     return true

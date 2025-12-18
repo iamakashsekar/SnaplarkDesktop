@@ -2,9 +2,6 @@
 // This ensures consistency and avoids duplication
 
 export const defaultState = {
-    // UI State
-    isDarkMode: false,
-
     // Auth State
     user: null,
     isAuthenticated: false,
@@ -17,6 +14,7 @@ export const defaultState = {
     // App Settings
     settings: {
         // General
+        darkMode: false,
         launchAtStartup: false,
         openInBrowser: false,
         language: 'en',

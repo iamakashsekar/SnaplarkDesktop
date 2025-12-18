@@ -176,6 +176,26 @@
                             </div>
                         </div>
 
+                        <!-- Dark Mode -->
+                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-base font-semibold text-slate-900">Dark Mode</h3>
+                                    <p class="mt-1 text-sm text-slate-500">Enable dark theme for the application</p>
+                                </div>
+                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
+                                    <input
+                                        type="checkbox"
+                                        v-model="settings.darkMode"
+                                        class="peer sr-only" />
+                                    <span
+                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
+                                    <span
+                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Open in Browser -->
                         <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
                             <div class="flex items-center justify-between">
