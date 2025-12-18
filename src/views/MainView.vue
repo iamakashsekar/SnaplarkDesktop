@@ -46,12 +46,8 @@
     }
 
     const uploadMedia = async () => {
-        console.log('Upload media')
-        console.log('Opening design workspace')
-        await createWindow('permissions')
-        await createWindow('welcome')
-
-        // TODO: Implement media upload
+        store.openExternal(BASE_URL + '/captures?showUploadModal=true')
+        hideWindow('main')
     }
 
     const viewUploadedHistory = () => {
