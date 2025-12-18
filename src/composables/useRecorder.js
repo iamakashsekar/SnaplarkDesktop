@@ -281,8 +281,10 @@ export function useRecorder() {
             if (selectedAudioDeviceId.value) {
                 try {
                     const audioConstraints = { deviceId: selectedAudioDeviceId.value }
-                    // Force channel count based on setting to avoid defaulting to mono
-                    audioConstraints.channelCount = store.settings.recordAudioMono ? 1 : 2
+                    // Always use stereo/best quality for studio-like sound
+                    audioConstraints.channelCount = 2
+                    audioConstraints.sampleRate = 48000
+                    audioConstraints.sampleSize = 16
 
                     audioStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false })
                 } catch (error) {

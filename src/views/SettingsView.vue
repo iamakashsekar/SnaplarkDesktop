@@ -431,20 +431,6 @@
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">Record Audio in Mono</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.recordAudioMono"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center justify-between">
                                 <label class="text-sm font-medium text-slate-700">3 Second Countdown</label>
                                 <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
                                     <input

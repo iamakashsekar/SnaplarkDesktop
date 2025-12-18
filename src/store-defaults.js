@@ -33,7 +33,6 @@ export const defaultState = {
 
         // Recording
         flipCamera: false,
-        recordAudioMono: false,
         recordingCountdown: true,
         selectedMicrophoneDeviceId: null, // null means muted, otherwise stores the deviceId
         webcamEnabled: false, // Whether webcam overlay is enabled by default
