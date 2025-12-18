@@ -18,8 +18,12 @@
     const mouseY = ref(0)
     const displayId = ref(null)
     const displayScaleFactor = ref(window.devicePixelRatio || 1)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving'
+    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving', 'countdown'
     const resizingHandle = ref(null)
+
+    // Countdown state
+    const showCountdown = ref(false)
+    const countdownValue = ref(3)
 
     // Dragging state
     const dragStartMouseX = ref(0)
@@ -409,10 +413,6 @@
                             selH: Math.round(height)
                         }
                     })
-
-                    // Ensure the overlay window is set to ignore mouse events (click-through)
-                    // Although the view calls it on mount, we can also reinforce it here if needed.
-                    // The view handles it fine.
                 }
             } catch (error) {
                 console.error('Error creating overlay window:', error)
@@ -422,6 +422,26 @@
         // Prepare toolbar for recording transition
         const toolbarInfo = await prepareToolbarForRecording()
 
+        // Check if countdown is enabled
+        if (store.settings.recordingCountdown) {
+            mode.value = 'countdown'
+            showCountdown.value = true
+            countdownValue.value = 3
+
+            const timer = setInterval(() => {
+                countdownValue.value--
+                if (countdownValue.value <= 0) {
+                    clearInterval(timer)
+                    showCountdown.value = false
+                    finalizeRecordingStart(toolbarInfo)
+                }
+            }, 1000)
+        } else {
+            await finalizeRecordingStart(toolbarInfo)
+        }
+    }
+
+    const finalizeRecordingStart = async (toolbarInfo) => {
         // Hide all UI elements
         mode.value = 'recording'
         fullScreenImage.value = null
@@ -1031,6 +1051,15 @@
                     }px, ${selectionRect.left}px ${selectionRect.top}px)`
                 }"></div>
 
+            <!-- Countdown Overlay -->
+            <div
+                v-if="mode === 'countdown' && showCountdown"
+                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                <div class="animate-pulse text-[150px] font-bold text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                    {{ countdownValue }}
+                </div>
+            </div>
+
             <!-- Selection rectangle -->
             <div
                 v-if="mode !== 'idle' && !isRecording"
@@ -1103,6 +1132,7 @@
                     mode !== 'confirming' &&
                     mode !== 'editing' &&
                     mode !== 'edited' &&
+                    mode !== 'countdown' &&
                     isWindowActive &&
                     !isRecording
                 "
@@ -1114,6 +1144,7 @@
                     mode !== 'confirming' &&
                     mode !== 'editing' &&
                     mode !== 'edited' &&
+                    mode !== 'countdown' &&
                     isWindowActive &&
                     !isRecording
                 "
