@@ -513,10 +513,17 @@ function setupIPCHandlers() {
     ipcMain.handle('request-system-permission', async (event, permissionId) => {
         if (process.platform !== 'darwin') return true
 
+        console.log(`[Main] Requesting permission for: ${permissionId}`)
+
         if (permissionId === 'camera') {
             const status = systemPreferences.getMediaAccessStatus('camera')
+            console.log(`[Main] Camera status: ${status}`)
             if (status === 'not-determined') {
-                return systemPreferences.askForMediaAccess('camera')
+                const granted = await systemPreferences.askForMediaAccess('camera')
+                if (!granted) {
+                    await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
+                }
+                return granted
             } else if (status === 'granted') {
                 return true
             } else {
@@ -525,8 +532,15 @@ function setupIPCHandlers() {
             }
         } else if (permissionId === 'microphone') {
             const status = systemPreferences.getMediaAccessStatus('microphone')
+            console.log(`[Main] Microphone status: ${status}`)
             if (status === 'not-determined') {
-                return systemPreferences.askForMediaAccess('microphone')
+                const granted = await systemPreferences.askForMediaAccess('microphone')
+                if (!granted) {
+                    await shell.openExternal(
+                        'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+                    )
+                }
+                return granted
             } else if (status === 'granted') {
                 return true
             } else {

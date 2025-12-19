@@ -51,6 +51,32 @@
     }
 
     const requestPermission = async (id) => {
+        // For camera and microphone, try getUserMedia first to trigger OS prompt reliably
+        // We use a timeout because sometimes this can hang if Electron/OS doesn't respond fast enough
+        if (id === 'camera' || id === 'microphone') {
+            try {
+                const constraints = id === 'camera' ? { video: true } : { audio: true }
+
+                // Race between getUserMedia and a timeout
+                const stream = await Promise.race([
+                    navigator.mediaDevices.getUserMedia(constraints),
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Timeout waiting for permission')), 3000)
+                    )
+                ])
+
+                // If we get here, permission was granted
+                stream.getTracks().forEach((track) => track.stop())
+
+                // Refresh permissions state
+                await checkPermissions()
+                return
+            } catch (e) {
+                console.warn('getUserMedia failed or timed out:', e)
+                // Fall through to requestSystemPermission to handle 'denied' state (open settings)
+            }
+        }
+
         await window.electron.requestSystemPermission(id)
         // We can't always know immediately if it was granted (OS dialog), but we can try re-checking
         // often the user has to restart or toggle a setting.
