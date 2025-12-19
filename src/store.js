@@ -209,7 +209,10 @@ export const useStore = defineStore('main', {
                     if (key in this.$state) {
                         // Update store without triggering sync (to prevent infinite loops)
                         this._isReceivingSync = true
-                        this[key] = value
+
+                        // Use $patch to ensure reactivity triggers correctly
+                        this.$patch({ [key]: value })
+
                         // Update previous state to match (store as string)
                         try {
                             previousState[key] = JSON.stringify(value)
@@ -262,7 +265,9 @@ export const useStore = defineStore('main', {
                         // Only sync if the value can be safely serialized
                         if (canSerialize(value)) {
                             try {
-                                window.electronStore.sync(key, value)
+                                // Deep clone to strip Vue Proxies which cause IPC cloning errors
+                                const rawValue = JSON.parse(JSON.stringify(value))
+                                window.electronStore.sync(key, rawValue)
                             } catch (error) {
                                 console.warn(`Failed to sync key "${key}" to other windows:`, error.message)
                             }

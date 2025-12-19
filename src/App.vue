@@ -6,14 +6,11 @@
     onMounted(() => {
         // Initialize store synchronization across windows
         store.initializeStoreSync()
-
-        // Quick test for auto-sync (remove this in production)
-        console.log('Auto-sync initialized. Current lastCapture:', store.lastCapture)
     })
 </script>
 
 <template>
-    <div :class="{ dark: store.isDarkMode }">
+    <div :class="{ dark: store.settings.darkMode }">
         <router-view />
     </div>
 </template>
