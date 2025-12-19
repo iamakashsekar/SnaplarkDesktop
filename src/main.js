@@ -514,9 +514,25 @@ function setupIPCHandlers() {
         if (process.platform !== 'darwin') return true
 
         if (permissionId === 'camera') {
-            return systemPreferences.askForMediaAccess('camera')
+            const status = systemPreferences.getMediaAccessStatus('camera')
+            if (status === 'not-determined') {
+                return systemPreferences.askForMediaAccess('camera')
+            } else if (status === 'granted') {
+                return true
+            } else {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
+                return false
+            }
         } else if (permissionId === 'microphone') {
-            return systemPreferences.askForMediaAccess('microphone')
+            const status = systemPreferences.getMediaAccessStatus('microphone')
+            if (status === 'not-determined') {
+                return systemPreferences.askForMediaAccess('microphone')
+            } else if (status === 'granted') {
+                return true
+            } else {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
+                return false
+            }
         } else if (permissionId === 'screen') {
             // Screen recording permission is tricky.
             // Often triggered by capturing, but we can open settings.

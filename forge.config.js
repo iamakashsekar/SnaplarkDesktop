@@ -6,7 +6,12 @@ module.exports = {
     packagerConfig: {
         icon: 'src/assets/icons/icon', // Correct: No extension, points to src/assets/icon.icns for macOS
         extraResource: ['./resources/icons'],
-        asar: true // Required because fuses enforce OnlyLoadAppFromAsar and ASAR integrity validation
+        asar: true, // Required because fuses enforce OnlyLoadAppFromAsar and ASAR integrity validation
+        extendInfo: {
+            NSCameraUsageDescription: 'This app needs access to the camera to record videos.',
+            NSMicrophoneUsageDescription: 'This app needs access to the microphone to record audio.',
+            NSAccessibilityUsageDescription: 'This app needs accessibility access to record your screen.'
+        }
     },
     rebuildConfig: {},
     makers: [
