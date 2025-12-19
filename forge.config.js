@@ -4,6 +4,8 @@ const path = require('path')
 
 module.exports = {
     packagerConfig: {
+        appBundleId: 'com.snaplark.snaplark',
+        appCategoryType: 'public.app-category.utilities',
         icon: 'src/assets/icons/icon', // Correct: No extension, points to src/assets/icon.icns for macOS
         extraResource: ['./resources/icons'],
         asar: true, // Required because fuses enforce OnlyLoadAppFromAsar and ASAR integrity validation
