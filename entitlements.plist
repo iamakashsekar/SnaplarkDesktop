@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Basic Electron permissions -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    
+    <!-- Hardware Access -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+    <key>com.apple.security.device.microphone</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    
+    <!-- Note: Screen Recording and Accessibility do not have specific Entitlements permissions 
+         in the plist for direct distribution. They are handled by macOS System Permissions (TCC) 
+         and the Info.plist usage descriptions (which you already have). -->
+  </dict>
+</plist>

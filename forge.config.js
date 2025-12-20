@@ -1,3 +1,4 @@
+require('dotenv').config() // Load environment variables from .env
 const { FusesPlugin } = require('@electron-forge/plugin-fuses')
 const { FuseV1Options, FuseVersion } = require('@electron/fuses')
 const path = require('path')
@@ -13,6 +14,18 @@ module.exports = {
             NSCameraUsageDescription: 'This app needs access to the camera to record videos.',
             NSMicrophoneUsageDescription: 'This app needs access to the microphone to record audio.',
             NSAccessibilityUsageDescription: 'This app needs accessibility access to record your screen.'
+        },
+        osxSign: {
+            identity: process.env.APP_IDENTITY,
+            hardenedRuntime: true,
+            'gatekeeper-assess': false,
+            entitlements: 'entitlements.plist',
+            'entitlements-inherit': 'entitlements.plist'
+        },
+        osxNotarize: {
+            appleId: process.env.APPLE_ID,
+            appleIdPassword: process.env.APPLE_PASSWORD,
+            teamId: process.env.APPLE_TEAM_ID
         }
     },
     rebuildConfig: {},
