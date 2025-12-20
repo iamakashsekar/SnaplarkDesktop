@@ -102,8 +102,7 @@
 
 <template>
     <GradientFrame>
-        <div
-            class="main-container dark:bg-dark-blue flex h-full w-fit flex-col rounded-2xl bg-white px-4 py-6 select-none">
+        <div class="main-container dark:bg-dark-blue flex h-full w-full flex-col rounded-2xl bg-white px-4 py-6">
             <!-- Capture Actions -->
             <div class="space-y-2">
                 <div class="group relative">
