@@ -2,9 +2,6 @@
 // This ensures consistency and avoids duplication
 
 export const defaultState = {
-    // UI State
-    isDarkMode: false,
-
     // Auth State
     user: null,
     isAuthenticated: false,
@@ -17,7 +14,9 @@ export const defaultState = {
     // App Settings
     settings: {
         // General
+        darkMode: false,
         launchAtStartup: false,
+        openInBrowser: false,
         language: 'en',
         defaultSaveFolder: '~/Pictures/Snaplark',
         promptForSaveLocation: true,
@@ -29,18 +28,21 @@ export const defaultState = {
 
         // Capture
         showMagnifier: true,
-        showCrosshair: false,
+        showCrosshair: true,
         showCursor: true,
 
         // Recording
         flipCamera: false,
-        recordAudioMono: false,
-        recordingCountdown: true
+        recordingCountdown: true,
+        selectedMicrophoneDeviceId: null, // null means muted, otherwise stores the deviceId
+        webcamEnabled: false, // Whether webcam overlay is enabled by default
+        selectedWebcamDeviceId: null // Selected webcam device ID, null means use default or none
     }
 }
 
 // Keys that should NOT be persisted (runtime-only state)
-export const excludeFromPersist = ['isLoading', 'isOnline', 'authError']
+// Note: 'auth_token' is managed separately by TokenManager, not by Pinia state
+export const excludeFromPersist = ['isLoading', 'isOnline', 'authError', 'auth_token']
 
 // Helper to get only persistable defaults (for Electron Store)
 export const getPersistableDefaults = () => {

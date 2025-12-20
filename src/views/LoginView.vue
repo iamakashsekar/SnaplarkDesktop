@@ -8,6 +8,7 @@
     import { apiClient, BASE_URL, PROTOCOL } from '../api/config.js'
     import { useWindows } from '../composables/useWindows'
     import router from '../router'
+    import GradientFrame from '@/components/GradientFrame.vue'
 
     const { hideWindow, resizeWindowTo } = useWindows()
 
@@ -81,7 +82,7 @@
     }
 
     onMounted(async () => {
-        await resizeWindowTo('main', 400, 650)
+        await resizeWindowTo('main', 350, 650)
         if (store.isLoggedIn) {
             await router.push('/')
         }
@@ -96,9 +97,7 @@
 </script>
 
 <template>
-    <div
-        :class="{ 'shadow-md': store.getOs() !== 'darwin' }"
-        class="login-container min-w-[400px] rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 select-none">
+    <GradientFrame>
         <div class="dark:bg-dark-blue space-y-6 rounded-2xl bg-white px-2 py-3">
             <div class="mx-auto w-3/4 space-y-6">
                 <div class="pt-7 text-center">
@@ -128,21 +127,21 @@
                 </div>
 
                 <!-- Offline Mode -->
-                <div class="space-y-1.5 text-center">
-                    <p class="text-sm text-gray-300">No Internet? No Problem</p>
+                <!-- <div class="space-y-1.5 text-center">
+                    <p class="text-sm text-gray-300">No Internet? No Problem you can still use Snaplark</p>
                     <button
                         @click="handleGuestMode"
                         class="dark:bg-dark-700 dark:hover:bg-dark-600 w-full rounded-full bg-gray-100 px-6 py-3 text-base font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-200 dark:text-gray-300">
                         Guest
                     </button>
-                </div>
+                </div> -->
             </div>
 
             <div
                 :style="{ backgroundImage: `url(${whatsNewBg})` }"
                 class="shadow-cyan/50 relative min-h-56 rounded-2xl bg-cover bg-center shadow-lg">
                 <!-- Toggle Button -->
-                <div class="absolute top-8 right-8 z-10">
+                <div class="absolute top-4 right-4 z-10">
                     <button
                         @click="store.toggleDarkMode()"
                         class="relative inline-flex h-7 w-14 cursor-pointer items-center rounded-full transition-colors duration-300 focus:outline-none"
@@ -271,7 +270,7 @@
                         <div class="space-y-6 px-6 pt-5 text-white">
                             <!-- Header -->
                             <div class="mb-5 space-y-1">
-                                <h2 class="text-[28px] font-bold">Premium member yet?</h2>
+                                <h2 class="text-2xl font-bold">Premium member yet?</h2>
                             </div>
 
                             <img
@@ -419,5 +418,5 @@
                 </div>
             </div>
         </div>
-    </div>
+    </GradientFrame>
 </template>

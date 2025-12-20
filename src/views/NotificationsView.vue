@@ -1,18 +1,27 @@
 <script setup>
-    import { onMounted, ref, watch, nextTick } from 'vue'
+    import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
     import UploadNotification from '../components/UploadNotification.vue'
 
     let idCounter = 1
 
     const notifications = ref([])
     const wrap = ref(null)
+    let resizeObserver = null
 
     const recalc = () => {
         requestAnimationFrame(() => {
             const height = wrap.value?.scrollHeight || 0
+            // Add a bit more padding/margin safely
             window.electronNotifications?.resize(height + 20)
         })
     }
+
+    onUnmounted(() => {
+        if (resizeObserver) {
+            resizeObserver.disconnect()
+        }
+        window.removeEventListener('resize', recalc)
+    })
 
     const addOrMerge = (n) => {
         notifications.value.unshift({
@@ -20,10 +29,10 @@
             variant: n.variant || 'info',
             timeoutMs: n.timeoutMs ?? 5000,
             fileInfo: n.fileInfo ?? {},
-            _paused: n.variant === 'upload',
+            _paused: n.variant === 'upload' || n.variant === 'video-upload',
             _remaining: n.timeoutMs ?? 5000,
             _start: Date.now(),
-            _hidden: false
+            _hidden: n.hidden || false
         })
 
         nextTick(() => {
@@ -57,6 +66,7 @@
         if (notification) {
             // Show notification (useful for failed uploads that were hidden)
             notification._hidden = false
+            window.electronNotifications?.show()
         }
         nextTick(() => {
             recalc()
@@ -109,10 +119,17 @@
         (newNotifications) => {
             const visibleNotifications = newNotifications.filter((n) => !n._hidden)
             if (visibleNotifications.length === 0) {
-                console.log('No visible notifications, closing window')
-                setTimeout(() => {
-                    window.electronNotifications?.close()
-                }, 200)
+                if (newNotifications.length > 0) {
+                    console.log('Hidden notifications exist, hiding window')
+                    setTimeout(() => {
+                        window.electronNotifications?.hide()
+                    }, 200)
+                } else {
+                    console.log('No visible notifications, closing window')
+                    setTimeout(() => {
+                        window.electronNotifications?.close()
+                    }, 200)
+                }
             }
         },
         { deep: true, immediate: false }
@@ -124,6 +141,14 @@
         window.electronNotifications?.onAdd((payload) => {
             addOrMerge(payload)
         })
+
+        // Use ResizeObserver to detect all size changes (children added/removed, animating, internal state changes)
+        if (window.ResizeObserver && wrap.value) {
+            resizeObserver = new ResizeObserver(() => {
+                recalc()
+            })
+            resizeObserver.observe(wrap.value)
+        }
 
         window.addEventListener('resize', () => recalc())
         window.electronNotifications?.reposition()
@@ -139,7 +164,7 @@
 
 <template>
     <div
-        class="p-2.5 select-none"
+        class="mt-4 p-2.5"
         ref="wrap">
         <transition-group
             tag="div"
@@ -149,15 +174,18 @@
             enter-from-class="opacity-0 -translate-y-1.5"
             leave-to-class="opacity-0 -translate-y-1.5">
             <div
-                v-for="n in notifications.filter((n) => !n._hidden)"
+                v-for="n in notifications"
                 :key="n.id"
+                v-show="!n._hidden"
                 class="size-full rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md">
                 <div class="rounded-2xl bg-white p-5">
                     <UploadNotification
-                        v-if="n.variant === 'upload'"
+                        v-if="n.variant === 'upload' || n.variant === 'video-upload'"
+                        :type="n.variant === 'upload' ? 'image' : 'video'"
                         @close="dismiss(n.id)"
                         @hide="hide(n.id)"
                         @show="show(n.id)"
+                        :notificationId="n.id"
                         :fileInfo="n.fileInfo" />
                 </div>
             </div>

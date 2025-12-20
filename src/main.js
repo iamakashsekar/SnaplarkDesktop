@@ -1,4 +1,16 @@
-import { app, BrowserWindow, shell, ipcMain, protocol, screen, net, dialog, globalShortcut } from 'electron'
+import {
+    app,
+    BrowserWindow,
+    shell,
+    ipcMain,
+    protocol,
+    screen,
+    net,
+    dialog,
+    globalShortcut,
+    systemPreferences,
+    clipboard
+} from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -10,7 +22,6 @@ import ScreenshotService from './services/screenshot-service.js'
 import VideoRecordingService from './services/video-recording-service.js'
 import NotificationService from './services/notification-service.js'
 import StoreService from './services/store-service.js'
-import FFmpegService from './services/ffmpeg-service.js'
 import { getPersistableDefaults } from './store-defaults.js'
 
 // ==================== CONFIGURATION & INITIALIZATION ====================
@@ -63,33 +74,77 @@ let screenshotService
 let videoRecordingService
 let notificationService
 let storeService
-let ffmpegService
 let currentScreenshotShortcut = null
+let currentRecordingShortcut = null
 
-// ==================== WINDOW CREATION ====================
+const checkAppPermissions = () => {
+    if (process.platform !== 'darwin') {
+        return {
+            allGranted: true,
+            statuses: {
+                camera: true,
+                microphone: true,
+                screen: true,
+                accessibility: true
+            }
+        }
+    }
+
+    const camera = systemPreferences.getMediaAccessStatus('camera') === 'granted'
+    const microphone = systemPreferences.getMediaAccessStatus('microphone') === 'granted'
+    const screen = systemPreferences.getMediaAccessStatus('screen') === 'granted'
+    const accessibility = systemPreferences.isTrustedAccessibilityClient(false)
+
+    return {
+        allGranted: camera && microphone && screen && accessibility,
+        statuses: {
+            camera,
+            microphone,
+            screen,
+            accessibility
+        }
+    }
+}
 
 const createWindow = () => {
     windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME)
 
     const mainWindow = windowManager.createWindow('main')
 
-    tray = new SystemTray(mainWindow)
+    // Initialize StoreService early so IPC handlers are ready for any window (including permissions)
+    storeService = new StoreService(windowManager, store)
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
         shell.openExternal(details.url)
         return { action: 'deny' }
     })
 
-    const welcomeCompleted = store.get('welcomeCompleted')
-    if (!welcomeCompleted) {
-        windowManager.createWindow('welcome')
+    // On macOS, check permissions before initializing services or showing welcome
+    if (process.platform === 'darwin') {
+        const { allGranted } = checkAppPermissions()
+        if (!allGranted) {
+            // Close main window or just leave it hidden
+            // Show permissions window
+            windowManager.createWindow('permissions').show()
+            return
+        }
     }
+
+    tray = new SystemTray(windowManager)
+
+    // Automatically show main window near tray icon on app startup
+    setTimeout(() => {
+        tray.showMainAtTray(null, { force: true, gap: 5 })
+    }, 200)
+
+    // const welcomeCompleted = store.get('welcomeCompleted')
+    // if (!welcomeCompleted) {
+    //     windowManager.createWindow('welcome')
+    // }
 
     screenshotService = new ScreenshotService(windowManager, store)
     videoRecordingService = new VideoRecordingService(windowManager, store)
     notificationService = new NotificationService(windowManager)
-    storeService = new StoreService(windowManager, store)
-    ffmpegService = new FFmpegService()
 }
 
 // ==================== GLOBAL SHORTCUTS ====================
@@ -109,16 +164,16 @@ const convertHotkeyToElectron = (hotkey) => {
 
     // Handle special key names that Electron expects
     const keyMappings = {
-        'ArrowUp': 'Up',
-        'ArrowDown': 'Down',
-        'ArrowLeft': 'Left',
-        'ArrowRight': 'Right',
-        'Enter': 'Return',
+        ArrowUp: 'Up',
+        ArrowDown: 'Down',
+        ArrowLeft: 'Left',
+        ArrowRight: 'Right',
+        Enter: 'Return',
         ' ': 'Space'
     }
 
     // Replace any mapped keys (handle both start and middle of string)
-    Object.keys(keyMappings).forEach(key => {
+    Object.keys(keyMappings).forEach((key) => {
         // Escape special regex characters in the key name
         const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         // Match key at start, after +, or at end
@@ -197,9 +252,73 @@ const registerScreenshotShortcut = () => {
     }
 }
 
+const registerRecordingShortcut = () => {
+    const settings = store.get('settings') || {}
+    const hotkey = settings.hotkeyRecording
+
+    if (!hotkey) {
+        console.log('No recording hotkey configured')
+        if (currentRecordingShortcut) {
+            globalShortcut.unregister(currentRecordingShortcut)
+            currentRecordingShortcut = null
+        }
+        return
+    }
+
+    if (currentRecordingShortcut) {
+        try {
+            globalShortcut.unregister(currentRecordingShortcut)
+            console.log(`Unregistered previous recording shortcut: ${currentRecordingShortcut}`)
+        } catch (error) {
+            console.error(`Error unregistering previous shortcut:`, error)
+        }
+        currentRecordingShortcut = null
+    }
+
+    const electronKey = convertHotkeyToElectron(hotkey)
+    if (!electronKey) {
+        console.error(`Invalid hotkey format: ${hotkey}`)
+        return
+    }
+
+    if (globalShortcut.isRegistered(electronKey)) {
+        console.log(`Shortcut ${electronKey} is already registered by another application`)
+        try {
+            globalShortcut.unregister(electronKey)
+        } catch (error) {
+            console.error(`Cannot unregister existing shortcut:`, error)
+        }
+    }
+
+    try {
+        const registered = globalShortcut.register(electronKey, () => {
+            console.log(`Recording shortcut triggered: ${electronKey}`)
+            if (videoRecordingService && windowManager) {
+                const mainWindow = windowManager.getWindow('main')
+                if (mainWindow && mainWindow.webContents) {
+                    mainWindow.webContents.send('trigger-video-recording')
+                }
+            }
+        })
+
+        if (registered) {
+            currentRecordingShortcut = electronKey
+            console.log(`Successfully registered recording shortcut: ${electronKey}`)
+            return { success: true, shortcut: electronKey }
+        } else {
+            console.error(`Failed to register recording shortcut: ${electronKey}`)
+            return { success: false, error: 'Failed to register shortcut. It may be in use by another application.' }
+        }
+    } catch (error) {
+        console.error(`Error registering recording shortcut:`, error)
+        return { success: false, error: error.message }
+    }
+}
+
 const unregisterAllShortcuts = () => {
     globalShortcut.unregisterAll()
     currentScreenshotShortcut = null
+    currentRecordingShortcut = null
     console.log('Unregistered all shortcuts')
 }
 
@@ -227,6 +346,7 @@ app.whenReady().then(() => {
 
     // Register global shortcuts after window is created
     registerScreenshotShortcut()
+    registerRecordingShortcut()
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -260,6 +380,13 @@ function setupProtocolHandlers() {
             return new Response('File not found', { status: 404 })
         }
     })
+
+    // Register protocol to serve local video files
+    protocol.registerFileProtocol('local-video', (request, callback) => {
+        const url = request.url.replace('local-video://', '')
+        const decodedPath = decodeURIComponent(url)
+        callback({ path: decodedPath })
+    })
 }
 
 // ==================== IPC HANDLERS ====================
@@ -276,6 +403,15 @@ function setupIPCHandlers() {
 
     ipcMain.handle('open-external', (event, url) => {
         shell.openExternal(url)
+    })
+
+    ipcMain.handle('show-item-in-folder', (event, filePath) => {
+        shell.showItemInFolder(filePath)
+    })
+
+    ipcMain.handle('write-to-clipboard', (event, text) => {
+        clipboard.writeText(text)
+        return { success: true }
     })
 
     // File system handlers
@@ -304,6 +440,20 @@ function setupIPCHandlers() {
         return result
     })
 
+    // Permission handlers
+    app.on('web-contents-created', (event, webContents) => {
+        webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+            console.log(`Permission requested: ${permission}`)
+            // Allow camera and microphone permissions
+            if (permission === 'media' || permission === 'camera' || permission === 'microphone') {
+                console.log(`Granting ${permission} permission`)
+                callback(true)
+            } else {
+                callback(false)
+            }
+        })
+    })
+
     // Shortcut handlers
     ipcMain.handle('update-screenshot-shortcut', async (event, hotkeyValue) => {
         // If hotkeyValue is provided, temporarily update store to ensure consistency
@@ -313,6 +463,16 @@ function setupIPCHandlers() {
             store.set('settings', settings)
         }
         const result = registerScreenshotShortcut()
+        return result || { success: true }
+    })
+
+    ipcMain.handle('update-recording-shortcut', async (event, hotkeyValue) => {
+        if (hotkeyValue !== undefined) {
+            const settings = store.get('settings') || {}
+            settings.hotkeyRecording = hotkeyValue
+            store.set('settings', settings)
+        }
+        const result = registerRecordingShortcut()
         return result || { success: true }
     })
 
@@ -344,6 +504,70 @@ function setupIPCHandlers() {
             type: 'status-update',
             ...data
         })
+    })
+    // Permission Management Handlers
+    ipcMain.handle('check-system-permissions', () => {
+        return checkAppPermissions().statuses
+    })
+
+    ipcMain.handle('request-system-permission', async (event, permissionId) => {
+        if (process.platform !== 'darwin') return true
+
+        console.log(`[Main] Requesting permission for: ${permissionId}`)
+
+        if (permissionId === 'camera') {
+            const status = systemPreferences.getMediaAccessStatus('camera')
+            console.log(`[Main] Camera status: ${status}`)
+            if (status === 'not-determined') {
+                const granted = await systemPreferences.askForMediaAccess('camera')
+                if (!granted) {
+                    await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
+                }
+                return granted
+            } else if (status === 'granted') {
+                return true
+            } else {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
+                return false
+            }
+        } else if (permissionId === 'microphone') {
+            const status = systemPreferences.getMediaAccessStatus('microphone')
+            console.log(`[Main] Microphone status: ${status}`)
+            if (status === 'not-determined') {
+                const granted = await systemPreferences.askForMediaAccess('microphone')
+                if (!granted) {
+                    await shell.openExternal(
+                        'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+                    )
+                }
+                return granted
+            } else if (status === 'granted') {
+                return true
+            } else {
+                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
+                return false
+            }
+        } else if (permissionId === 'screen') {
+            // Screen recording permission is tricky.
+            // Often triggered by capturing, but we can open settings.
+            await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+            return false
+        } else if (permissionId === 'accessibility') {
+            const entrusted = systemPreferences.isTrustedAccessibilityClient(true)
+            if (!entrusted) {
+                // If prompt didn't help or already denied, open settings
+                await shell.openExternal(
+                    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
+                )
+            }
+            return entrusted
+        }
+        return false
+    })
+
+    ipcMain.handle('relaunch-app', () => {
+        app.relaunch()
+        app.quit()
     })
 }
 

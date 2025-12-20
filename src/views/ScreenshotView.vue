@@ -3,6 +3,7 @@
     import { apiClient } from '../api/config.js'
     import axios from 'axios'
     import KonvaEditor from '../components/KonvaEditor.vue'
+    import SizeIndicatorPill from '../components/SizeIndicatorPill.vue'
     import { createWorker } from 'tesseract.js'
     import { useStore } from '@/store'
 
@@ -27,7 +28,7 @@
     const dragStartSelectionY = ref(0)
 
     // Magnifier state
-    const magnifierActive = ref(false) // Start inactive, will be activated by mouse position
+    const magnifierActive = ref(false) // Will be activated when window is active
     const isWindowActive = ref(false) // Track if this window is currently active
     const magnifierSize = 200
     const zoomFactor = 2
@@ -200,7 +201,7 @@
     })
 
     const handleMouseDown = async (e) => {
-        if (mode.value === 'confirming' || mode.value === 'editing' || mode.value === 'edited') return
+        if (mode.value === 'editing' || mode.value === 'edited') return
 
         // Close other screenshot windows when user starts selecting on this monitor
         try {
@@ -467,6 +468,7 @@
             if (saveResult?.success) {
                 // Window is closed by the main process after successful save
                 console.log('Screenshot saved successfully:', saveResult.path)
+                store.lastCapture = saveResult.path
             } else if (saveResult?.canceled) {
                 // User canceled, windows are shown again by main process
                 console.log('Save canceled by user')
@@ -715,8 +717,31 @@
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
-        mouseX.value = parseInt(params.get('initialMouseX') || '0', 10)
-        mouseY.value = parseInt(params.get('initialMouseY') || '0', 10)
+        const initialMouseX = parseInt(params.get('initialMouseX') || '0', 10)
+        const initialMouseY = parseInt(params.get('initialMouseY') || '0', 10)
+        const activeDisplayId = params.get('activeDisplayId')
+
+        // Set initial mouse position immediately
+        mouseX.value = Math.max(0, Math.min(initialMouseX, window.innerWidth))
+        mouseY.value = Math.max(0, Math.min(initialMouseY, window.innerHeight))
+
+        // Check if this display is the active one
+        const isThisDisplayActive = activeDisplayId && displayId.value === activeDisplayId
+
+        // Helper function to update magnifier when both conditions are met
+        const tryUpdateMagnifier = () => {
+            if (
+                magnifierCanvas.value &&
+                isWindowActive.value &&
+                magnifierActive.value &&
+                mode.value === 'idle' &&
+                fullScreenImage.value &&
+                fullScreenImage.value.complete &&
+                fullScreenImage.value.naturalWidth > 0
+            ) {
+                updateMagnifier(mouseX.value, mouseY.value)
+            }
+        }
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
 
@@ -731,11 +756,19 @@
                 mouseX.value = Math.max(0, Math.min(activationData.mouseX, window.innerWidth))
                 mouseY.value = Math.max(0, Math.min(activationData.mouseY, window.innerHeight))
 
-                if (mode.value === 'idle') {
-                    updateMagnifier(mouseX.value, mouseY.value)
-                }
+                // Try to update magnifier immediately (will work if image is already loaded)
+                // Use a small delay to ensure canvas is rendered
+                setTimeout(() => {
+                    tryUpdateMagnifier()
+                    // If canvas still not ready, try again after a short delay
+                    if (!magnifierCanvas.value && fullScreenImage.value) {
+                        setTimeout(() => {
+                            tryUpdateMagnifier()
+                        }, 50)
+                    }
+                }, 10)
             } else {
-                // This window is no longer active - hide magnifier
+                // This window is no longer active - hide magnifier and crosshair
                 magnifierActive.value = false
             }
         })
@@ -746,9 +779,17 @@
             img.src = dataURL
             img.onload = () => {
                 fullScreenImage.value = img
-                if (mouseX.value || mouseY.value) {
-                    updateMagnifier(mouseX.value, mouseY.value)
-                }
+                // Try to update magnifier immediately (will work if window is already active)
+                // Use a small delay to ensure Vue has updated the refs and canvas is rendered
+                setTimeout(() => {
+                    tryUpdateMagnifier()
+                    // If canvas still not ready, try again after a short delay
+                    if (!magnifierCanvas.value && isWindowActive.value && magnifierActive.value) {
+                        setTimeout(() => {
+                            tryUpdateMagnifier()
+                        }, 50)
+                    }
+                }, 10)
             }
             img.onerror = (e) => console.error('Error loading magnifier image from data URL:', e)
         }
@@ -761,6 +802,27 @@
         } catch (error) {
             console.error('Failed to get initial magnifier data:', error)
         }
+
+        // Fallback: If activation event hasn't arrived after a short delay,
+        // only activate if this display is confirmed to be the active one
+        setTimeout(() => {
+            if (!isWindowActive.value && isThisDisplayActive) {
+                console.log(`Fallback activation for display ${displayId.value} (confirmed active display)`)
+                isWindowActive.value = true
+                magnifierActive.value = shouldShowMagnifier.value
+                // Try to update magnifier (will work if image is already loaded)
+                // Use a small delay to ensure canvas is rendered
+                setTimeout(() => {
+                    tryUpdateMagnifier()
+                    // If canvas still not ready, try again after a short delay
+                    if (!magnifierCanvas.value && fullScreenImage.value) {
+                        setTimeout(() => {
+                            tryUpdateMagnifier()
+                        }, 50)
+                    }
+                }, 10)
+            }
+        }, 150)
     })
 
     onUnmounted(() => {
@@ -879,6 +941,11 @@
                 zIndex: 40
             }"
             @mousedown="handleSelectionMouseDown">
+            <!-- Size Indicator Pill -->
+            <SizeIndicatorPill
+                :width="selectionRect.width"
+                :height="selectionRect.height" />
+
             <!-- Resize handles -->
             <div v-if="mode === 'confirming' || mode === 'resizing'">
                 <div
@@ -947,11 +1014,6 @@
                 class="h-full w-full"
                 :width="magnifierSize"
                 :height="magnifierSize"></canvas>
-            <div
-                v-if="mode === 'selecting' || mode === 'resizing'"
-                class="absolute -top-[30px] left-1/2 -translate-x-1/2 rounded bg-black/80 px-2 py-1 text-xs whitespace-nowrap text-white">
-                <p>{{ Math.round(selectionRect.width) }} x {{ Math.round(selectionRect.height) }}</p>
-            </div>
         </div>
 
         <!-- Action Toolbar -->
@@ -959,7 +1021,8 @@
             v-if="mode === 'confirming' || mode === 'edited'"
             class="toolbar-container absolute z-50 flex items-center gap-4 transition-shadow"
             :class="{ 'shadow-2xl': isDraggingToolbar }"
-            :style="toolbarStyle">
+            :style="toolbarStyle"
+            @mousedown.stop>
             <!-- Drag Handle -->
             <div class="group relative">
                 <div

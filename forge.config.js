@@ -4,11 +4,16 @@ const path = require('path')
 
 module.exports = {
     packagerConfig: {
-        asar: {
-            unpack: '{**/node_modules/@ffmpeg-installer/**/*,**/node_modules/@ffprobe-installer/**/*}'
-        },
+        appBundleId: 'com.snaplark.snaplark',
+        appCategoryType: 'public.app-category.utilities',
         icon: 'src/assets/icons/icon', // Correct: No extension, points to src/assets/icon.icns for macOS
-        extraResource: ['./resources/icons']
+        extraResource: ['./resources/icons'],
+        asar: true, // Required because fuses enforce OnlyLoadAppFromAsar and ASAR integrity validation
+        extendInfo: {
+            NSCameraUsageDescription: 'This app needs access to the camera to record videos.',
+            NSMicrophoneUsageDescription: 'This app needs access to the microphone to record audio.',
+            NSAccessibilityUsageDescription: 'This app needs accessibility access to record your screen.'
+        }
     },
     rebuildConfig: {},
     makers: [
@@ -22,7 +27,8 @@ module.exports = {
         {
             name: '@electron-forge/maker-dmg',
             config: {
-                icon: 'src/assets/icons/icon.icns'
+                icon: 'src/assets/icons/icon.icns',
+                background: 'src/assets/icons/background.png'
             }
         },
         {

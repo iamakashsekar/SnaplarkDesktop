@@ -58,13 +58,14 @@ export const useStore = defineStore('main', {
         canMakeRequests: (state) => state.isOnline && state.isAuthenticated,
 
         // Settings Getters
-        appSettings: (state) => state.settings
+        appSettings: (state) => state.settings,
+        isDarkMode: (state) => state.settings.darkMode
     },
 
     actions: {
         // UI Actions
         toggleDarkMode() {
-            this.isDarkMode = !this.isDarkMode
+            this.settings.darkMode = !this.settings.darkMode
         },
 
         // Auth Actions
@@ -88,14 +89,30 @@ export const useStore = defineStore('main', {
                 if (access_token) {
                     TokenManager.setToken(access_token)
                     console.log('Token set: ', access_token)
+
+                    // Verify token was saved
+                    const savedToken = TokenManager.getToken()
+                    if (!savedToken || savedToken !== access_token) {
+                        console.error('Token verification failed. Expected:', access_token, 'Got:', savedToken)
+                        throw new Error('Failed to save authentication token')
+                    }
+                    console.log('Token verified in storage:', savedToken ? '✓' : '✗')
+                } else {
+                    throw new Error('No access token provided')
                 }
+
                 try {
                     const response = await apiClient.get('/user')
                     if (response.data) {
                         this.user = response.data
                         this.isAuthenticated = true
                         await router.push('/')
-                        window.electron.showMainAtTray({ force: true, gap: 0 })
+                        const welcomeCompleted = window.electronStore.get('welcomeCompleted')
+                        if (!welcomeCompleted) {
+                            window.electronWindows.createWindow('welcome')
+                        } else {
+                            window.electron.showMainAtTray({ force: true, gap: 5 })
+                        }
                     }
                     return true
                 } catch (error) {
@@ -167,18 +184,43 @@ export const useStore = defineStore('main', {
 
         // Initialize store sync listener and watcher
         initializeStoreSync() {
-            // Track previous state to detect actual changes
+            // Helper function to check if a value can be safely serialized for IPC
+            const canSerialize = (value) => {
+                try {
+                    // Test if the value can be serialized using JSON
+                    JSON.stringify(value)
+                    return true
+                } catch (error) {
+                    return false
+                }
+            }
+
+            // Track previous state to detect actual changes (stores JSON strings for deep comparison)
             let previousState = {}
 
             // Listen for updates from other windows
             if (window.electronStore?.onUpdate) {
                 window.electronStore.onUpdate((key, value) => {
-                    // Update store without triggering sync (to prevent infinite loops)
-                    this._isReceivingSync = true
-                    this[key] = value
-                    // Update previous state to match
-                    previousState[key] = value
-                    this._isReceivingSync = false
+                    // Skip auth_token - it's managed separately by TokenManager
+                    if (key === 'auth_token') {
+                        return
+                    }
+                    // Only update if this key exists in the Pinia state
+                    if (key in this.$state) {
+                        // Update store without triggering sync (to prevent infinite loops)
+                        this._isReceivingSync = true
+
+                        // Use $patch to ensure reactivity triggers correctly
+                        this.$patch({ [key]: value })
+
+                        // Update previous state to match (store as string)
+                        try {
+                            previousState[key] = JSON.stringify(value)
+                        } catch (e) {
+                            console.warn('Failed to stringify synced value for previousState:', e)
+                        }
+                        this._isReceivingSync = false
+                    }
                 })
             }
 
@@ -187,7 +229,11 @@ export const useStore = defineStore('main', {
 
             // Initialize previous state
             syncableKeys.forEach((key) => {
-                previousState[key] = this[key]
+                try {
+                    previousState[key] = JSON.stringify(this[key])
+                } catch (e) {
+                    console.warn('Failed to initialize previousState for key:', key)
+                }
             })
 
             // Watch for local store changes and sync to other windows
@@ -198,9 +244,16 @@ export const useStore = defineStore('main', {
                 // Check which syncable properties actually changed
                 const changedKeys = []
                 syncableKeys.forEach((key) => {
-                    if (state[key] !== previousState[key]) {
+                    let currentValueStr
+                    try {
+                        currentValueStr = JSON.stringify(state[key])
+                    } catch (e) {
+                        return // Skip if not serializable
+                    }
+
+                    if (currentValueStr !== previousState[key]) {
                         changedKeys.push(key)
-                        previousState[key] = state[key]
+                        previousState[key] = currentValueStr
                     }
                 })
 
@@ -208,7 +261,19 @@ export const useStore = defineStore('main', {
                 if (changedKeys.length > 0 && window.electronStore?.sync) {
                     console.log('Syncing changed keys to other windows:', changedKeys)
                     changedKeys.forEach((key) => {
-                        window.electronStore.sync(key, state[key])
+                        const value = state[key]
+                        // Only sync if the value can be safely serialized
+                        if (canSerialize(value)) {
+                            try {
+                                // Deep clone to strip Vue Proxies which cause IPC cloning errors
+                                const rawValue = JSON.parse(JSON.stringify(value))
+                                window.electronStore.sync(key, rawValue)
+                            } catch (error) {
+                                console.warn(`Failed to sync key "${key}" to other windows:`, error.message)
+                            }
+                        } else {
+                            console.warn(`Skipping sync for key "${key}" - value is not serializable`)
+                        }
                     })
                 }
             })

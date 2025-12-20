@@ -1,9 +1,14 @@
 <script setup>
-    import { ref, onMounted, onUnmounted, computed } from 'vue'
-    import { useStore } from '@/store'
+    import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+    import { useRecorder } from '@/composables/useRecorder'
+    import { useStore } from '../store'
+    import VideoPreview from '../components/VideoPreview.vue'
+    import Tooltip from '../components/Tooltip.vue'
+    import SizeIndicatorPill from '../components/SizeIndicatorPill.vue'
 
     const store = useStore()
 
+    const loading = ref(false)
     // Core selection state
     const startX = ref(0)
     const startY = ref(0)
@@ -12,8 +17,13 @@
     const mouseX = ref(0)
     const mouseY = ref(0)
     const displayId = ref(null)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'recording', 'stopping', 'previewing'
+    const displayScaleFactor = ref(window.devicePixelRatio || 1)
+    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving', 'countdown'
     const resizingHandle = ref(null)
+
+    // Countdown state
+    const showCountdown = ref(false)
+    const countdownValue = ref(3)
 
     // Dragging state
     const dragStartMouseX = ref(0)
@@ -22,37 +32,15 @@
     const dragStartSelectionY = ref(0)
 
     // Magnifier state
-    const magnifierActive = ref(false)
-    const isWindowActive = ref(false)
+    const magnifierActive = ref(false) // Will be activated when window is active
+    const isWindowActive = ref(false) // Track if this window is currently active
     const magnifierSize = 200
     const zoomFactor = 2
     const magnifierCanvas = ref(null)
     const fullScreenImage = ref(null)
 
-    // Preview state
-    const recordedVideoBlob = ref(null)
-    const recordedVideoPath = ref(null)
-    const previewVideoUrl = ref(null)
-    const processingProgress = ref(0)
-
-    // Recording state
-    const isRecording = ref(false)
-    const recordingId = ref(null)
-    const mediaRecorder = ref(null)
-    const recordedChunks = ref([])
-    const recordingStartTime = ref(null)
-    const recordingDuration = ref(0)
-    const recordingInterval = ref(null)
-    const stream = ref(null)
-    const stopRecordingShortcutCallback = ref(null)
-    const cropBounds = ref(null) // Store crop bounds for post-processing
-
-    // Video recording configuration
-    const VIDEO_CONFIG = {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 5000000,
-        audioBitsPerSecond: 128000
-    }
+    // Webcam repositioning throttle
+    let webcamRepositionTimeout = null
 
     const selectionRect = computed(() => {
         const left = Math.min(startX.value, endX.value)
@@ -62,11 +50,7 @@
         return { left, top, width, height }
     })
 
-    const isFullScreen = computed(() => {
-        const { left, top, width, height } = selectionRect.value
-        return left === 0 && top === 0 && width === window.innerWidth && height === window.innerHeight
-    })
-
+    // Settings computed properties
     const shouldShowMagnifier = computed(() => {
         return store.settings.showMagnifier !== false
     })
@@ -78,20 +62,27 @@
     const selectionBorderClass = computed(() => {
         if (mode.value !== 'selecting') return 'animated-dashed-border'
 
+        // If crosshair is disabled, show all borders
         if (!shouldShowCrosshair.value) {
             return 'animated-dashed-border'
         }
 
+        // Determine drag direction to hide borders where crosshair is located
+        // This only applies when crosshair is enabled
         const draggingRight = endX.value >= startX.value
         const draggingDown = endY.value >= startY.value
 
         if (draggingRight && draggingDown) {
+            // Mouse at bottom-right, hide right and bottom borders
             return 'animated-dashed-border-selecting-top-left'
         } else if (!draggingRight && draggingDown) {
+            // Mouse at bottom-left, hide left and bottom borders
             return 'animated-dashed-border-selecting-top-right'
         } else if (draggingRight && !draggingDown) {
+            // Mouse at top-right, hide right and top borders
             return 'animated-dashed-border-selecting-bottom-left'
         } else {
+            // Mouse at top-left, hide left and top borders
             return 'animated-dashed-border-selecting-bottom-right'
         }
     })
@@ -101,6 +92,7 @@
         let left = mouseX.value + offset
         let top = mouseY.value + offset
 
+        // Keep magnifier on screen
         if (left + magnifierSize > window.innerWidth) {
             left = mouseX.value - magnifierSize - offset
         }
@@ -111,40 +103,49 @@
         return { left: `${left}px`, top: `${top}px` }
     })
 
+    // Toolbar dragging state
+    const customToolbarPosition = ref(null)
+    const isDraggingToolbar = ref(false)
+    const toolbarDragStart = ref({ x: 0, y: 0 })
+    const toolbarContainerRef = ref(null)
+
     const toolbarStyle = computed(() => {
+        // If user has custom position, use that
+        if (customToolbarPosition.value) {
+            return {
+                left: `${customToolbarPosition.value.x}px`,
+                top: `${customToolbarPosition.value.y}px`
+            }
+        }
+
+        // Otherwise, use automatic positioning based on selection rectangle
         const { left, top, width, height } = selectionRect.value
-        const toolbarWidth = 300
+        const toolbarWidth = 400
         const margin = 10
 
+        // Center toolbar horizontally relative to selection, keep on screen
         let toolbarLeft = Math.max(
             margin,
             Math.min(left + width / 2 - toolbarWidth / 2, window.innerWidth - toolbarWidth - margin)
         )
 
+        // Position toolbar below selection, or inside if no space
         const toolbarTop = top + height + 70 > window.innerHeight ? top + height - 60 : top + height + 10
 
         return { left: `${toolbarLeft}px`, top: `${toolbarTop}px` }
     })
 
-    const formatDuration = (seconds) => {
-        const mins = Math.floor(seconds / 60)
-        const secs = Math.floor(seconds % 60)
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    }
-
-    const windowType = computed(() => {
-        return displayId.value ? `video-recording-${displayId.value}` : 'video-recording'
-    })
-
     const handleMouseDown = async (e) => {
-        if (mode.value === 'confirming' || mode.value === 'recording' || mode.value === 'previewing') return
+        if (mode.value === 'editing' || mode.value === 'edited') return
 
+        // Close other screenshot windows when user starts selecting on this monitor
         try {
             await window.electronWindows?.closeOtherVideoRecordingWindows(displayId.value)
         } catch (error) {
-            console.error('Error closing other video recording windows:', error)
+            console.error('Error closing other screenshot windows:', error)
         }
 
+        // Ensure this window is active when user starts selecting
         isWindowActive.value = true
         mode.value = 'selecting'
         magnifierActive.value = shouldShowMagnifier.value
@@ -182,6 +183,9 @@
             if (handle.includes('right')) endX.value = e.clientX
             if (handle.includes('top')) startY.value = e.clientY
             if (handle.includes('bottom')) endY.value = e.clientY
+
+            // Reposition webcam during resize (throttled)
+            repositionWebcam(true)
         } else if (mode.value === 'moving') {
             const deltaX = e.clientX - dragStartMouseX.value
             const deltaY = e.clientY - dragStartMouseY.value
@@ -191,6 +195,7 @@
             const newLeft = dragStartSelectionX.value + deltaX
             const newTop = dragStartSelectionY.value + deltaY
 
+            // Keep selection within window bounds
             const constrainedLeft = Math.max(0, Math.min(newLeft, window.innerWidth - width))
             const constrainedTop = Math.max(0, Math.min(newTop, window.innerHeight - height))
 
@@ -198,24 +203,30 @@
             startY.value = constrainedTop
             endX.value = constrainedLeft + width
             endY.value = constrainedTop + height
+
+            // Reposition webcam during move (throttled)
+            repositionWebcam(true)
         }
 
+        // Only update magnifier if this window is active
         if (isWindowActive.value && magnifierActive.value) {
             updateMagnifier(e.clientX, e.clientY)
         }
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = async () => {
         if (mode.value === 'selecting') {
             magnifierActive.value = false
             const { width, height } = selectionRect.value
 
+            // If it's a click (no drag), select full screen
             if (width < 10 && height < 10) {
                 startX.value = startY.value = 0
                 endX.value = window.innerWidth
                 endY.value = window.innerHeight
             }
 
+            // Normalize coordinates so start is always top-left and end is always bottom-right
             const normalizedLeft = Math.min(startX.value, endX.value)
             const normalizedTop = Math.min(startY.value, endY.value)
             const normalizedRight = Math.max(startX.value, endX.value)
@@ -227,9 +238,13 @@
             endY.value = normalizedBottom
 
             mode.value = 'confirming'
+
+            // Reposition webcam after selection is created
+            await repositionWebcam()
         } else if (mode.value === 'resizing') {
             magnifierActive.value = false
 
+            // Normalize coordinates after resizing to prevent flipped state issues
             const normalizedLeft = Math.min(startX.value, endX.value)
             const normalizedTop = Math.min(startY.value, endY.value)
             const normalizedRight = Math.max(startX.value, endX.value)
@@ -242,15 +257,25 @@
 
             mode.value = 'confirming'
             resizingHandle.value = null
+
+            // Reposition webcam after selection is resized
+            await repositionWebcam()
         } else if (mode.value === 'moving') {
             magnifierActive.value = false
             mode.value = 'confirming'
+
+            // Reposition webcam after selection is moved
+            await repositionWebcam()
         }
+
+        // Toggle webcam back on if it was enabled before recording
+        enableWebcam()
     }
 
     const updateMagnifier = (x, y) => {
         if (!magnifierCanvas.value || !fullScreenImage.value) return
 
+        // Wait for image to be loaded
         if (!fullScreenImage.value.complete || fullScreenImage.value.naturalWidth === 0) {
             fullScreenImage.value.onload = () => updateMagnifier(x, y)
             return
@@ -261,9 +286,11 @@
             const ctx = canvas.getContext('2d', { alpha: false })
             if (!ctx) return
 
+            // Clear and setup canvas
             ctx.imageSmoothingEnabled = false
             ctx.clearRect(0, 0, magnifierSize, magnifierSize)
 
+            // Map cursor position in view space to image space
             const img = fullScreenImage.value
             const imgW = img.naturalWidth
             const imgH = img.naturalHeight
@@ -272,6 +299,7 @@
             const scaleX = imgW / viewW
             const scaleY = imgH / viewH
 
+            // Desired source rectangle centered on cursor
             const sourceSizeView = magnifierSize / zoomFactor
             const sourceWImg = sourceSizeView * scaleX
             const sourceHImg = sourceSizeView * scaleY
@@ -282,6 +310,7 @@
             const desiredRight = desiredLeft + sourceWImg
             const desiredBottom = desiredTop + sourceHImg
 
+            // Intersect with image bounds to support edges/corners
             const interLeft = Math.max(0, desiredLeft)
             const interTop = Math.max(0, desiredTop)
             const interRight = Math.min(imgW, desiredRight)
@@ -289,15 +318,19 @@
             const interW = Math.max(0, interRight - interLeft)
             const interH = Math.max(0, interBottom - interTop)
 
+            // create an offscreen canvas for pattern
             const patternCanvas = document.createElement('canvas')
-            const size = 10
+            const size = 10 // size of each square
             patternCanvas.width = size * 2
             patternCanvas.height = size * 2
 
             const pctx = patternCanvas.getContext('2d')
-            const color1 = '#eee'
-            const color2 = '#ccc'
 
+            // colors
+            const color1 = '#eee' // light gray
+            const color2 = '#ccc' // darker gray
+
+            // draw squares
             pctx.fillStyle = color1
             pctx.fillRect(0, 0, size * 2, size * 2)
 
@@ -305,12 +338,15 @@
             pctx.fillRect(0, 0, size, size)
             pctx.fillRect(size, size, size, size)
 
+            // create pattern
             const pattern = ctx.createPattern(patternCanvas, 'repeat')
 
+            // Fill background so out-of-bounds area shows as blank
             ctx.fillStyle = pattern
             ctx.fillRect(0, 0, magnifierSize, magnifierSize)
 
             if (interW > 0 && interH > 0) {
+                // Position the sampled image so the cursor stays centered
                 const destX = ((interLeft - desiredLeft) / sourceWImg) * magnifierSize
                 const destY = ((interTop - desiredTop) / sourceHImg) * magnifierSize
                 const destW = (interW / sourceWImg) * magnifierSize
@@ -319,9 +355,10 @@
                 ctx.drawImage(img, interLeft, interTop, interW, interH, destX, destY, destW, destH)
             }
 
+            // Draw crosshair
             const center = magnifierSize / 2
             ctx.strokeStyle = 'white'
-            ctx.lineWidth = 4
+            ctx.lineWidth = 4 // This will create the white border
             ctx.beginPath()
             ctx.moveTo(center, 0)
             ctx.lineTo(center, magnifierSize)
@@ -330,7 +367,7 @@
             ctx.stroke()
 
             ctx.strokeStyle = 'black'
-            ctx.lineWidth = 2
+            ctx.lineWidth = 2 // This will be the black line inside the white border
             ctx.beginPath()
             ctx.moveTo(center, 0)
             ctx.lineTo(center, magnifierSize)
@@ -338,450 +375,573 @@
             ctx.lineTo(magnifierSize, center)
             ctx.stroke()
         } catch (error) {
-            console.warn('Magnifier error:', error)
+            // console.warn('Magnifier error:', error)
+            alert(error)
         }
     }
 
-    const startRecording = async () => {
-        try {
-            const { left, top, width, height } = selectionRect.value
-            const isFullScreenSelection = isFullScreen.value
+    const isFullScreen = computed(() => {
+        const { width, height } = selectionRect.value
+        return width === window.innerWidth && height === window.innerHeight
+    })
 
-            // Store crop bounds for post-processing if custom area
-            if (!isFullScreenSelection) {
-                cropBounds.value = { left, top, width, height }
-            } else {
-                cropBounds.value = null
-            }
+    // Action handlers
+    const handleStart = async () => {
+        const { left, top, width, height } = selectionRect.value
 
-            // Always request full screen recording (backend returns full screen source)
-            const result = await window.electron?.startVideoRecording({
-                type: 'fullscreen',
-                displayId: displayId.value || null,
-                isFullScreen: true
-            })
+        if (!isFullScreen.value) {
+            const scale = displayScaleFactor.value || 1
+            // Crop region must be in device pixels (desktopCapturer/video frames), so scale from CSS px
+            const scaledLeft = Math.round(left * scale)
+            const scaledTop = Math.round(top * scale)
+            const scaledWidth = Math.round(width * scale)
+            const scaledHeight = Math.round(height * scale)
 
-            if (!result?.success) {
-                alert(`Failed to start recording: ${result?.error || 'Unknown error'}`)
-                return
-            }
+            setEnableCrop(true)
+            setCropRegion(scaledLeft, scaledTop, scaledWidth, scaledHeight)
 
-            if (!result.sourceId || !result.recordingId) {
-                alert('Failed to start recording: Missing source or recording ID')
-                return
-            }
-
-            recordingId.value = result.recordingId
-
-            // Get media stream from screen
-            const constraints = {
-                audio: false,
-                video: {
-                    mandatory: {
-                        chromeMediaSource: 'desktop',
-                        chromeMediaSourceId: result.sourceId
-                    }
-                }
-            }
-
-            stream.value = await navigator.mediaDevices.getUserMedia(constraints)
-
-            if (!stream.value?.getVideoTracks().length) {
-                throw new Error('Failed to get video stream')
-            }
-
-            // Create MediaRecorder with the full screen stream
-            mediaRecorder.value = new MediaRecorder(stream.value, VIDEO_CONFIG)
-            recordedChunks.value = []
-
-            // Handle data available
-            mediaRecorder.value.ondataavailable = (event) => {
-                if (event.data?.size > 0) {
-                    recordedChunks.value.push(event.data)
-                }
-            }
-
-            // Handle recording stop
-            mediaRecorder.value.onstop = async () => {
-                try {
-                    console.log('MediaRecorder onstop handler started')
-                    
-                    // Show window immediately
-                    const currentWindowType = windowType.value
-                    window.electronWindows?.makeWindowBlocking(currentWindowType)
-                    window.electronWindows?.showWindow(currentWindowType)
-
-                    // Wait for all chunks to be collected
-                    await new Promise((resolve) => setTimeout(resolve, 300))
-
-                    if (recordedChunks.value.length === 0) {
-                        throw new Error('No video data captured')
-                    }
-
-                    console.log('Creating blob from', recordedChunks.value.length, 'chunks')
-                    
-                    // Create blob from recorded chunks
-                    let blob = new Blob(recordedChunks.value, { type: VIDEO_CONFIG.mimeType })
-                    console.log('Blob created, size:', blob.size)
-
-                    // If custom area, crop the video
-                    if (cropBounds.value) {
-                        console.log('Custom area detected, starting crop...')
-                        try {
-                            blob = await cropVideo(blob, cropBounds.value)
-                            console.log('Crop completed, new blob size:', blob.size)
-                        } catch (cropError) {
-                            console.error('Crop error:', cropError)
-                            throw new Error(`Crop failed: ${cropError.message}`)
+            // Create overlay window to show border around selection
+            try {
+                const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+                if (displayInfo?.success) {
+                    await window.electronWindows?.createWindow?.(`recording-overlay-${displayId.value}`, {
+                        displayInfo: displayInfo.display,
+                        params: {
+                            selX: Math.round(left),
+                            selY: Math.round(top),
+                            selW: Math.round(width),
+                            selH: Math.round(height)
                         }
-                    }
-
-                    // Set preview
-                    recordedVideoBlob.value = blob
-                    previewVideoUrl.value = URL.createObjectURL(blob)
-                    mode.value = 'previewing'
-
-                    // Cleanup streams
-                    cleanupRecording()
-                    console.log('Recording processed successfully')
-                } catch (error) {
-                    console.error('Error processing recording:', error)
-                    console.error('Error stack:', error.stack)
-                    cleanupRecording()
-                    mode.value = 'idle'
-                    alert(`Recording error: ${error.message || 'Unknown error'}`)
-                    window.electron?.cancelVideoRecordingMode()
+                    })
                 }
+            } catch (error) {
+                console.error('Error creating overlay window:', error)
             }
+        }
 
-            mediaRecorder.value.onerror = (event) => {
-                console.error('MediaRecorder error:', event.error)
-                alert(`Recording error: ${event.error?.message || 'Unknown error'}`)
-                stopRecording()
-            }
+        // Prepare toolbar for recording transition
+        const toolbarInfo = await prepareToolbarForRecording()
 
-            // Start MediaRecorder
-            mediaRecorder.value.start(500)
+        // Check if countdown is enabled
+        if (store.settings.recordingCountdown) {
+            mode.value = 'countdown'
+            showCountdown.value = true
+            countdownValue.value = 3
 
-            isRecording.value = true
-            mode.value = 'recording'
-            recordingStartTime.value = Date.now()
-            recordingDuration.value = 0
-
-            // Update duration timer
-            recordingInterval.value = setInterval(() => {
-                if (isRecording.value) {
-                    recordingDuration.value = Math.floor((Date.now() - recordingStartTime.value) / 1000)
+            const timer = setInterval(() => {
+                countdownValue.value--
+                if (countdownValue.value <= 0) {
+                    clearInterval(timer)
+                    showCountdown.value = false
+                    finalizeRecordingStart(toolbarInfo)
                 }
             }, 1000)
-        } catch (error) {
-            console.error('Error starting recording:', error)
-            alert(`Recording failed: ${error.message || 'Unknown error'}`)
-            cleanupRecording()
-            isRecording.value = false
-            mode.value = 'confirming'
+        } else {
+            await finalizeRecordingStart(toolbarInfo)
         }
     }
 
-    // Crop video using FFmpeg (FAST!)
-    const cropVideo = async (videoBlob, bounds) => {
-        let tempInputPath = null
-        let tempOutputPath = null
+    const finalizeRecordingStart = async (toolbarInfo) => {
+        // Hide all UI elements
+        mode.value = 'recording'
+        fullScreenImage.value = null
+
+        // Wait for DOM to update before making window non-blocking
+        await nextTick()
+
+        // Make window normal and resize to toolbar size
+        // Pass toolbar position and size to maintain its screen location
+        windowType.value = `recording-${displayId.value}`
+        await window.electronWindows?.makeWindowNonBlocking?.(windowType.value, toolbarInfo.position, {
+            width: showToolbar.value ? 450 : 215,
+            height: 45
+        })
+
+        isRecording.value = true
+
+        startRecording()
+    }
+
+    const selectAudioDevice = (audioDevice) => {
+        selectedAudioDeviceId.value = audioDevice.deviceId
+        showAudioSettings.value = false
+        // Save to settings
+        store.updateSetting('selectedMicrophoneDeviceId', audioDevice.deviceId)
+    }
+
+    const muteAudio = () => {
+        selectedAudioDeviceId.value = null
+        showAudioSettings.value = false
+        // Save muted state to settings
+        store.updateSetting('selectedMicrophoneDeviceId', null)
+    }
+
+    const repositionWebcam = async (throttle = false) => {
+        if (!store.settings.webcamEnabled) return
+
+        // Throttle repositioning during drag/resize operations
+        if (throttle) {
+            if (webcamRepositionTimeout) return
+            webcamRepositionTimeout = setTimeout(() => {
+                webcamRepositionTimeout = null
+                repositionWebcam(false)
+            }, 50) // Update every 50ms during drag/resize
+            return
+        }
 
         try {
-            processingProgress.value = 0
+            // Check if webcam window exists
+            const windowCheck = await window.electronWindows?.getWindow?.('webcam')
+            if (!windowCheck?.exists) return
 
-            // Listen for progress updates from FFmpeg
-            const progressHandler = (progress) => {
-                processingProgress.value = progress
-            }
-            window.electron.onFFmpegProgress(progressHandler)
+            // Get the current window's display info to calculate webcam position
+            const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+            if (!displayInfo?.success) return
 
-            // Step 1: Create temp file path
-            console.log('Step 1: Creating temp file path')
-            let pathResult
-            try {
-                pathResult = await window.electron.createTempVideoPath()
-            } catch (e) {
-                console.error('IPC ERROR in createTempVideoPath:', e)
-                throw new Error(`IPC call failed (createTempVideoPath): ${e.message}`)
-            }
-            if (!pathResult.success) {
-                throw new Error('Failed to create temp path')
-            }
-            tempInputPath = pathResult.path
-            console.log('Temp path created:', tempInputPath)
+            const display = displayInfo.display
+            const webcamWidth = 208
+            const webcamHeight = 208
+            const margin = 20
 
-            // Step 2: Write video to temp file in chunks (avoid IPC size limits)
-            console.log('Starting to write video chunks...')
-            const arrayBuffer = await videoBlob.arrayBuffer()
-            console.log('ArrayBuffer size:', arrayBuffer.byteLength)
-            
-            const uint8Array = new Uint8Array(arrayBuffer)
-            const chunkSize = 64 * 1024 // 64KB chunks (very safe for IPC)
-            const totalChunks = Math.ceil(uint8Array.length / chunkSize)
-            console.log('Total chunks to write:', totalChunks, 'chunk size:', chunkSize)
+            let x, y
 
-            for (let i = 0; i < totalChunks; i++) {
-                const start = i * chunkSize
-                const end = Math.min(start + chunkSize, uint8Array.length)
-                const chunkTypedArray = uint8Array.slice(start, end)
-                // Convert Uint8Array to plain array for IPC compatibility
-                const chunkArray = Array.from(chunkTypedArray)
-                
-                console.log(`Writing chunk ${i + 1}/${totalChunks}, size: ${chunkArray.length}`)
-                
-                let writeResult
-                try {
-                    writeResult = await window.electron.writeVideoChunk({
-                        filePath: tempInputPath,
-                        chunk: chunkArray,
-                        isFirst: i === 0
-                    })
-                } catch (e) {
-                    console.error(`IPC ERROR in writeVideoChunk (chunk ${i + 1}/${totalChunks}):`, e)
-                    throw new Error(`IPC call failed (writeVideoChunk chunk ${i + 1}): ${e.message}`)
-                }
-                
-                if (!writeResult.success) {
-                    throw new Error('Failed to write video chunk ' + (i + 1))
-                }
-            }
-            console.log('All chunks written successfully')
-
-            // Step 3: Crop video with FFmpeg
-            console.log('Step 3: Calling FFmpeg crop with bounds:', bounds)
-            
-            // Create a plain object for IPC (avoid non-serializable properties)
-            const plainBounds = {
-                left: Number(bounds.left),
-                top: Number(bounds.top),
-                width: Number(bounds.width),
-                height: Number(bounds.height)
-            }
-            
-            const cropResult = await window.electron.cropVideoFFmpeg({
-                inputPath: tempInputPath,
-                cropBounds: plainBounds,
-                displayWidth: Number(window.innerWidth),
-                displayHeight: Number(window.innerHeight)
-            })
-            console.log('FFmpeg crop result:', cropResult)
-
-            if (!cropResult.success) {
-                throw new Error(cropResult.error || 'Failed to crop video')
-            }
-            tempOutputPath = cropResult.outputPath
-
-            // Step 4: Get file size for memory-efficient chunked reading
-            console.log('Step 4: Getting cropped video file size')
-            const sizeResult = await window.electron.getFileSize(tempOutputPath)
-            if (!sizeResult.success) {
-                throw new Error('Failed to get file size: ' + sizeResult.error)
-            }
-            const fileSize = sizeResult.size
-            console.log('Cropped video size:', fileSize, 'bytes')
-
-            // Step 5: Read video in chunks (memory-efficient, prevents OOM)
-            console.log('Step 5: Reading cropped video in chunks')
-            const readChunkSize = 256 * 1024 // 256KB chunks for reading
-            const chunks = []
-            let position = 0
-            
-            while (position < fileSize) {
-                const length = Math.min(readChunkSize, fileSize - position)
-                const chunkResult = await window.electron.readFileChunk({
-                    filePath: tempOutputPath,
-                    start: position,
-                    length: length
-                })
-                
-                if (!chunkResult.success) {
-                    throw new Error('Failed to read chunk: ' + chunkResult.error)
-                }
-                
-                chunks.push(new Uint8Array(chunkResult.chunk))
-                position += chunkResult.bytesRead
-                
-                const progress = Math.round(position/fileSize*100)
-                if (progress % 10 === 0) {
-                    console.log(`Reading: ${progress}%`)
-                }
-            }
-            
-            const croppedBlob = new Blob(chunks, { type: VIDEO_CONFIG.mimeType })
-            console.log('Cropped blob created, size:', croppedBlob.size)
-
-            // Step 6: Cleanup temp files
-            await window.electron.cleanupTempFiles([tempInputPath, tempOutputPath])
-
-            // Cleanup progress listener
-            window.electron.removeFFmpegProgressListener()
-
-            return croppedBlob
-        } catch (error) {
-            // Cleanup on error
-            if (tempInputPath || tempOutputPath) {
-                const filesToClean = [tempInputPath, tempOutputPath].filter(Boolean)
-                await window.electron.cleanupTempFiles(filesToClean)
-            }
-            window.electron.removeFFmpegProgressListener()
-            throw error
-        }
-    }
-
-    const cleanupRecording = () => {
-        if (stream.value) {
-            stream.value.getTracks().forEach((track) => track.stop())
-            stream.value = null
-        }
-    }
-
-    const stopRecording = async () => {
-        if (!mediaRecorder.value || !isRecording.value) return
-
-        try {
-            isRecording.value = false
-
-            if (recordingInterval.value) {
-                clearInterval(recordingInterval.value)
-                recordingInterval.value = null
-            }
-
-            mode.value = 'stopping'
-
-            // Show window
-            const currentWindowType = windowType.value
-            window.electronWindows?.makeWindowBlocking(currentWindowType)
-            window.electronWindows?.showWindow(currentWindowType)
-
-            // Request final data and stop
-            if (mediaRecorder.value.state === 'recording') {
-                mediaRecorder.value.requestData()
-                await new Promise((resolve) => setTimeout(resolve, 100))
-            }
-
-            if (mediaRecorder.value.state !== 'inactive') {
-                mediaRecorder.value.stop()
-            }
-
-            if (recordingId.value) {
-                await window.electron?.stopVideoRecording(recordingId.value)
-                recordingId.value = null
-            }
-        } catch (error) {
-            console.error('Error stopping recording:', error)
-            isRecording.value = false
-            mode.value = 'idle'
-            cleanupRecording()
-        }
-    }
-
-    const saveRecording = async () => {
-        if (!recordedVideoBlob.value) return
-
-        try {
-            const arrayBuffer = await recordedVideoBlob.value.arrayBuffer()
-            const buffer = Array.from(new Uint8Array(arrayBuffer))
-
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').substring(0, 19)
-            const filename = `Recording_${timestamp}.webm`
-
-            const result = await window.electron?.invoke('save-video-recording', {
-                buffer,
-                filename
-            })
-
-            if (result?.success) {
-                console.log('Recording saved successfully:', result.path)
-                handleClosePreview()
+            if (isFullScreen.value) {
+                // Position at bottom-right of display
+                x = display.bounds.x + display.bounds.width - webcamWidth - margin
+                y = display.bounds.y + display.bounds.height - webcamHeight - margin
             } else {
-                console.error('Failed to save recording:', result?.error)
+                // Position at bottom-right of selection rectangle
+                const { left, top, width, height } = selectionRect.value
+                x = display.bounds.x + left + width - webcamWidth - margin
+                y = display.bounds.y + top + height - webcamHeight - margin
             }
 
-            return result || { success: false }
+            // Reposition the webcam window
+            await window.electronWindows?.moveWindow?.('webcam', x, y)
         } catch (error) {
-            console.error('Error saving recording:', error)
-            return { success: false, error: error.message }
+            console.error('Error repositioning webcam window:', error)
         }
     }
 
-    const handleDeleteRecording = () => {
-        if (previewVideoUrl.value) {
-            URL.revokeObjectURL(previewVideoUrl.value)
-            previewVideoUrl.value = null
+    const enableWebcam = async () => {
+        if (store.settings.webcamEnabled) {
+            try {
+                // Check if webcam window exists
+                const windowCheck = await window.electronWindows?.getWindow?.('webcam')
+
+                if (!windowCheck?.exists) {
+                    // Get the current window's display info to position webcam on the same monitor
+                    const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+
+                    if (displayInfo?.success) {
+                        // Create webcam window on the same monitor as the recording window
+                        await window.electronWindows?.createWindow?.('webcam', {
+                            displayInfo: displayInfo.display,
+                            isFullScreen: isFullScreen.value,
+                            selectionRect: selectionRect.value
+                        })
+                    }
+                } else {
+                    // Webcam window already exists, just reposition it
+                    await repositionWebcam()
+                }
+            } catch (error) {
+                console.error('Error toggling webcam window:', error)
+            }
         }
-        recordedVideoBlob.value = null
-        recordedVideoPath.value = null
-        mode.value = 'idle'
-        window.electron?.cancelVideoRecordingMode()
     }
 
-    const handleClosePreview = () => {
-        if (previewVideoUrl.value) {
-            URL.revokeObjectURL(previewVideoUrl.value)
-            previewVideoUrl.value = null
+    const toggleWebcam = async () => {
+        if (store.settings.webcamEnabled) {
+            await window.electronWindows?.closeWindow?.('webcam')
+            store.updateSetting('webcamEnabled', false)
+        } else {
+            store.updateSetting('webcamEnabled', true)
+            await enableWebcam()
         }
-        recordedVideoBlob.value = null
-        recordedVideoPath.value = null
-        mode.value = 'idle'
-        window.electron?.cancelVideoRecordingMode()
     }
 
-    const handleCancel = () => {
-        if (isRecording.value) {
-            stopRecording()
+    // Webcam settings dropdown logic
+    const showWebcamSettings = ref(false)
+    const webcamDropdownPosition = ref('bottom')
+    const webcamSettingsButtonRef = ref(null)
+    const webcamDropdownRef = ref(null)
+    const selectedWebcamDeviceId = ref(null)
+
+    const toggleWebcamSettings = async () => {
+        showWebcamSettings.value = !showWebcamSettings.value
+        if (showWebcamSettings.value) {
+            // Close audio settings if open
+            showAudioSettings.value = false
+            await nextTick()
+            updateWebcamDropdownPosition()
         }
+    }
+
+    const updateWebcamDropdownPosition = () => {
+        if (!webcamSettingsButtonRef.value || !webcamDropdownRef.value) return
+
+        const buttonRect = webcamSettingsButtonRef.value.getBoundingClientRect()
+        const dropdownHeight = webcamDropdownRef.value.offsetHeight
+        const spaceBelow = window.innerHeight - buttonRect.bottom
+        const spaceAbove = buttonRect.top
+
+        // If space below is less than dropdown height + padding (e.g. 20px), and space above is more, show on top
+        if (spaceBelow < dropdownHeight + 20 && spaceAbove > dropdownHeight + 20) {
+            webcamDropdownPosition.value = 'top'
+        } else {
+            webcamDropdownPosition.value = 'bottom'
+        }
+    }
+
+    const selectWebcamDevice = async (device) => {
+        selectedWebcamDeviceId.value = device.deviceId
+        showWebcamSettings.value = false
+        // Save to settings
+        store.updateSetting('selectedWebcamDeviceId', device.deviceId)
+        store.updateSetting('webcamEnabled', true)
+
+        // Close and reopen webcam window with new device
+        await window.electronWindows?.closeWindow?.('webcam')
+        await enableWebcam()
+    }
+
+    const disableWebcam = async () => {
+        selectedWebcamDeviceId.value = null
+        showWebcamSettings.value = false
+        // Save disabled state to settings
+        store.updateSetting('selectedWebcamDeviceId', null)
+        store.updateSetting('webcamEnabled', false)
+        await window.electronWindows?.closeWindow?.('webcam')
+    }
+
+    const closeWebcamSettings = (e) => {
+        // Close if clicking outside the webcam settings container
+        const container = webcamSettingsButtonRef.value?.closest('.webcam-settings-container')
+        if (showWebcamSettings.value && container && !container.contains(e.target)) {
+            showWebcamSettings.value = false
+        }
+    }
+
+    const handleStop = async () => {
+        stopRecording()
+
+        await window.electronWindows?.closeWindow?.('webcam')
+        await window.electronWindows?.closeWindow?.(`recording-overlay-${displayId.value}`)
+
+        // window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 800, 600)
+        // window.electronWindows?.centerWindow?.(`recording-${displayId.value}`)
+    }
+
+    const handleCancel = (event) => {
         window.electron?.cancelVideoRecordingMode()
+        window.electronWindows?.closeWindow?.('webcam')
+        window.electronWindows?.closeWindow?.(`recording-overlay-${displayId.value}`)
     }
 
     const handleEscapeKeyCancel = (event) => {
+        // If called from button click (no event) or Escape key, cancel screenshot mode
         if (event.key === 'Escape') {
-            if (isRecording.value) {
-                stopRecording()
-            } else if (mode.value === 'previewing') {
-                handleDeleteRecording()
-            } else if (mode.value === 'stopping') {
-                // Allow escape even during stopping to cancel
-                mode.value = 'idle'
-                window.electron?.cancelVideoRecordingMode()
-            } else {
-                handleCancel()
-            }
-        } else if (event.key === ' ' && isRecording.value) {
-            event.preventDefault()
-            stopRecording()
+            console.log('handleEscapeKeyCancel')
+
+            handleCancel()
         }
     }
+    // Toolbar dragging handlers
+    const handleToolbarDragMove = (e) => {
+        if (!isDraggingToolbar.value) return
+
+        e.preventDefault() // Prevent text selection during drag
+
+        // Calculate new position
+        let newX = e.clientX - toolbarDragStart.value.x
+        let newY = e.clientY - toolbarDragStart.value.y
+
+        // Keep toolbar within viewport bounds (with some padding)
+        const margin = 10
+        const toolbarWidth = 400
+        const toolbarHeight = 60
+
+        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
+        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
+
+        customToolbarPosition.value = { x: newX, y: newY }
+    }
+
+    const handleToolbarDragEnd = () => {
+        if (!isDraggingToolbar.value) return
+
+        isDraggingToolbar.value = false
+
+        // Remove global event listeners
+        document.removeEventListener('mousemove', handleToolbarDragMove)
+        document.removeEventListener('mouseup', handleToolbarDragEnd)
+    }
+
+    const handleToolbarDragStart = (e) => {
+        e.stopPropagation()
+        e.preventDefault() // Prevent text selection
+
+        isDraggingToolbar.value = true
+
+        // Get current toolbar position
+        const toolbar = e.currentTarget.closest('.toolbar-container')
+        const rect = toolbar.getBoundingClientRect()
+
+        // Store the offset from mouse to toolbar top-left
+        toolbarDragStart.value = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        }
+
+        // Attach global event listeners for smooth dragging
+        document.addEventListener('mousemove', handleToolbarDragMove)
+        document.addEventListener('mouseup', handleToolbarDragEnd)
+    }
+
+    const showToolbar = ref(false)
+
+    const expandToolbar = async () => {
+        if (isRecording.value) {
+            await window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 450, 45)
+        }
+
+        showToolbar.value = true
+    }
+
+    const collapseToolbar = async () => {
+        if (isRecording.value) {
+            await window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 215, 45)
+        }
+        showToolbar.value = false
+    }
+
+    // Audio settings dropdown logic
+    const showAudioSettings = ref(false)
+    const audioDropdownPosition = ref('bottom')
+    const audioSettingsButtonRef = ref(null)
+    const audioDropdownRef = ref(null)
+
+    const toggleAudioSettings = async () => {
+        showAudioSettings.value = !showAudioSettings.value
+        if (showAudioSettings.value) {
+            await nextTick()
+            updateDropdownPosition()
+        }
+    }
+
+    const updateDropdownPosition = () => {
+        if (!audioSettingsButtonRef.value || !audioDropdownRef.value) return
+
+        const buttonRect = audioSettingsButtonRef.value.getBoundingClientRect()
+        const dropdownHeight = audioDropdownRef.value.offsetHeight
+        const spaceBelow = window.innerHeight - buttonRect.bottom
+        const spaceAbove = buttonRect.top
+
+        // If space below is less than dropdown height + padding (e.g. 20px), and space above is more, show on top
+        if (spaceBelow < dropdownHeight + 20 && spaceAbove > dropdownHeight + 20) {
+            audioDropdownPosition.value = 'top'
+        } else {
+            audioDropdownPosition.value = 'bottom'
+        }
+    }
+
+    const closeAudioSettings = (e) => {
+        // Close if clicking outside the audio settings container
+        const container = audioSettingsButtonRef.value?.closest('.audio-settings-container')
+        if (showAudioSettings.value && container && !container.contains(e.target)) {
+            showAudioSettings.value = false
+        }
+    }
+
+    onMounted(() => {
+        document.addEventListener('click', closeAudioSettings)
+        document.addEventListener('click', closeWebcamSettings)
+        window.addEventListener('resize', () => {
+            if (showAudioSettings.value) updateDropdownPosition()
+            if (showWebcamSettings.value) updateWebcamDropdownPosition()
+        })
+    })
+
+    onUnmounted(() => {
+        document.removeEventListener('click', closeAudioSettings)
+        document.removeEventListener('click', closeWebcamSettings)
+    })
+
+    // Prepare toolbar for recording: capture position and size
+    const prepareToolbarForRecording = async () => {
+        if (!toolbarContainerRef.value) {
+            return { position: null, size: null, toolbarDimensions: null }
+        }
+
+        // Wait for DOM to be fully rendered
+        await nextTick()
+        await new Promise((resolve) =>
+            requestAnimationFrame(() => {
+                requestAnimationFrame(resolve)
+            })
+        )
+
+        const rect = toolbarContainerRef.value.getBoundingClientRect()
+
+        // Capture the toolbar's CENTER position (not top-left)
+        // When recording starts, toolbar becomes centered in the window, so we need to maintain the center position
+        const toolbarCenterX = rect.left + rect.width / 2
+        const toolbarCenterY = rect.top + rect.height / 2
+        // Get window's screen position to convert viewport coords to screen coords
+        const windowBounds = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+        let toolbarScreenPosition = null
+
+        if (windowBounds?.success) {
+            // Convert toolbar's center viewport position to screen coordinates
+            toolbarScreenPosition = {
+                x: windowBounds.windowBounds.x + toolbarCenterX,
+                y: windowBounds.windowBounds.y + toolbarCenterY
+            }
+        } else {
+            // Fallback: use viewport coordinates (should work if window is fullscreen)
+            toolbarScreenPosition = {
+                x: toolbarCenterX,
+                y: toolbarCenterY
+            }
+        }
+
+        return {
+            position: toolbarScreenPosition
+        }
+    }
+
+    // Start recording functionality
+    const {
+        uiMode,
+        recordingCanvas,
+        screenVideo,
+        sources,
+        selectedSourceId,
+        audioDevices,
+        selectedAudioDeviceId,
+        videoDevices,
+        windowType,
+        isRecording,
+        recordingTime,
+        filename,
+        setCropRegion,
+        setEnableCrop,
+        startRecording,
+        stopRecording,
+        initialize,
+        cleanup
+    } = useRecorder()
 
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
-        mouseX.value = parseInt(params.get('initialMouseX') || '0', 10)
-        mouseY.value = parseInt(params.get('initialMouseY') || '0', 10)
+        const initialMouseX = parseInt(params.get('initialMouseX') || '0', 10)
+        const initialMouseY = parseInt(params.get('initialMouseY') || '0', 10)
+        const activeDisplayId = params.get('activeDisplayId')
+
+        // Set initial mouse position immediately
+        mouseX.value = Math.max(0, Math.min(initialMouseX, window.innerWidth))
+        mouseY.value = Math.max(0, Math.min(initialMouseY, window.innerHeight))
+
+        // Check if this display is the active one
+        const isThisDisplayActive = activeDisplayId && displayId.value === activeDisplayId
+
+        // Helper function to update magnifier when both conditions are met
+        const tryUpdateMagnifier = () => {
+            if (
+                magnifierCanvas.value &&
+                isWindowActive.value &&
+                magnifierActive.value &&
+                mode.value === 'idle' &&
+                fullScreenImage.value &&
+                fullScreenImage.value.complete &&
+                fullScreenImage.value.naturalWidth > 0
+            ) {
+                updateMagnifier(mouseX.value, mouseY.value)
+            }
+        }
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
 
-        // Listen for global Space shortcut to stop recording
-        stopRecordingShortcutCallback.value = () => {
-            if (isRecording.value) {
-                stopRecording()
-            }
-        }
-        window.electron?.ipcRenderer?.on('stop-recording-shortcut', stopRecordingShortcutCallback.value)
+        // Initialize recording
+        await initialize()
 
+        // Capture display scale factor for accurate cropping on HiDPI/Retina
+        try {
+            const displayInfo = await window.electronWindows?.getCurrentWindowDisplayInfo?.()
+            if (displayInfo?.display?.scaleFactor) {
+                displayScaleFactor.value = displayInfo.display.scaleFactor
+            }
+        } catch (error) {
+            console.error('Failed to get display scale factor:', error)
+        }
+
+        // Load saved microphone device ID from settings
+        const savedMicrophoneDeviceId = store.settings.selectedMicrophoneDeviceId
+        if (savedMicrophoneDeviceId !== undefined && savedMicrophoneDeviceId !== null) {
+            // Check if the saved device still exists in the available devices
+            const deviceExists = audioDevices.value.some((device) => device.deviceId === savedMicrophoneDeviceId)
+            if (deviceExists) {
+                selectedAudioDeviceId.value = savedMicrophoneDeviceId
+            } else {
+                // Device no longer exists, clear the setting and set to null (muted)
+                selectedAudioDeviceId.value = null
+                store.updateSetting('selectedMicrophoneDeviceId', null)
+            }
+        } else {
+            // No saved setting or explicitly muted - set to null
+            selectedAudioDeviceId.value = null
+        }
+
+        // Load saved webcam device ID from settings
+        const savedWebcamDeviceId = store.settings.selectedWebcamDeviceId
+        if (savedWebcamDeviceId !== undefined && savedWebcamDeviceId !== null) {
+            // Check if the saved device still exists in the available devices
+            const webcamExists = videoDevices.value.some((device) => device.deviceId === savedWebcamDeviceId)
+            if (webcamExists) {
+                selectedWebcamDeviceId.value = savedWebcamDeviceId
+            } else {
+                // Device no longer exists, clear the setting
+                selectedWebcamDeviceId.value = null
+                store.updateSetting('selectedWebcamDeviceId', null)
+                // Also disable webcam if device no longer exists
+                if (store.settings.webcamEnabled) {
+                    store.updateSetting('webcamEnabled', false)
+                }
+            }
+        } else if (store.settings.webcamEnabled && videoDevices.value.length > 0) {
+            // Webcam is enabled but no device selected - select the first available
+            selectedWebcamDeviceId.value = videoDevices.value[0].deviceId
+            store.updateSetting('selectedWebcamDeviceId', videoDevices.value[0].deviceId)
+        }
+
+        selectedSourceId.value = sources.value.find((s) => s.display_id === displayId.value)?.id || ''
+
+        // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
+            console.log(`Display ${displayId.value} activation changed:`, activationData.isActive)
             isWindowActive.value = activationData.isActive
 
             if (activationData.isActive) {
+                // This window is now active - show magnifier and update mouse position
                 magnifierActive.value = shouldShowMagnifier.value
                 mouseX.value = Math.max(0, Math.min(activationData.mouseX, window.innerWidth))
                 mouseY.value = Math.max(0, Math.min(activationData.mouseY, window.innerHeight))
 
-                if (mode.value === 'idle') {
-                    updateMagnifier(mouseX.value, mouseY.value)
-                }
+                // Try to update magnifier immediately (will work if image is already loaded)
+                // Use a small delay to ensure canvas is rendered
+                setTimeout(() => {
+                    tryUpdateMagnifier()
+                    // If canvas still not ready, try again after a short delay
+                    if (!magnifierCanvas.value && fullScreenImage.value) {
+                        setTimeout(() => {
+                            tryUpdateMagnifier()
+                        }, 50)
+                    }
+                }, 10)
             } else {
+                // This window is no longer active - hide magnifier and crosshair
                 magnifierActive.value = false
             }
         })
@@ -792,13 +952,22 @@
             img.src = dataURL
             img.onload = () => {
                 fullScreenImage.value = img
-                if (mouseX.value || mouseY.value) {
-                    updateMagnifier(mouseX.value, mouseY.value)
-                }
+                // Try to update magnifier immediately (will work if window is already active)
+                // Use a small delay to ensure Vue has updated the refs and canvas is rendered
+                setTimeout(() => {
+                    tryUpdateMagnifier()
+                    // If canvas still not ready, try again after a short delay
+                    if (!magnifierCanvas.value && isWindowActive.value && magnifierActive.value) {
+                        setTimeout(() => {
+                            tryUpdateMagnifier()
+                        }, 50)
+                    }
+                }, 10)
             }
             img.onerror = (e) => console.error('Error loading magnifier image from data URL:', e)
         }
 
+        // Fetch the initial screenshot data for this specific display
         try {
             const handlerKey = `get-initial-magnifier-data-${displayId.value}`
             const initialDataURL = await window.electron?.invoke(handlerKey)
@@ -806,297 +975,672 @@
         } catch (error) {
             console.error('Failed to get initial magnifier data:', error)
         }
+
+        // Fallback: If activation event hasn't arrived after a short delay,
+        // only activate if this display is confirmed to be the active one
+        setTimeout(() => {
+            if (!isWindowActive.value && isThisDisplayActive) {
+                console.log(`Fallback activation for display ${displayId.value} (confirmed active display)`)
+                isWindowActive.value = true
+                magnifierActive.value = shouldShowMagnifier.value
+                // Try to update magnifier (will work if image is already loaded)
+                // Use a small delay to ensure canvas is rendered
+                setTimeout(() => {
+                    tryUpdateMagnifier()
+                    // If canvas still not ready, try again after a short delay
+                    if (!magnifierCanvas.value && fullScreenImage.value) {
+                        setTimeout(() => {
+                            tryUpdateMagnifier()
+                        }, 50)
+                    }
+                }, 10)
+            }
+        }, 150)
     })
 
     onUnmounted(() => {
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
-        if (stopRecordingShortcutCallback.value) {
-            window.electron?.ipcRenderer?.removeListener('stop-recording-shortcut', stopRecordingShortcutCallback.value)
+
+        // Cleanup toolbar drag listeners if still active
+        if (isDraggingToolbar.value) {
+            document.removeEventListener('mousemove', handleToolbarDragMove)
+            document.removeEventListener('mouseup', handleToolbarDragEnd)
         }
-        stopRecording()
-        cleanupRecording()
+
+        // Cleanup webcam reposition timeout
+        if (webcamRepositionTimeout) {
+            clearTimeout(webcamRepositionTimeout)
+            webcamRepositionTimeout = null
+        }
+
+        // Cleanup recording
+        cleanup()
     })
 </script>
 
 <template>
-    <div
-        :class="{
-            'cursor-crosshair select-none': mode !== 'recording' && mode !== 'previewing',
-            'pointer-events-none': isRecording
-        }"
-        class="fixed top-0 left-0 h-screen w-screen"
-        :style="{
-            backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
-            backgroundSize: 'cover',
-            backgroundPosition: 'top left',
-            backgroundRepeat: 'no-repeat'
-        }"
-        @mousedown="handleMouseDown"
-        @mousemove="handleMouseMove"
-        @mouseup="handleMouseUp">
-        <!-- Dark overlay for everything outside the selection (only when confirming, not recording) -->
+    <!-- Selection Interface (when not recording) -->
+    <div>
         <div
-            v-if="mode === 'confirming'"
-            class="pointer-events-none absolute top-0 left-0 h-full w-full bg-black/50"
+            v-if="uiMode === 'select'"
+            class="fixed top-0 left-0 h-screen w-screen cursor-crosshair select-none"
+            :class="{ 'pointer-events-none': loading }"
             :style="{
-                clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${
-                    selectionRect.left
-                }px ${selectionRect.top}px, ${selectionRect.left}px ${
-                    selectionRect.top + selectionRect.height
-                }px, ${selectionRect.left + selectionRect.width}px ${
-                    selectionRect.top + selectionRect.height
-                }px, ${selectionRect.left + selectionRect.width}px ${
-                    selectionRect.top
-                }px, ${selectionRect.left}px ${selectionRect.top}px)`
-            }"></div>
-
-        <!-- Red border overlay when recording partial screen - Hidden when recording starts (window is hidden) -->
-
-        <!-- Selection rectangle -->
-        <div
-            v-if="mode !== 'idle' && mode !== 'recording' && mode !== 'previewing' && mode !== 'stopping'"
-            :class="[
-                'absolute',
-                mode === 'selecting'
-                    ? `${selectionBorderClass} pointer-events-none`
-                    : mode === 'confirming' || mode === 'resizing' || mode === 'moving'
-                      ? 'animated-dashed-border pointer-events-all'
-                      : 'animated-dashed-border pointer-events-none',
-                mode === 'confirming' ? 'cursor-move' : ''
-            ]"
-            :style="{
-                left: `${selectionRect.left}px`,
-                top: `${selectionRect.top}px`,
-                width: `${selectionRect.width}px`,
-                height: `${selectionRect.height}px`,
-                zIndex: 40
+                backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'top left',
+                backgroundRepeat: 'no-repeat'
             }"
-            @mousedown="handleSelectionMouseDown">
-            <!-- Resize handles -->
-            <div v-if="mode === 'confirming' || mode === 'resizing'">
-                <div
-                    class="pointer-events-all absolute -top-[5px] -left-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'top-left')"></div>
-                <div
-                    class="pointer-events-all absolute -top-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'top')"></div>
-                <div
-                    class="pointer-events-all absolute -top-[5px] -right-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'top-right')"></div>
-                <div
-                    class="pointer-events-all absolute top-1/2 -right-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'right')"></div>
-                <div
-                    class="pointer-events-all absolute -right-[5px] -bottom-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom-right')"></div>
-                <div
-                    class="pointer-events-all absolute -bottom-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom')"></div>
-                <div
-                    class="pointer-events-all absolute -bottom-[5px] -left-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom-left')"></div>
-                <div
-                    class="pointer-events-all absolute top-1/2 -left-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white"
-                    @mousedown.stop="handleResizeHandleMouseDown($event, 'left')"></div>
-            </div>
-        </div>
-
-        <!-- Instructions (only show on active window) -->
-        <div
-            v-if="mode === 'idle' && isWindowActive"
-            class="pointer-events-none fixed top-1/2 left-1/2 z-100 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
-            <p>Click and drag to select an area or click to record full screen</p>
-        </div>
-
-        <!-- Crosshair -->
-        <div
-            v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'recording' && isWindowActive"
-            class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-99 h-px transition-none"
-            :style="{ top: mouseY + 'px' }" />
-        <div
-            v-if="shouldShowCrosshair && mode !== 'confirming' && mode !== 'recording' && isWindowActive"
-            class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-99 w-px transition-none"
-            :style="{ left: mouseX + 'px' }" />
-
-        <!-- Magnifier -->
-        <div
-            v-if="shouldShowMagnifier && magnifierActive"
-            class="pointer-events-none fixed z-101 flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
-            :style="magnifierStyle">
-            <canvas
-                ref="magnifierCanvas"
-                class="h-full w-full"
-                :width="magnifierSize"
-                :height="magnifierSize"></canvas>
+            @mousedown="handleMouseDown"
+            @mousemove="handleMouseMove"
+            @mouseup="handleMouseUp">
+            <!-- Dark overlay for everything outside the selection -->
             <div
-                v-if="mode === 'selecting' || mode === 'resizing'"
-                class="absolute -top-[30px] left-1/2 -translate-x-1/2 rounded bg-black/80 px-2 py-1 text-xs whitespace-nowrap text-white">
-                <p>{{ Math.round(selectionRect.width) }} x {{ Math.round(selectionRect.height) }}</p>
-            </div>
-        </div>
+                v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"
+                class="pointer-events-none absolute top-0 left-0 h-full w-full bg-black/50"
+                :style="{
+                    clipPath: `polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ${
+                        selectionRect.left
+                    }px ${selectionRect.top}px, ${selectionRect.left}px ${
+                        selectionRect.top + selectionRect.height
+                    }px, ${selectionRect.left + selectionRect.width}px ${
+                        selectionRect.top + selectionRect.height
+                    }px, ${selectionRect.left + selectionRect.width}px ${
+                        selectionRect.top
+                    }px, ${selectionRect.left}px ${selectionRect.top}px)`
+                }"></div>
 
-        <!-- Recording Toolbar (when recording) - Compact toolbar with timer and stop button -->
-        <div
-            v-if="isRecording"
-            class="pointer-events-auto fixed top-4 left-1/2 z-200 -translate-x-1/2">
-            <div class="flex items-center gap-3 rounded-full bg-black/90 px-6 py-3 shadow-2xl backdrop-blur-sm">
-                <!-- Recording indicator -->
-                <div class="flex items-center gap-2">
-                    <div class="h-3 w-3 animate-pulse rounded-full bg-red-500"></div>
-                    <span class="text-sm font-semibold text-white">Recording</span>
-                    <span class="font-mono text-sm text-white">{{ formatDuration(recordingDuration) }}</span>
+            <!-- Countdown Overlay -->
+            <div
+                v-if="mode === 'countdown' && showCountdown"
+                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                <div class="animate-pulse text-[150px] font-bold text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
+                    {{ countdownValue }}
                 </div>
+            </div>
 
-                <!-- Stop button -->
-                <button
-                    @click="stopRecording"
-                    class="flex items-center gap-2 rounded-full bg-red-500 px-4 py-2 text-white transition-all hover:scale-105 hover:bg-red-600 active:scale-95">
-                    <svg
-                        class="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="currentColor">
-                        <rect
-                            x="6"
-                            y="6"
-                            width="12"
-                            height="12"
-                            rx="2" />
-                    </svg>
-                    <span class="text-sm font-bold">Stop</span>
-                    <span class="text-xs opacity-75">(Space)</span>
-                </button>
+            <!-- Selection rectangle -->
+            <div
+                v-if="mode !== 'idle' && !isRecording"
+                :class="[
+                    'absolute',
+                    mode === 'selecting'
+                        ? `${selectionBorderClass} pointer-events-none`
+                        : mode === 'confirming' ||
+                            mode === 'resizing' ||
+                            mode === 'editing' ||
+                            mode === 'edited' ||
+                            mode === 'moving'
+                          ? 'animated-dashed-border pointer-events-all'
+                          : 'animated-dashed-border pointer-events-none',
+                    mode === 'confirming' ? 'cursor-move' : ''
+                ]"
+                :style="{
+                    left: `${selectionRect.left}px`,
+                    top: `${selectionRect.top}px`,
+                    width: `${selectionRect.width}px`,
+                    height: `${selectionRect.height}px`,
+                    zIndex: 40
+                }"
+                @mousedown="handleSelectionMouseDown">
+                <!-- Size Indicator Pill -->
+                <SizeIndicatorPill
+                    :width="selectionRect.width"
+                    :height="selectionRect.height" />
+
+                <!-- Resize handles -->
+                <div v-if="mode === 'confirming' || mode === 'resizing'">
+                    <div
+                        class="pointer-events-all absolute -top-[5px] -left-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'top-left')"></div>
+                    <div
+                        class="pointer-events-all absolute -top-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'top')"></div>
+                    <div
+                        class="pointer-events-all absolute -top-[5px] -right-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'top-right')"></div>
+                    <div
+                        class="pointer-events-all absolute top-1/2 -right-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'right')"></div>
+                    <div
+                        class="pointer-events-all absolute -right-[5px] -bottom-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom-right')"></div>
+                    <div
+                        class="pointer-events-all absolute -bottom-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom')"></div>
+                    <div
+                        class="pointer-events-all absolute -bottom-[5px] -left-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom-left')"></div>
+                    <div
+                        class="pointer-events-all absolute top-1/2 -left-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white"
+                        @mousedown.stop="handleResizeHandleMouseDown($event, 'left')"></div>
+                </div>
+            </div>
+
+            <!-- Instructions (only show on active window) -->
+            <div
+                v-if="mode === 'idle' && isWindowActive && !isRecording"
+                class="pointer-events-none fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
+                <p>Click and drag to select an area or click to capture full screen</p>
+            </div>
+
+            <!-- Crosshair (only when not confirming and window is active) -->
+            <div
+                v-if="
+                    shouldShowCrosshair &&
+                    mode !== 'confirming' &&
+                    mode !== 'editing' &&
+                    mode !== 'edited' &&
+                    mode !== 'countdown' &&
+                    isWindowActive &&
+                    !isRecording
+                "
+                class="animated-dashed-line-h pointer-events-none fixed right-0 left-0 z-40 h-px transition-none"
+                :style="{ top: mouseY + 'px' }" />
+            <div
+                v-if="
+                    shouldShowCrosshair &&
+                    mode !== 'confirming' &&
+                    mode !== 'editing' &&
+                    mode !== 'edited' &&
+                    mode !== 'countdown' &&
+                    isWindowActive &&
+                    !isRecording
+                "
+                class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-40 w-px transition-none"
+                :style="{ left: mouseX + 'px' }" />
+
+            <!-- Magnifier -->
+            <div
+                v-if="shouldShowMagnifier && magnifierActive && !isRecording"
+                class="pointer-events-none fixed z-50 flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
+                :style="magnifierStyle">
+                <canvas
+                    ref="magnifierCanvas"
+                    class="h-full w-full"
+                    :width="magnifierSize"
+                    :height="magnifierSize"></canvas>
             </div>
         </div>
-
-        <!-- Action Toolbar (when confirming) - Start Recording button -->
+        <!-- Action Toolbar -->
         <div
-            v-if="mode === 'confirming'"
-            class="pointer-events-auto absolute z-50 flex items-center gap-4 rounded-full bg-white/90 px-4 py-2 shadow-lg"
+            v-if="mode === 'confirming' || isRecording"
+            ref="toolbarContainerRef"
+            class="toolbar-container z-50 flex items-center gap-4 overflow-visible"
+            :class="{
+                'shadow-2xl': isDraggingToolbar,
+                'absolute transition-shadow duration-300 ease-in-out': !isRecording,
+                'transition-shadow duration-300 ease-in-out': isRecording,
+                'pb-10': isRecording
+            }"
             :style="toolbarStyle">
-            <button
-                @click="startRecording"
-                class="flex items-center gap-2 rounded-full bg-red-500 px-6 py-2 text-white transition-colors hover:bg-red-600">
-                <svg
-                    class="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor">
-                    <circle
-                        cx="12"
-                        cy="12"
-                        r="10" />
-                </svg>
-                <span class="font-semibold">Start Recording</span>
-            </button>
-
-            <button
-                @click="handleCancel"
-                class="rounded-full bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300">
-                Cancel
-            </button>
-        </div>
-
-        <!-- Preview Screen (after recording) -->
-        <div
-            v-if="mode === 'previewing'"
-            class="fixed inset-0 z-200 flex items-center justify-center bg-black/90">
-            <div class="relative mx-4 w-full max-w-4xl">
-                <!-- Video Preview -->
+            <!-- Drag Handle -->
+            <div class="group relative overflow-visible">
                 <div
-                    v-if="previewVideoUrl"
-                    class="relative overflow-hidden rounded-lg bg-black shadow-2xl">
-                    <video
-                        :src="previewVideoUrl"
-                        controls
-                        autoplay
-                        class="h-auto max-h-[70vh] w-full"
-                        @loadedmetadata="() => console.log('Video loaded')">
-                        Your browser does not support the video tag.
-                    </video>
+                    @mousedown="handleToolbarDragStart"
+                    :class="{ drag: isRecording }"
+                    class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100">
+                    <svg
+                        class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <circle
+                            cx="12"
+                            cy="5"
+                            r="2" />
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="2" />
+                        <circle
+                            cx="12"
+                            cy="19"
+                            r="2" />
+                    </svg>
                 </div>
 
-                <!-- Loading state if preview URL is not ready yet -->
+                <Tooltip
+                    :showToolbar="showToolbar"
+                    :displayId="displayId"
+                    :isRecording="isRecording"
+                    text="Move"
+                    position="bottom" />
+            </div>
+
+            <div class="relative">
+                <div class="group relative overflow-visible rounded-full bg-white/90">
+                    <button
+                        @click="isRecording ? handleStop() : handleStart()"
+                        class="flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-transparent px-4 py-2.5 transition-colors">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="#d73a3a">
+                            <g clip-path="url(#clip0_4418_8039)">
+                                <path
+                                    d="M11.97 2C6.44997 2 1.96997 6.48 1.96997 12C1.96997 17.52 6.44997 22 11.97 22C17.49 22 21.97 17.52 21.97 12C21.97 6.48 17.5 2 11.97 2ZM12 16.23C9.65997 16.23 7.76997 14.34 7.76997 12C7.76997 9.66 9.65997 7.77 12 7.77C14.34 7.77 16.23 9.66 16.23 12C16.23 14.34 14.34 16.23 12 16.23Z"
+                                    fill="white"
+                                    style="fill: var(--fillg)" />
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_4418_8039">
+                                    <rect
+                                        width="24"
+                                        height="24"
+                                        fill="white" />
+                                </clipPath>
+                            </defs>
+                        </svg>
+
+                        <span>{{ isRecording ? 'Stop' : 'Record' }}</span>
+
+                        <div v-if="isRecording">{{ recordingTime }}</div>
+                    </button>
+
+                    <Tooltip
+                        :showToolbar="showToolbar"
+                        :displayId="displayId"
+                        :isRecording="isRecording"
+                        :text="isRecording ? 'Stop Recording' : 'Start Recording'"
+                        position="bottom" />
+                </div>
+
+                <Transition
+                    name="expand-button"
+                    enter-active-class="transition-all duration-300 ease-in-out"
+                    leave-active-class="transition-all duration-300 ease-in-out"
+                    enter-from-class="opacity-0 scale-95"
+                    enter-to-class="opacity-100 scale-100"
+                    leave-from-class="opacity-100 scale-100"
+                    leave-to-class="opacity-0 scale-95">
+                    <div
+                        v-if="!showToolbar"
+                        class="absolute top-1.5 -right-5">
+                        <div class="group relative overflow-visible rounded-full bg-white/90">
+                            <button
+                                @click="expandToolbar"
+                                class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors">
+                                <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 16 16"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M5.9668 13.28L10.3135 8.93333C10.8268 8.42 10.8268 7.58 10.3135 7.06667L5.9668 2.72"
+                                        stroke="#6C82A3"
+                                        stroke-width="1.5"
+                                        stroke-miterlimit="10"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                </svg>
+                            </button>
+
+                            <Tooltip
+                                :showToolbar="showToolbar"
+                                :displayId="displayId"
+                                :isRecording="isRecording"
+                                text="Show Toolbar"
+                                position="bottom" />
+                        </div>
+                    </div>
+                </Transition>
+            </div>
+
+            <Transition
+                name="toolbar-expand"
+                enter-active-class="transition-all duration-300 ease-in-out"
+                leave-active-class="transition-all duration-300 ease-in-out"
+                enter-from-class="opacity-0 -translate-x-2"
+                enter-to-class="opacity-100 translate-x-0"
+                leave-from-class="opacity-100 translate-x-0"
+                leave-to-class="opacity-0 -translate-x-2">
                 <div
-                    v-else
-                    class="relative overflow-hidden rounded-lg bg-black p-12 shadow-2xl">
-                    <div class="text-center">
-                        <div
-                            class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
-                        <p class="text-lg font-semibold text-white">Loading preview...</p>
+                    v-if="showToolbar"
+                    class="flex items-center gap-4">
+                    <div class="flex items-center gap-4 rounded-full bg-white/90">
+                        <!-- Webcam Controls -->
+                        <div class="group webcam-settings-container relative overflow-visible">
+                            <button
+                                ref="webcamSettingsButtonRef"
+                                @click="toggleWebcamSettings"
+                                type="button"
+                                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors hover:bg-gray-100"
+                                :class="{
+                                    'bg-blue-100': store.settings.webcamEnabled,
+                                    'bg-gray-100': showWebcamSettings
+                                }">
+                                <svg
+                                    v-if="store.settings.webcamEnabled"
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M21.15 6.17C20.74 5.95 19.88 5.72 18.71 6.54L17.24 7.58C17.13 4.47 15.78 3.25 12.5 3.25H6.5C3.08 3.25 1.75 4.58 1.75 8V16C1.75 18.3 3 20.75 6.5 20.75H12.5C15.78 20.75 17.13 19.53 17.24 16.42L18.71 17.46C19.33 17.9 19.87 18.04 20.3 18.04C20.67 18.04 20.96 17.93 21.15 17.83C21.56 17.62 22.25 17.05 22.25 15.62V8.38C22.25 6.95 21.56 6.38 21.15 6.17ZM11 11.38C9.97 11.38 9.12 10.54 9.12 9.5C9.12 8.46 9.97 7.62 11 7.62C12.03 7.62 12.88 8.46 12.88 9.5C12.88 10.54 12.03 11.38 11 11.38Z"
+                                        fill="#2178FF" />
+                                </svg>
+
+                                <svg
+                                    v-else
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        opacity="0.4"
+                                        d="M17.7405 7.57C17.7505 7.64 17.7505 7.72 17.7405 7.79C17.7405 7.72 17.7305 7.65 17.7305 7.58L17.7405 7.57Z"
+                                        fill="#2178FF" />
+                                    <path
+                                        d="M17.2809 6.56L3.83086 20.01C2.43086 19.12 1.88086 17.53 1.88086 16V8C1.88086 4.58 3.21086 3.25 6.63086 3.25H12.6309C15.5209 3.25 16.9109 4.2 17.2809 6.56Z"
+                                        fill="#6C82A3" />
+                                    <path
+                                        d="M21.4 2.23C21.1 1.93 20.61 1.93 20.31 2.23L1.85 20.69C1.55 20.99 1.55 21.48 1.85 21.78C2 21.92 2.2 22 2.39 22C2.59 22 2.78 21.92 2.93 21.77L21.4 3.31C21.7 3.01 21.7 2.53 21.4 2.23Z"
+                                        fill="#6C82A3" />
+                                    <path
+                                        d="M22.3802 8.38V15.62C22.3802 17.05 21.6802 17.62 21.2802 17.83C21.0902 17.93 20.7902 18.04 20.4202 18.04C19.9902 18.04 19.4602 17.9 18.8402 17.46L17.3602 16.42C17.2902 18.63 16.5902 19.89 15.0002 20.42C14.3602 20.65 13.5702 20.75 12.6202 20.75H6.62016C6.38016 20.75 6.15016 20.74 5.91016 20.71L15.0002 11.63L20.6502 5.98C20.9102 6 21.1202 6.08 21.2802 6.17C21.6802 6.38 22.3802 6.95 22.3802 8.38Z"
+                                        fill="#6C82A3" />
+                                </svg>
+
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 14 14"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
+                                        stroke="#455772"
+                                        stroke-width="1.5"
+                                        stroke-miterlimit="10"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                </svg>
+                            </button>
+
+                            <!-- Webcam Settings Dropdown -->
+                            <div
+                                v-if="showWebcamSettings"
+                                ref="webcamDropdownRef"
+                                class="absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
+                                :class="[webcamDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
+                                <div class="flex flex-col">
+                                    <div
+                                        v-for="device in videoDevices"
+                                        :key="device.deviceId"
+                                        @click="selectWebcamDevice(device)"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                        :class="[
+                                            selectedWebcamDeviceId === device.deviceId
+                                                ? 'font-medium text-blue-600'
+                                                : 'text-gray-700'
+                                        ]">
+                                        <span class="truncate">{{ device.label }}</span>
+                                        <svg
+                                            v-if="selectedWebcamDeviceId === device.deviceId"
+                                            width="24"
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
+                                                stroke="#2178FF"
+                                                stroke-width="2.0625"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+
+                                    <div
+                                        v-if="videoDevices.length === 0"
+                                        class="px-4 py-2.5 text-sm text-gray-500">
+                                        No cameras found
+                                    </div>
+
+                                    <!-- Disable Option -->
+                                    <div
+                                        @click="disableWebcam"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50"
+                                        :class="{ 'font-medium': !store.settings.webcamEnabled }">
+                                        <span>Disable Camera</span>
+                                        <svg
+                                            v-if="!store.settings.webcamEnabled"
+                                            width="24"
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
+                                                stroke="#2178FF"
+                                                stroke-width="2.0625"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Tooltip
+                                v-if="!showWebcamSettings"
+                                :showToolbar="showToolbar"
+                                :displayId="displayId"
+                                :isRecording="isRecording"
+                                text="Webcam settings"
+                                position="bottom" />
+                        </div>
+
+                        <!-- Audio Controls -->
+                        <div class="group audio-settings-container relative overflow-visible">
+                            <button
+                                ref="audioSettingsButtonRef"
+                                @click="toggleAudioSettings"
+                                type="button"
+                                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pr-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                :class="{ 'bg-gray-100': showAudioSettings }">
+                                <svg
+                                    v-if="selectedAudioDeviceId"
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M19.1197 9.12C18.7297 9.12 18.4197 9.43 18.4197 9.82V11.4C18.4197 14.94 15.5397 17.82 11.9997 17.82C8.45969 17.82 5.57969 14.94 5.57969 11.4V9.81C5.57969 9.42 5.26969 9.11 4.87969 9.11C4.48969 9.11 4.17969 9.42 4.17969 9.81V11.39C4.17969 15.46 7.30969 18.81 11.2997 19.17V21.3C11.2997 21.69 11.6097 22 11.9997 22C12.3897 22 12.6997 21.69 12.6997 21.3V19.17C16.6797 18.82 19.8197 15.46 19.8197 11.39V9.81C19.8097 9.43 19.4997 9.12 19.1197 9.12Z"
+                                        fill="#2178FF" />
+                                    <path
+                                        d="M12.0001 2C9.56008 2 7.58008 3.98 7.58008 6.42V11.54C7.58008 13.98 9.56008 15.96 12.0001 15.96C14.4401 15.96 16.4201 13.98 16.4201 11.54V6.42C16.4201 3.98 14.4401 2 12.0001 2ZM13.3101 8.95C13.2401 9.21 13.0101 9.38 12.7501 9.38C12.7001 9.38 12.6501 9.37 12.6001 9.36C12.2101 9.25 11.8001 9.25 11.4101 9.36C11.0901 9.45 10.7801 9.26 10.7001 8.95C10.6101 8.64 10.8001 8.32 11.1101 8.24C11.7001 8.08 12.3201 8.08 12.9101 8.24C13.2101 8.32 13.3901 8.64 13.3101 8.95ZM13.8401 7.01C13.7501 7.25 13.5301 7.39 13.2901 7.39C13.2201 7.39 13.1601 7.38 13.0901 7.36C12.3901 7.1 11.6101 7.1 10.9101 7.36C10.6101 7.47 10.2701 7.31 10.1601 7.01C10.0501 6.71 10.2101 6.37 10.5101 6.27C11.4701 5.92 12.5301 5.92 13.4901 6.27C13.7901 6.38 13.9501 6.71 13.8401 7.01Z"
+                                        fill="#2178FF" />
+                                </svg>
+
+                                <svg
+                                    v-else
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M16.4201 6.42V7.58L9.14008 14.86C8.18008 13.99 7.58008 12.71 7.58008 11.34V6.42C7.58008 4.36 8.98008 2.65 10.8801 2.16C11.0701 2.11 11.2501 2.27 11.2501 2.46V4C11.2501 4.41 11.5901 4.75 12.0001 4.75C12.4101 4.75 12.7501 4.41 12.7501 4V2.46C12.7501 2.27 12.9301 2.11 13.1201 2.16C15.0201 2.65 16.4201 4.36 16.4201 6.42Z"
+                                        fill="#6C82A3" />
+                                    <path
+                                        d="M19.8098 9.81V11.4C19.8098 15.47 16.6798 18.82 12.6998 19.17V21.3C12.6998 21.69 12.3898 22 11.9998 22C11.6098 22 11.2998 21.69 11.2998 21.3V19.17C10.2098 19.07 9.17977 18.75 8.25977 18.24L9.28977 17.21C10.1098 17.59 11.0298 17.81 11.9998 17.81C15.5398 17.81 18.4198 14.93 18.4198 11.4V9.81C18.4198 9.43 18.7298 9.12 19.1198 9.12C19.4998 9.12 19.8098 9.43 19.8098 9.81Z"
+                                        fill="#6C82A3" />
+                                    <path
+                                        d="M16.4202 10.08V11.53C16.4202 14.11 14.2002 16.18 11.5602 15.93C11.2802 15.9 11.0002 15.85 10.7402 15.76L16.4202 10.08Z"
+                                        fill="#6C82A3" />
+                                    <path
+                                        d="M21.7691 2.23C21.4691 1.93 20.9791 1.93 20.6791 2.23L7.22914 15.68C6.19914 14.55 5.57914 13.05 5.57914 11.4V9.81C5.57914 9.43 5.26914 9.12 4.87914 9.12C4.49914 9.12 4.18914 9.43 4.18914 9.81V11.4C4.18914 13.43 4.96914 15.28 6.23914 16.67L2.21914 20.69C1.91914 20.99 1.91914 21.48 2.21914 21.78C2.37914 21.92 2.56914 22 2.76914 22C2.96914 22 3.15914 21.92 3.30914 21.77L21.7691 3.31C22.0791 3.01 22.0791 2.53 21.7691 2.23Z"
+                                        fill="#6C82A3" />
+                                </svg>
+
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 14 14"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg">
+                                    <path
+                                        d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
+                                        stroke="#455772"
+                                        stroke-width="1.5"
+                                        stroke-miterlimit="10"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                </svg>
+                            </button>
+
+                            <!-- Audio Settings Dropdown -->
+                            <div
+                                v-if="showAudioSettings"
+                                ref="audioDropdownRef"
+                                class="absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
+                                :class="[audioDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
+                                <div class="flex flex-col">
+                                    <div
+                                        v-for="audioDevice in audioDevices"
+                                        :key="audioDevice.deviceId"
+                                        @click="selectAudioDevice(audioDevice)"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                        :class="[
+                                            selectedAudioDeviceId === audioDevice.deviceId
+                                                ? 'font-medium text-blue-600'
+                                                : 'text-gray-700'
+                                        ]">
+                                        <span class="truncate">{{ audioDevice.label }}</span>
+                                        <svg
+                                            v-if="selectedAudioDeviceId === audioDevice.deviceId"
+                                            width="24"
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
+                                                stroke="#2178FF"
+                                                stroke-width="2.0625"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+
+                                    <div
+                                        v-if="audioDevices.length === 0"
+                                        class="px-4 py-2.5 text-sm text-gray-500">
+                                        No microphones found
+                                    </div>
+
+                                    <!-- Mute Option -->
+                                    <div
+                                        @click="muteAudio"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50"
+                                        :class="{ 'font-medium': !selectedAudioDeviceId }">
+                                        <span>Mute</span>
+                                        <svg
+                                            v-if="!selectedAudioDeviceId"
+                                            width="24"
+                                            height="24"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path
+                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
+                                                stroke="#2178FF"
+                                                stroke-width="2.0625"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <Tooltip
+                                v-if="!showAudioSettings"
+                                :showToolbar="showToolbar"
+                                :displayId="displayId"
+                                :isRecording="isRecording"
+                                text="Audio settings"
+                                position="bottom" />
+                        </div>
+                    </div>
+
+                    <div class="group relative overflow-visible rounded-full bg-white/90">
+                        <button
+                            @click="handleCancel"
+                            class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white">
+                            <svg
+                                class="size-6"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M18 6L6 18M6 6L18 18"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </button>
+
+                        <Tooltip
+                            :showToolbar="showToolbar"
+                            :displayId="displayId"
+                            :isRecording="isRecording"
+                            text="Cancel (esc)"
+                            position="bottom" />
+                    </div>
+
+                    <div class="group relative overflow-visible rounded-full bg-white/90">
+                        <button
+                            @click="collapseToolbar"
+                            class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors">
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M10.0332 13.28L5.68654 8.93333C5.1732 8.42 5.1732 7.58 5.68654 7.06667L10.0332 2.72"
+                                    stroke="#6C82A3"
+                                    stroke-width="1.5"
+                                    stroke-miterlimit="10"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </svg>
+                        </button>
+
+                        <Tooltip
+                            :showToolbar="showToolbar"
+                            :displayId="displayId"
+                            :isRecording="isRecording"
+                            text="Hide Toolbar"
+                            position="bottom" />
                     </div>
                 </div>
-
-                <!-- Action Buttons -->
-                <div
-                    v-if="previewVideoUrl"
-                    class="mt-6 flex items-center justify-center gap-4">
-                    <button
-                        @click="handleDeleteRecording"
-                        class="flex items-center gap-2 rounded-full bg-gray-700 px-6 py-3 text-white transition-all hover:scale-105 hover:bg-gray-600">
-                        <svg
-                            class="h-5 w-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2">
-                            <path
-                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round" />
-                        </svg>
-                        <span class="font-semibold">Delete</span>
-                    </button>
-
-                    <button
-                        @click="saveRecording"
-                        class="flex items-center gap-2 rounded-full bg-green-500 px-6 py-3 text-white transition-all hover:scale-105 hover:bg-green-600">
-                        <svg
-                            class="h-5 w-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2">
-                            <path
-                                d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"
-                                stroke-linecap="round"
-                                stroke-linejoin="round" />
-                            <path
-                                d="M17 21v-8H7v8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round" />
-                            <path
-                                d="M7 3v5h8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round" />
-                        </svg>
-                        <span class="font-semibold">Save</span>
-                    </button>
-                </div>
-
-                <!-- Instruction text -->
-                <p
-                    v-if="previewVideoUrl"
-                    class="mt-4 text-center text-sm text-gray-400">
-                    Press <kbd class="rounded bg-gray-800 px-2 py-1">Esc</kbd> to cancel
-                </p>
-            </div>
-        </div>
-
-        <!-- Loading Screen (when stopping) -->
-        <div
-            v-if="mode === 'stopping'"
-            class="fixed inset-0 z-200 flex items-center justify-center bg-black/90">
-            <div class="text-center">
-                <div
-                    class="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
-                <p class="text-lg font-semibold text-white">Processing recording...</p>
-                <p
-                    v-if="processingProgress > 0"
-                    class="mt-2 text-xl font-bold text-green-400">
-                    {{ processingProgress }}%
-                </p>
-                <p class="mt-2 text-sm text-gray-400">Please wait</p>
-            </div>
+            </Transition>
         </div>
     </div>
+
+    <VideoPreview
+        v-if="uiMode == 'preview'"
+        :filename="filename"
+        @cancel="handleCancel" />
+
+    <canvas
+        ref="recordingCanvas"
+        class="hidden"></canvas>
+    <video
+        class="hidden"
+        ref="screenVideo"
+        autoplay
+        muted
+        playsinline></video>
 </template>

@@ -10,10 +10,12 @@ contextBridge.exposeInMainWorld('electron', {
     // System
     platform: process.platform,
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
     getDeviceName: () => ipcRenderer.invoke('get-device-name'),
     quitApp: () => ipcRenderer.send('quit-app'),
     showMainAtTray: (options) => ipcRenderer.invoke('show-main-at-tray', options),
     readFileAsBuffer: (filePath) => ipcRenderer.invoke('read-file-as-buffer', filePath),
+    writeToClipboard: (text) => ipcRenderer.invoke('write-to-clipboard', text),
 
     // Screenshot functionality
     startScreenshotMode: () => ipcRenderer.invoke('start-screenshot-mode'),
@@ -25,24 +27,21 @@ contextBridge.exposeInMainWorld('electron', {
     // Video recording functionality
     startVideoRecordingMode: () => ipcRenderer.invoke('start-video-recording-mode'),
     cancelVideoRecordingMode: () => ipcRenderer.send('cancel-video-recording-mode'),
-    startVideoRecording: (options) => ipcRenderer.invoke('start-video-recording', options),
-    stopVideoRecording: (recordingId) => ipcRenderer.invoke('stop-video-recording', recordingId),
-    isVideoRecordingActive: () => ipcRenderer.invoke('is-video-recording-active'),
-    stopAllVideoRecordings: () => ipcRenderer.invoke('stop-all-video-recordings'),
-    
-    // FFmpeg video processing
-    createTempVideoPath: () => ipcRenderer.invoke('create-temp-video-path'),
-    writeVideoChunk: (options) => ipcRenderer.invoke('write-video-chunk', options),
-    cropVideoFFmpeg: (options) => ipcRenderer.invoke('crop-video-ffmpeg', options),
-    getFileSize: (filePath) => ipcRenderer.invoke('get-file-size', filePath),
-    readFileChunk: (options) => ipcRenderer.invoke('read-file-chunk', options),
-    cleanupTempFiles: (filePaths) => ipcRenderer.invoke('cleanup-temp-files', filePaths),
-    onFFmpegProgress: (callback) => ipcRenderer.on('ffmpeg-progress', (event, progress) => callback(progress)),
-    removeFFmpegProgressListener: () => ipcRenderer.removeAllListeners('ffmpeg-progress'),
+    getSources: () => ipcRenderer.invoke('get-sources'),
+    saveVideo: (buffer, filename) => ipcRenderer.invoke('save-video', buffer, filename),
+
+    // Real-time recording to disk (writes during recording, not after)
+    initRecordingStream: (timestamp) => ipcRenderer.invoke('init-recording-stream', timestamp),
+    appendRecordingChunk: (chunk) => ipcRenderer.invoke('append-recording-chunk', chunk),
+    stopRecordingStream: () => ipcRenderer.invoke('stop-recording-stream'),
 
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+    checkSystemPermissions: () => ipcRenderer.invoke('check-system-permissions'),
+    requestSystemPermission: (id) => ipcRenderer.invoke('request-system-permission', id),
+    relaunchApp: () => ipcRenderer.invoke('relaunch-app'),
+
     ipcRenderer: {
         on: (channel, callback) => ipcRenderer.on(channel, callback),
         removeListener: (channel, callback) => ipcRenderer.removeListener(channel, callback)
@@ -65,10 +64,15 @@ contextBridge.exposeInMainWorld('electronWindows', {
     centerWindow: (type) => ipcRenderer.invoke('center-window', type),
     showWindow: (type) => ipcRenderer.invoke('show-window', type),
     hideWindow: (type) => ipcRenderer.invoke('hide-window', type),
-    makeWindowNonBlocking: (type) => ipcRenderer.invoke('make-window-non-blocking', type),
+    makeWindowNonBlocking: (type, toolbarPosition, toolbarSize, toolbarDimensions) =>
+        ipcRenderer.invoke('make-window-non-blocking', type, toolbarPosition, toolbarSize, toolbarDimensions),
+    setIgnoreMouseEvents: (ignore, options) => ipcRenderer.invoke('set-ignore-mouse-events', ignore, options),
     makeWindowBlocking: (type) => ipcRenderer.invoke('make-window-blocking', type),
     resizeWindow: (type, width, height) => ipcRenderer.invoke('resize-window', type, width, height),
+    moveWindow: (type, x, y) => ipcRenderer.invoke('move-window', type, x, y),
     getWindowType: () => ipcRenderer.invoke('get-window-type'),
+    getWindow: (type) => ipcRenderer.invoke('get-window', type),
+    getCurrentWindowDisplayInfo: () => ipcRenderer.invoke('get-current-window-display-info'),
 
     // Display events
     onDisplayChanged: (callback) => {
@@ -99,16 +103,25 @@ contextBridge.exposeInMainWorld('electronWindows', {
 contextBridge.exposeInMainWorld('electronNotifications', {
     notify: (payload) => ipcRenderer.invoke('notify', payload),
     onAdd: (callback) => ipcRenderer.on('notifications:add', (e, n) => callback(n)),
+
+    // Video upload specific
+    sendVideoChunk: (payload) => ipcRenderer.send('notifications:video-chunk', payload),
+    sendVideoFinalize: (payload) => ipcRenderer.send('notifications:video-finalize', payload),
+    onVideoChunk: (callback) => ipcRenderer.on('notifications:video-chunk', (e, payload) => callback(payload)),
+    onVideoFinalize: (callback) => ipcRenderer.on('notifications:video-finalize', (e, payload) => callback(payload)),
+
     resize: (height) => ipcRenderer.send('notifications:resize', height),
     reposition: () => ipcRenderer.send('notifications:reposition'),
-    close: () => ipcRenderer.send('notifications:close')
+    close: () => ipcRenderer.send('notifications:close'),
+    hide: () => ipcRenderer.send('notifications:hide'),
+    show: () => ipcRenderer.send('notifications:show')
 })
 
 // ==================== STORE/PERSISTENCE APIs ====================
 
 contextBridge.exposeInMainWorld('electronStore', {
     get: (key) => storeSend('get', key),
-    getAll: () => storeSend('get'),
+    getAll: () => storeSend('getAll'),
     set: (key, value) => storeSend('set', key, value),
     sync: (key, value) => ipcRenderer.send('store:sync', { key, value }),
     onUpdate: (callback) => ipcRenderer.on('store:update', (event, { key, value }) => callback(key, value))

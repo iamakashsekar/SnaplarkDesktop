@@ -2,6 +2,7 @@
     import { onMounted, ref } from 'vue'
     import { useWindows } from '../composables/useWindows'
     import { useStore } from '../store'
+    import GradientFrame from '../components/GradientFrame.vue'
 
     const store = useStore()
 
@@ -81,167 +82,150 @@
         <transition
             name="slide-fade"
             mode="out-in">
-            <div
-                v-if="!showTour"
-                key="welcome"
-                class="welcome-screen dark:bg-dark-900 drag relative flex size-[450px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-white">
-                <!-- Background shapes -->
-                <img
-                    src="@/assets/images/welcome-shape.png"
-                    alt="Welcome to Snaplark"
-                    class="absolute top-0 left-0 z-0 h-full w-full" />
+            <GradientFrame v-if="!showTour">
+                <div
+                    key="welcome"
+                    class="welcome-screen dark:bg-dark-blue drag relative flex size-[450px] flex-col items-center justify-center overflow-hidden rounded-2xl bg-white">
+                    <!-- Background shapes -->
+                    <img
+                        src="@/assets/images/welcome-shape.png"
+                        alt="Welcome to Snaplark"
+                        class="absolute top-0 left-0 z-0 h-full w-full" />
 
-                <img
-                    src="@/assets/images/welcome-shape-2.png"
-                    alt="Welcome to Snaplark"
-                    class="absolute top-0 left-0 z-0 h-full w-full" />
+                    <img
+                        src="@/assets/images/welcome-shape-2.png"
+                        alt="Welcome to Snaplark"
+                        class="absolute top-0 left-0 z-0 h-full w-full" />
 
-                <!-- Close button -->
-                <button
-                    @click="closeWindow('welcome')"
-                    class="no-drag absolute top-3 right-3 flex cursor-pointer items-center justify-center rounded-full hover:bg-gray-400/80">
-                    <svg
-                        width="40"
-                        height="40"
-                        viewBox="0 0 46 46"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            opacity="0.4"
-                            d="M23.0002 42.1667C33.5856 42.1667 42.1668 33.5855 42.1668 23C42.1668 12.4146 33.5856 3.83334 23.0002 3.83334C12.4147 3.83334 3.8335 12.4146 3.8335 23C3.8335 33.5855 12.4147 42.1667 23.0002 42.1667Z"
-                            fill="#6C82A3" />
-                        <path
-                            d="M25.0316 23L29.4399 18.5917C29.9958 18.0358 29.9958 17.1158 29.4399 16.56C28.8841 16.0042 27.9641 16.0042 27.4083 16.56L22.9999 20.9683L18.5916 16.56C18.0358 16.0042 17.1158 16.0042 16.5599 16.56C16.0041 17.1158 16.0041 18.0358 16.5599 18.5917L20.9683 23L16.5599 27.4083C16.0041 27.9642 16.0041 28.8842 16.5599 29.44C16.8474 29.7275 17.2116 29.8617 17.5758 29.8617C17.9399 29.8617 18.3041 29.7275 18.5916 29.44L22.9999 25.0317L27.4083 29.44C27.6958 29.7275 28.0599 29.8617 28.4241 29.8617C28.7883 29.8617 29.1524 29.7275 29.4399 29.44C29.9958 28.8842 29.9958 27.9642 29.4399 27.4083L25.0316 23Z"
-                            fill="#6C82A3" />
-                    </svg>
-                </button>
+                    <!-- Content -->
+                    <div class="z-10 flex flex-col items-center">
+                        <div>
+                            <img
+                                class="w-80"
+                                src="@/assets/images/welcome-logo.png"
+                                alt="Welcome to Snaplark" />
+                            <p class="text-center dark:text-white">screen capture software</p>
+                        </div>
 
-                <!-- Content -->
-                <div class="z-10 flex flex-col items-center">
-                    <div>
-                        <img
-                            class="w-80"
-                            src="@/assets/images/welcome-logo.png"
-                            alt="Welcome to Snaplark" />
-                        <p class="text-center dark:text-white">screen capture software</p>
+                        <svg
+                            class="mt-8"
+                            width="160"
+                            height="104"
+                            viewBox="0 0 190 104"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M20.1592 88.5575V20.1592H95.252V103.82H35.4213C26.9923 103.82 20.1592 96.9865 20.1592 88.5575Z"
+                                fill="url(#paint0_linear_13_17683)" />
+                            <path
+                                d="M94.748 103.82V20.1592H170.345V88.5575C170.345 96.9866 163.512 103.82 155.083 103.82H94.748Z"
+                                fill="url(#paint1_linear_13_17683)" />
+                            <path
+                                d="M74.1247 0H2.65766C1.67692 0 1.18576 1.18576 1.87925 1.87925L20.1592 20.1592H94.244L74.9129 0.332344C74.7057 0.11984 74.4215 0 74.1247 0Z"
+                                fill="url(#paint2_linear_13_17683)" />
+                            <path
+                                d="M115.859 0H187.389C188.363 0 188.857 1.17193 188.177 1.86934L170.345 20.1592H94.748L115.09 0.312879C115.296 0.112282 115.572 0 115.859 0Z"
+                                fill="url(#paint3_linear_13_17683)" />
+                            <defs>
+                                <linearGradient
+                                    id="paint0_linear_13_17683"
+                                    x1="37.2945"
+                                    y1="22.6791"
+                                    x2="88.7003"
+                                    y2="106.844"
+                                    gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#2178FF" />
+                                    <stop
+                                        offset="1"
+                                        stop-color="#5698FF" />
+                                </linearGradient>
+                                <linearGradient
+                                    id="paint1_linear_13_17683"
+                                    x1="92.2282"
+                                    y1="32.2547"
+                                    x2="166.817"
+                                    y2="101.804"
+                                    gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#4A91FC" />
+                                    <stop
+                                        offset="1"
+                                        stop-color="#3C87FB" />
+                                </linearGradient>
+                                <linearGradient
+                                    id="paint2_linear_13_17683"
+                                    x1="-2.51989"
+                                    y1="7.44628e-07"
+                                    x2="100.796"
+                                    y2="24.695"
+                                    gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#2178FF" />
+                                    <stop
+                                        offset="1"
+                                        stop-color="#68A3FF" />
+                                </linearGradient>
+                                <linearGradient
+                                    id="paint3_linear_13_17683"
+                                    x1="132.546"
+                                    y1="29.2308"
+                                    x2="178.408"
+                                    y2="-3.41525e-06"
+                                    gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#2179FF" />
+                                    <stop
+                                        offset="1"
+                                        stop-color="#3485FF" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+
+                        <button
+                            @click="startTour"
+                            class="no-drag mt-10 rounded-full bg-blue-500 px-6 py-3 font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
+                            Let's get started
+                        </button>
                     </div>
-
-                    <svg
-                        class="mt-8"
-                        width="160"
-                        height="104"
-                        viewBox="0 0 190 104"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M20.1592 88.5575V20.1592H95.252V103.82H35.4213C26.9923 103.82 20.1592 96.9865 20.1592 88.5575Z"
-                            fill="url(#paint0_linear_13_17683)" />
-                        <path
-                            d="M94.748 103.82V20.1592H170.345V88.5575C170.345 96.9866 163.512 103.82 155.083 103.82H94.748Z"
-                            fill="url(#paint1_linear_13_17683)" />
-                        <path
-                            d="M74.1247 0H2.65766C1.67692 0 1.18576 1.18576 1.87925 1.87925L20.1592 20.1592H94.244L74.9129 0.332344C74.7057 0.11984 74.4215 0 74.1247 0Z"
-                            fill="url(#paint2_linear_13_17683)" />
-                        <path
-                            d="M115.859 0H187.389C188.363 0 188.857 1.17193 188.177 1.86934L170.345 20.1592H94.748L115.09 0.312879C115.296 0.112282 115.572 0 115.859 0Z"
-                            fill="url(#paint3_linear_13_17683)" />
-                        <defs>
-                            <linearGradient
-                                id="paint0_linear_13_17683"
-                                x1="37.2945"
-                                y1="22.6791"
-                                x2="88.7003"
-                                y2="106.844"
-                                gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#2178FF" />
-                                <stop
-                                    offset="1"
-                                    stop-color="#5698FF" />
-                            </linearGradient>
-                            <linearGradient
-                                id="paint1_linear_13_17683"
-                                x1="92.2282"
-                                y1="32.2547"
-                                x2="166.817"
-                                y2="101.804"
-                                gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#4A91FC" />
-                                <stop
-                                    offset="1"
-                                    stop-color="#3C87FB" />
-                            </linearGradient>
-                            <linearGradient
-                                id="paint2_linear_13_17683"
-                                x1="-2.51989"
-                                y1="7.44628e-07"
-                                x2="100.796"
-                                y2="24.695"
-                                gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#2178FF" />
-                                <stop
-                                    offset="1"
-                                    stop-color="#68A3FF" />
-                            </linearGradient>
-                            <linearGradient
-                                id="paint3_linear_13_17683"
-                                x1="132.546"
-                                y1="29.2308"
-                                x2="178.408"
-                                y2="-3.41525e-06"
-                                gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#2179FF" />
-                                <stop
-                                    offset="1"
-                                    stop-color="#3485FF" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
-
-                    <button
-                        @click="startTour"
-                        class="no-drag mt-10 rounded-full bg-blue-500 px-6 py-3 font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
-                        Let's get started
-                    </button>
                 </div>
-            </div>
+            </GradientFrame>
 
             <div
                 v-else
                 key="tour"
                 class="tour-screen flex flex-col items-center justify-center gap-4">
-                <div class="drag relative w-[420px] rounded-2xl bg-white px-5 py-6">
-                    <div
-                        class="bg-primary-blue absolute top-4 left-0 rounded-tr-2xl rounded-br-2xl py-3.5 pr-6 pl-8 text-white">
-                        <span class="text-lg font-bold">{{ steps[currentStep].id }}</span>
-                    </div>
-                    <transition
-                        name="slide-fade"
-                        mode="out-in">
-                        <div :key="currentStep">
-                            <h1 class="text-gray-black mt-2 ml-14 text-base font-medium">
-                                {{ steps[currentStep].title }}
-                            </h1>
-                            <img
-                                :src="getImageUrl(steps[currentStep].image)"
-                                alt="Welcome to Snaplark"
-                                class="mx-auto mt-6 h-auto w-[400px]" />
+                <GradientFrame>
+                    <div class="drag dark:bg-dark-blue relative w-[420px] rounded-2xl bg-white px-5 py-6">
+                        <div
+                            class="bg-primary-blue absolute top-4 left-0 rounded-tr-2xl rounded-br-2xl py-3.5 pr-6 pl-8 text-white">
+                            <span class="text-lg font-bold">{{ steps[currentStep].id }}</span>
                         </div>
-                    </transition>
+                        <transition
+                            name="slide-fade"
+                            mode="out-in">
+                            <div :key="currentStep">
+                                <h1 class="mt-2 ml-14 text-base font-medium text-gray-900 dark:text-gray-100">
+                                    {{ steps[currentStep].title }}
+                                </h1>
+                                <img
+                                    :src="getImageUrl(steps[currentStep].image)"
+                                    alt="Welcome to Snaplark"
+                                    class="mx-auto mt-6 h-auto w-[400px]" />
+                            </div>
+                        </transition>
 
-                    <div class="mt-4 flex items-center justify-between">
-                        <button
-                            @click="finishSetup"
-                            class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-300 transition-all duration-300 ease-in-out">
-                            Skip Tour
-                        </button>
+                        <div class="mt-4 flex items-center justify-between">
+                            <button
+                                @click="finishSetup"
+                                class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-400 transition-all duration-300 ease-in-out dark:text-gray-500">
+                                Skip Tour
+                            </button>
 
-                        <button
-                            @click="nextStep"
-                            class="no-drag w-full rounded-full bg-blue-500 py-2 text-lg font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
-                            {{ currentStep === steps.length - 1 ? 'Finish' : 'Next' }}
-                        </button>
+                            <button
+                                @click="nextStep"
+                                class="no-drag w-full rounded-full bg-blue-500 py-2 text-lg font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
+                                {{ currentStep === steps.length - 1 ? 'Finish' : 'Next' }}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </GradientFrame>
 
                 <div class="flex items-center justify-center gap-2">
                     <button
@@ -250,7 +234,7 @@
                         @click="goToStep(index)"
                         :class="[
                             'h-2.5 w-10 rounded-full focus:outline-none',
-                            currentStep === index ? 'bg-white' : 'bg-gray-200/60'
+                            currentStep === index ? 'bg-blue-500' : 'bg-gray-200/60 dark:bg-gray-600'
                         ]"></button>
                 </div>
             </div>

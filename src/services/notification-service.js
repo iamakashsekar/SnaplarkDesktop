@@ -36,6 +36,8 @@ class NotificationService {
                 const win =
                     this.windowManager.getWindow('notifications') || this.windowManager.createWindow('notifications')
 
+                // win.webContents.openDevTools()
+
                 if (process.platform === 'darwin') {
                     win.setAlwaysOnTop(true, 'screen-saver')
                     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
@@ -53,6 +55,14 @@ class NotificationService {
                 } else {
                     win.show()
                 }
+
+                // After a brief moment, allow the notification to go behind other windows
+                // This keeps it on top initially but lets it go underneath when user focuses elsewhere
+                setTimeout(() => {
+                    if (!win.isDestroyed()) {
+                        win.setAlwaysOnTop(false)
+                    }
+                }, 500)
 
                 if (win.webContents.isLoadingMainFrame()) {
                     win.webContents.once('did-finish-load', () => {
@@ -95,6 +105,36 @@ class NotificationService {
             if (win) {
                 win.hide()
                 win.close()
+            }
+        })
+
+        ipcMain.on('notifications:hide', () => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win) {
+                win.hide()
+            }
+        })
+
+        ipcMain.on('notifications:show', () => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win) {
+                win.showInactive()
+            }
+        })
+
+        // Forward video chunks to notification window
+        ipcMain.on('notifications:video-chunk', (event, payload) => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('notifications:video-chunk', payload)
+            }
+        })
+
+        // Forward video finalize to notification window
+        ipcMain.on('notifications:video-finalize', (event, payload) => {
+            const win = this.windowManager.getWindow('notifications')
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('notifications:video-finalize', payload)
             }
         })
     }

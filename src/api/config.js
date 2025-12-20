@@ -8,14 +8,32 @@ export const PROTOCOL = 'snaplark'
 // Token management utilities
 export class TokenManager {
     static getToken() {
-        return window.electronStore?.get('auth_token') || null
+        const token = window.electronStore?.get('auth_token') || null
+        console.log('[TokenManager] getToken() called, returning:', token ? `${token.substring(0, 20)}...` : 'null')
+        return token
     }
 
     static setToken(token) {
-        window.electronStore?.set('auth_token', token)
+        console.log('[TokenManager] setToken() called with:', token ? `${token.substring(0, 20)}...` : 'null')
+        if (!window.electronStore) {
+            console.error('[TokenManager] window.electronStore is not available!')
+            return false
+        }
+        const result = window.electronStore.set('auth_token', token)
+        console.log('[TokenManager] setToken() result:', result)
+
+        // Immediate verification
+        const verified = window.electronStore.get('auth_token')
+        console.log(
+            '[TokenManager] Immediate verification:',
+            verified ? `${verified.substring(0, 20)}...` : 'null',
+            verified === token ? '✓' : '✗'
+        )
+        return result
     }
 
     static removeToken() {
+        console.log('[TokenManager] removeToken() called')
         window.electronStore?.set('auth_token', null)
     }
 }
@@ -35,8 +53,15 @@ export const apiClient = axios.create({
 // Shared request interceptor function
 const requestInterceptor = (config) => {
     const token = TokenManager.getToken()
+    console.log(
+        '[API Request Interceptor] Token available:',
+        token ? '✓' : '✗',
+        token ? `(${token.substring(0, 20)}...)` : ''
+    )
     if (token) {
         config.headers.Authorization = `Bearer ${token}`
+    } else {
+        console.warn('[API Request Interceptor] No token available for request to:', config.url)
     }
     return config
 }

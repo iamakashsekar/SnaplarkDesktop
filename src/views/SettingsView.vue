@@ -1,13 +1,33 @@
 <script setup>
-    import { ref, watch, nextTick } from 'vue'
+    import { ref, watch, onMounted } from 'vue'
     import { useWindows } from '@/composables/useWindows'
     import { useStore } from '@/store'
+    import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
+    import Switch from '@/components/Switch.vue'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()
 
     // Direct reference to store.settings (it's already reactive)
     const settings = store.settings
+
+    watch(
+        () => settings.hotkeyScreenshot,
+        (newValue) => {
+            if (window.electron?.invoke) {
+                window.electron.invoke('update-screenshot-shortcut', newValue)
+            }
+        }
+    )
+
+    watch(
+        () => settings.hotkeyRecording,
+        (newValue) => {
+            if (window.electron?.invoke) {
+                window.electron.invoke('update-recording-shortcut', newValue)
+            }
+        }
+    )
 
     const activeTab = ref('general')
     const contentRef = ref(null)
@@ -17,16 +37,10 @@
     const previousHotkeyValue = ref({})
 
     const mainTabs = [
-        { id: 'general', label: 'General', height: 720 },
-        { id: 'hotkeys', label: 'Hotkeys', height: 525 },
-        { id: 'capture', label: 'Capture', height: 820 }
+        { id: 'general', label: 'General', height: 750 },
+        { id: 'hotkeys', label: 'Hotkeys', height: 440 },
+        { id: 'capture', label: 'Capture', height: 680 }
     ]
-
-    const closeWindow = () => {
-        if (window.electronWindows) {
-            window.electronWindows.closeWindow('settings')
-        }
-    }
 
     const browseSaveFolder = async () => {
         if (window.electron?.invoke) {
@@ -47,7 +61,6 @@
 
     const stopRecordingHotkey = () => {
         // Only restore if we're still recording and no new value was set
-        // This prevents restoring if a key was just recorded (which would have cleared recordingHotkey)
         if (recordingHotkey.value && previousHotkeyValue.value[recordingHotkey.value] !== undefined) {
             // Only restore if the field is still empty (no key was recorded)
             if (!settings[recordingHotkey.value] || settings[recordingHotkey.value] === '') {
@@ -96,89 +109,87 @@
         }
     }
 
-    const changeTab = (tab) => {
+    const changeTab = async (tab) => {
+        await resizeWindowTo('settings', 600, tab.height)
         activeTab.value = tab.id
-        resizeWindowTo('settings', 600, tab.height)
     }
+
+    onMounted(async () => {
+        // Init window to the General tab height
+        await resizeWindowTo('settings', 600, 700)
+    })
 </script>
 
 <template>
     <section
         ref="contentRef"
-        class="drag relative w-full rounded-2xl bg-white shadow-[0_20px_60px_rgba(17,32,67,0.1)] ring-1 ring-slate-100/80">
-        <button
-            @click="closeWindow"
-            class="no-drag absolute top-5 right-5 flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-lg font-semibold text-slate-500 transition hover:bg-slate-200 focus:ring-2 focus:ring-slate-300 focus:outline-none"
-            aria-label="Close settings">
-            ×
-        </button>
-
-        <div class="space-y-5 px-7 pt-7">
-            <div class="space-y-2">
-                <h1 class="text-xl font-bold text-slate-900">Settings</h1>
-                <p class="text-sm text-slate-500">Configure Snaplark to your preferences</p>
-            </div>
-
-            <nav
-                v-if="mainTabs.length > 1"
-                class="no-drag flex flex-wrap gap-2 border-b border-slate-100 pb-4">
-                <button
-                    v-for="tab in mainTabs"
-                    :key="tab.id"
-                    @click="changeTab(tab)"
-                    type="button"
-                    :class="[
-                        'rounded-lg border px-4 py-2 text-sm font-semibold transition focus:ring-2 focus:ring-blue-500/30 focus:outline-none',
-                        tab.id === activeTab
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    ]">
-                    {{ tab.label }}
-                </button>
-            </nav>
+        class="drag dark:bg-dark-blue relative flex h-screen w-full flex-col bg-white px-7 pt-7 pb-2 text-slate-900 dark:text-gray-200">
+        <div class="no-drag mb-6 space-y-2">
+            <h1 class="text-2xl font-bold dark:text-white">Settings</h1>
+            <p class="text-sm text-slate-500 dark:text-gray-400">Configure Snaplark to your preferences</p>
         </div>
 
-        <div class="no-drag px-7 pt-4 pb-7">
+        <nav
+            v-if="mainTabs.length > 1"
+            class="no-drag dark:bg-dark-800 mb-6 flex space-x-1 rounded-xl bg-slate-100 p-1">
+            <button
+                v-for="tab in mainTabs"
+                :key="tab.id"
+                @click="changeTab(tab)"
+                type="button"
+                :class="[
+                    'w-full rounded-lg py-2.5 text-sm leading-5 font-medium transition-all',
+                    tab.id === activeTab
+                        ? 'dark:bg-dark-700 bg-white text-blue-700 shadow dark:text-blue-400'
+                        : 'dark:hover:bg-dark-700 text-slate-700 hover:bg-gray-50 hover:text-blue-600 dark:text-gray-400 dark:hover:text-gray-400'
+                ]">
+                {{ tab.label }}
+            </button>
+        </nav>
+
+        <div class="no-drag custom-scrollbar flex-1 overflow-y-auto rounded-xl pr-2">
             <transition
-                enter-active-class="transition-all duration-300 ease-out"
-                enter-from-class="opacity-0 translate-y-2 scale-[0.99]"
-                enter-to-class="opacity-100 translate-y-0 scale-100"
-                leave-active-class="transition-all duration-250 ease-in"
-                leave-from-class="opacity-100 translate-y-0 scale-100"
-                leave-to-class="opacity-0 translate-y-2 scale-[0.99]">
+                mode="out-in"
+                enter-active-class="transition duration-150 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-100 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0">
                 <div
                     :key="activeTab"
-                    class="space-y-4">
+                    class="space-y-4 pb-4">
                     <!-- GENERAL TAB -->
                     <template v-if="activeTab === 'general'">
                         <!-- Launch at Startup -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Launch at Startup</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Start Snaplark when your system boots</p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.launchAtStartup"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <SettingsSwitchItem
+                            title="Launch at Startup"
+                            description="Start Snaplark when your system boots"
+                            v-model="settings.launchAtStartup" />
+
+                        <!-- Dark Mode -->
+                        <SettingsSwitchItem
+                            title="Dark Mode"
+                            description="Enable dark theme for the application"
+                            v-model="settings.darkMode" />
+
+                        <!-- Open in Browser -->
+                        <SettingsSwitchItem
+                            title="Open in Browser"
+                            description="Automatically open the uploaded capture link"
+                            v-model="settings.openInBrowser" />
 
                         <!-- Language Selection -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                        <div
+                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <label class="block">
-                                <h3 class="text-base font-semibold text-slate-900">Language</h3>
-                                <p class="mt-1 text-sm text-slate-500">Choose your preferred language</p>
+                                <h3 class="text-base font-semibold dark:text-gray-100">Language</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
+                                    Choose your preferred language
+                                </p>
                                 <select
                                     v-model="settings.language"
-                                    class="mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none">
+                                    class="dark:border-dark-700 dark:bg-dark-900 mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none dark:text-gray-200">
                                     <option value="en">English</option>
                                     <option value="ru">Russian</option>
                                 </select>
@@ -186,44 +197,30 @@
                         </div>
 
                         <!-- Save Location Behavior -->
-                        <div class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Prompt for Save Location</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Ask where to save each screenshot</p>
-                                </div>
-                                <label class="relative inline-flex h-7 w-14 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.promptForSaveLocation"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-7"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <SettingsSwitchItem
+                            title="Prompt for Save Location"
+                            description="Ask where to save each screenshot"
+                            v-model="settings.promptForSaveLocation" />
 
                         <!-- Default Save Folder -->
                         <div
                             v-if="!settings.promptForSaveLocation"
-                            class="rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <label class="block">
-                                <h3 class="text-base font-semibold text-slate-900">Default Save Folder</h3>
-                                <p class="mt-1 text-sm text-slate-500">
-                                    Where screenshots and recordings are saved automatically
+                                <h3 class="text-base font-semibold dark:text-gray-100">Default Save Folder</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
+                                    Where screenshots and recordings are saved
                                 </p>
                                 <div class="mt-3 flex gap-2">
                                     <input
                                         type="text"
                                         :value="settings.defaultSaveFolder"
                                         readonly
-                                        class="flex-1 truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600" />
+                                        class="dark:border-dark-700 dark:bg-dark-900 flex-1 truncate rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 dark:text-gray-300" />
                                     <button
                                         type="button"
                                         @click="browseSaveFolder"
-                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/20 focus:ring-2 focus:ring-blue-500/30 focus:outline-none">
+                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/20 focus:ring-2 focus:ring-blue-500/30 focus:outline-none dark:text-blue-400">
                                         Browse
                                     </button>
                                 </div>
@@ -234,11 +231,12 @@
                     <!-- HOTKEYS TAB -->
                     <template v-else-if="activeTab === 'hotkeys'">
                         <div
-                            class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+                            <div
+                                class="dark:border-dark-700/50 flex items-center justify-between border-b border-slate-200/50 pb-4">
                                 <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Screenshot</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Capture screen area</p>
+                                    <h3 class="text-base font-semibold dark:text-gray-100">Screenshot</h3>
+                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Capture screen area</p>
                                 </div>
                                 <input
                                     type="text"
@@ -250,18 +248,19 @@
                                     @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyScreenshot', $event)"
                                     :class="[
-                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
+                                        'dark:bg-dark-900 w-40 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
                                         recordingHotkey === 'hotkeyScreenshot'
-                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
-                                            : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
+                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20 dark:text-blue-400'
+                                            : 'dark:border-dark-700 border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20 dark:text-gray-300'
                                     ]"
                                     readonly />
                             </div>
 
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <div
+                                class="dark:border-dark-700/50 flex items-center justify-between border-b border-slate-200/50 py-4">
                                 <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Recording</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Start screen recording</p>
+                                    <h3 class="text-base font-semibold dark:text-gray-100">Recording</h3>
+                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Start screen recording</p>
                                 </div>
                                 <input
                                     type="text"
@@ -273,18 +272,18 @@
                                     @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyRecording', $event)"
                                     :class="[
-                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
+                                        'dark:bg-dark-900 w-40 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
                                         recordingHotkey === 'hotkeyRecording'
-                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
-                                            : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
+                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20 dark:text-blue-400'
+                                            : 'dark:border-dark-700 border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20 dark:text-gray-300'
                                     ]"
                                     readonly />
                             </div>
 
-                            <div class="flex items-center justify-between">
+                            <!-- <div class="flex items-center justify-between pt-4">
                                 <div>
-                                    <h3 class="text-base font-semibold text-slate-900">Quick Menu</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Open quick menu</p>
+                                    <h3 class="text-base font-semibold dark:text-gray-100">Quick Menu</h3>
+                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Open quick menu</p>
                                 </div>
                                 <input
                                     type="text"
@@ -296,13 +295,13 @@
                                     @blur="stopRecordingHotkey()"
                                     @keydown.prevent="recordHotkey('hotkeyQuickMenu', $event)"
                                     :class="[
-                                        'w-40 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
+                                        'dark:bg-dark-900 w-40 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
                                         recordingHotkey === 'hotkeyQuickMenu'
-                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20'
-                                            : 'border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
+                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20 dark:text-blue-400'
+                                            : 'dark:border-dark-700 border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20 dark:text-gray-300'
                                     ]"
                                     readonly />
-                            </div>
+                            </div> -->
                         </div>
                     </template>
 
@@ -310,105 +309,66 @@
                     <template v-else-if="activeTab === 'capture'">
                         <!-- Crop Tools -->
                         <div
-                            class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <div>
-                                <h3 class="text-base font-semibold text-slate-900">Crop Screen Tools</h3>
-                                <p class="mt-1 text-sm text-slate-500">Enable additional capture tools</p>
+                                <h3 class="text-base font-semibold dark:text-gray-100">Crop Screen Tools</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
+                                    Enable additional capture tools
+                                </p>
                             </div>
 
                             <div class="flex items-center justify-between pt-2">
-                                <label class="text-sm font-medium text-slate-700">Show Magnifier</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.showMagnifier"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">Show Crosshair</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.showCrosshair"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700"
-                                    >Show Cursor (Screenshot will include mouse cursor or not)</label
+                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
+                                    >Show Magnifier</label
                                 >
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.showCursor"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <Switch
+                                    v-model="settings.showMagnifier"
+                                    size="md" />
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
+                                    >Show Crosshair</label
+                                >
+                                <Switch
+                                    v-model="settings.showCrosshair"
+                                    size="md" />
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100">Show Cursor</label>
+                                <Switch
+                                    v-model="settings.showCursor"
+                                    size="md" />
                             </div>
                         </div>
 
                         <!-- Recording  -->
                         <div
-                            class="space-y-4 rounded-lg border border-slate-100 bg-gradient-to-b from-white to-slate-50/60 p-5">
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <div>
-                                <h3 class="text-base font-semibold text-slate-900">Recording</h3>
-                                <p class="mt-1 text-sm text-slate-500">Enable additional capture tools</p>
+                                <h3 class="text-base font-semibold dark:text-gray-100">Recording</h3>
+                                <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
+                                    Enable additional capture tools
+                                </p>
                             </div>
 
                             <div class="flex items-center justify-between pt-2">
-                                <label class="text-sm font-medium text-slate-700">Mirror Webcam</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.flipCamera"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
+                                    >Mirror Webcam</label
+                                >
+                                <Switch
+                                    v-model="settings.flipCamera"
+                                    size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">Record Audio in Mono</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.recordAudioMono"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700">3 Second Countdown</label>
-                                <label class="relative inline-flex h-6 w-12 cursor-pointer items-center">
-                                    <input
-                                        type="checkbox"
-                                        v-model="settings.recordingCountdown"
-                                        class="peer sr-only" />
-                                    <span
-                                        class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-cyan-400"></span>
-                                    <span
-                                        class="absolute left-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-6"></span>
-                                </label>
+                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
+                                    >3 Second Countdown</label
+                                >
+                                <Switch
+                                    v-model="settings.recordingCountdown"
+                                    size="md" />
                             </div>
                         </div>
                     </template>
@@ -417,3 +377,21 @@
         </div>
     </section>
 </template>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 20px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(156, 163, 175, 0.8);
+    }
+</style>

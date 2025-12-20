@@ -1,22 +1,45 @@
 <script setup>
-    import { onMounted, onUnmounted, ref } from 'vue'
+    import { ref, onMounted, onUnmounted, computed } from 'vue'
     import { apiClient, BASE_URL } from '../api/config'
-    import { useStore } from '@/store'
+    import { ChunkUploadManager } from '../services/chunk-upload-manager'
+    import { useStore } from '../store'
 
     const props = defineProps({
-        fileInfo: Object
+        type: {
+            type: String,
+            required: true,
+            validator: (value) => ['image', 'video'].includes(value)
+        },
+        fileInfo: {
+            type: Object,
+            required: true
+        },
+        notificationId: {
+            type: String,
+            default: ''
+        }
     })
-
-    const store = useStore()
 
     const emit = defineEmits(['close', 'hide', 'show'])
 
-    const uploadProgress = ref(0)
-    const uploadStatus = ref('pending')
+    const store = useStore()
+
+    // Common State
+    const status = ref('pending') // pending/uploading, finalizing, success, error
+    const progress = ref(0)
     const link = ref('')
     const tooltipText = ref('Copy Link')
     const autoCloseCountdown = ref(0)
     const autoCloseTimer = ref(null)
+
+    // Image Specific State
+    const imageAnimationInterval = ref(null)
+
+    // Video Specific State
+    const videoManager = ref(null)
+    const videoInterval = ref(null)
+
+    // --- Helpers ---
 
     const bufferToFile = (buffer, fileName) => {
         return new File([new Blob([buffer], { type: 'image/png' })], fileName, { type: 'image/png' })
@@ -33,11 +56,11 @@
     }
 
     const animateProgressTo = (targetProgress) => {
-        const currentProgress = uploadProgress.value
+        const currentProgress = progress.value
         const difference = targetProgress - currentProgress
         const steps = Math.abs(difference)
         const stepSize = difference / Math.max(steps, 1)
-        const animationSpeed = 25 // milliseconds between steps
+        const animationSpeed = 25
 
         let step = 0
         const interval = setInterval(() => {
@@ -49,22 +72,33 @@
                 (stepSize < 0 && newProgress <= targetProgress) ||
                 step >= steps
             ) {
-                uploadProgress.value = targetProgress
+                progress.value = targetProgress
                 clearInterval(interval)
             } else {
-                uploadProgress.value = Math.round(newProgress)
+                progress.value = Math.round(newProgress)
             }
         }, animationSpeed)
 
         return interval
     }
 
+    // --- Actions ---
+    const openInFileManager = async () => {
+        try {
+            await window.electron.showItemInFolder(props.fileInfo.path)
+
+            setTimeout(() => {
+                emit('close')
+            }, 1000)
+        } catch (error) {
+            console.error('Failed to open file in file manager:', error)
+        }
+    }
+
     const copyToClipboard = async () => {
         try {
-            await navigator.clipboard.writeText(link.value)
-            // Change tooltip to "Copied" on successful copy
+            await window.electron.writeToClipboard(link.value)
             tooltipText.value = 'Copied'
-            // Reset tooltip back to "Copy Link" after 2 seconds
             setTimeout(() => {
                 tooltipText.value = 'Copy Link'
             }, 2000)
@@ -101,11 +135,41 @@
         }
     }
 
-    const uploadFile = async () => {
+    const handleSuccess = (urlKey) => {
+        status.value = 'success'
+        link.value = BASE_URL + '/' + urlKey
+        store.lastCapture = link.value
+
+        // Handle specific post-upload actions
+        if (props.type === 'image' && props.fileInfo.searchSimilar) {
+            window.electron.openExternal(
+                BASE_URL + '/captures/' + urlKey + '/similar-search/' + store.user.similar_search_provider
+            )
+            emit('close')
+            return
+        }
+
+        if (store.settings.openInBrowser) {
+            window.electron.openExternal(link.value)
+            emit('close')
+        } else {
+            startAutoCloseCountdown()
+        }
+    }
+
+    const handleError = (error) => {
+        status.value = 'error'
+        console.error(`${props.type} upload failed:`, error)
+        emit('show')
+    }
+
+    // --- Image Upload Logic ---
+
+    const startImageUpload = async () => {
         try {
-            uploadStatus.value = 'pending'
-            uploadProgress.value = 0
-            let currentAnimationInterval = null
+            status.value = 'pending'
+            progress.value = 0
+            if (imageAnimationInterval.value) clearInterval(imageAnimationInterval.value)
 
             const formData = new FormData()
 
@@ -129,60 +193,108 @@
                             99
                         )
 
-                        // Clear any existing animation
-                        if (currentAnimationInterval) {
-                            clearInterval(currentAnimationInterval)
-                        }
+                        if (imageAnimationInterval.value) clearInterval(imageAnimationInterval.value)
 
-                        // Only animate to progress that's higher than current
-                        if (percentCompleted > uploadProgress.value) {
-                            currentAnimationInterval = animateProgressTo(percentCompleted)
+                        if (percentCompleted > progress.value) {
+                            imageAnimationInterval.value = animateProgressTo(percentCompleted)
                         }
                     }
                 }
             })
 
-            // Clear any existing animation
-            if (currentAnimationInterval) {
-                clearInterval(currentAnimationInterval)
+            if (imageAnimationInterval.value) clearInterval(imageAnimationInterval.value)
+            if (progress.value < 99) {
+                imageAnimationInterval.value = animateProgressTo(99)
             }
 
-            // Only set to 99% after upload is complete and animate to it
-            if (uploadProgress.value < 99) {
-                currentAnimationInterval = animateProgressTo(99)
-            }
-
-            // Set success status and data
-            uploadStatus.value = 'success'
-            link.value = BASE_URL + '/' + result.data
-            store.lastCapture = link.value // Automatic sync will handle this
-
-            if (props.fileInfo.searchSimilar) {
-                window.electron.openExternal(
-                    BASE_URL + '/captures/' + result.data + '/similar-search/' + store.user.similar_search_provider
-                )
-                emit('close')
-            }
-
-            // Start auto-close countdown for successful uploads
-            startAutoCloseCountdown()
+            handleSuccess(result.data)
         } catch (error) {
-            uploadStatus.value = 'error'
-            console.error('Upload failed:', error)
-
-            // Show notification if it was hidden (for failed uploads)
-            emit('show')
+            handleError(error)
         }
     }
 
-    // Automatically start upload when component mounts
+    // --- Video Upload Logic ---
+
+    const updateVideoProgress = () => {
+        if (!videoManager.value) return
+        const p = videoManager.value.getProgress()
+        // Video progress logic from original file
+        progress.value = p.percentage
+    }
+
+    const setupVideoUpload = () => {
+        console.log(`VideoUploadNotification mounted for ${props.notificationId}`)
+        status.value = 'uploading' // Map 'uploading' to match generic status if needed, or keep explicit
+
+        // Precise UI updates
+        videoInterval.value = setInterval(updateVideoProgress, 500)
+
+        // Instantiate manager
+        videoManager.value = new ChunkUploadManager()
+
+        // Listen for chunks
+        window.electronNotifications.onVideoChunk((payload) => {
+            if (payload.id !== props.notificationId) return
+
+            const blob = new Blob([payload.chunk], { type: 'video/webm' })
+            videoManager.value.queueChunk(blob, payload.chunkIndex)
+            updateVideoProgress()
+        })
+
+        // Listen for finalize
+        window.electronNotifications.onVideoFinalize(async (payload) => {
+            if (payload.id !== props.notificationId) return
+
+            console.log('Received finalize signal')
+            status.value = 'finalizing'
+            emit('show')
+
+            try {
+                const result = await videoManager.value.finalizeSession(payload.metadata)
+
+                if (result.success) {
+                    handleSuccess(result.key)
+                } else {
+                    handleError(result.error)
+                }
+            } catch (error) {
+                handleError(error)
+            } finally {
+                updateVideoProgress()
+            }
+        })
+
+        // Queue initial metadata
+        if (props.fileInfo.metadata) {
+            videoManager.value.queueInit(props.fileInfo.metadata)
+        }
+    }
+
+    // --- Lifecycle ---
+
     onMounted(() => {
-        uploadFile()
+        if (props.type === 'image') {
+            startImageUpload()
+        } else if (props.type === 'video') {
+            setupVideoUpload()
+        }
     })
 
-    // Clean up timer when component is unmounted
     onUnmounted(() => {
         cancelAutoClose()
+        if (imageAnimationInterval.value) clearInterval(imageAnimationInterval.value)
+        if (videoInterval.value) clearInterval(videoInterval.value)
+        // Note: Electron listener cleanup would go here if supported/hooked
+    })
+
+    // --- Computed for UI ---
+
+    const statusText = computed(() => {
+        if (status.value === 'finalizing') return 'Finalizing Video...'
+        if (status.value === 'success') return props.type === 'video' ? 'Video Link Ready' : 'Upload Completed'
+        if (status.value === 'error') return 'Upload Failed'
+        // pending/uploading
+        return props.type === 'video' ? 'Uploading Video...' : 'Uploading'
     })
 </script>
 
@@ -190,9 +302,36 @@
     <div>
         <!-- Title -->
         <div class="mb-5 flex items-center gap-4">
-            <template v-if="uploadStatus === 'pending'">
+            <!-- Loading/Active Icon -->
+            <template v-if="status === 'pending' || status === 'uploading' || status === 'finalizing'">
                 <div class="box-shadow bg-primary-blue flex size-8 items-center justify-center rounded-lg">
+                    <!-- Video Icon -->
                     <svg
+                        v-if="type === 'video'"
+                        class="size-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
+                            stroke="white"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <rect
+                            x="3"
+                            y="6"
+                            width="12"
+                            height="12"
+                            rx="2"
+                            stroke="white"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                    <!-- Image Icon -->
+                    <svg
+                        v-else
                         class="size-5"
                         viewBox="0 0 28 28"
                         fill="none"
@@ -205,10 +344,12 @@
                             fill="white" />
                     </svg>
                 </div>
-                <h2 class="font-bold">Uploading</h2>
             </template>
-            <template v-if="uploadStatus === 'error'">
+
+            <!-- Error Icon -->
+            <template v-if="status === 'error'">
                 <div class="error-shadow flex size-8 items-center justify-center rounded-lg bg-[#D73A3A]">
+                    <!-- Generic error icon (Video used a simpler one, Image used a fuller one. Using the nicer Image one for both) -->
                     <svg
                         class="size-5"
                         viewBox="0 0 28 28"
@@ -222,11 +363,27 @@
                             fill="white" />
                     </svg>
                 </div>
-                <h2 class="font-bold">Upload Failed</h2>
             </template>
-            <template v-if="uploadStatus === 'success'">
+
+            <!-- Success Icon -->
+            <template v-if="status === 'success'">
                 <div class="box-shadow bg-primary-blue flex size-8 items-center justify-center rounded-lg">
+                    <!-- Video Success Icon type -->
                     <svg
+                        v-if="type === 'video'"
+                        class="size-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    <!-- Image Success Icon type -->
+                    <svg
+                        v-else
                         class="size-5"
                         viewBox="0 0 28 28"
                         fill="none"
@@ -242,9 +399,11 @@
                             fill="white" />
                     </svg>
                 </div>
-                <h2 class="font-bold">Upload Completed</h2>
             </template>
 
+            <h2 class="font-bold">{{ statusText }}</h2>
+
+            <!-- Actions -->
             <div class="ml-auto flex items-center gap-1">
                 <button
                     @click="$emit('hide')"
@@ -268,7 +427,7 @@
                 <button
                     @click="$emit('close')"
                     class="rounded-full p-1 transition-colors hover:bg-gray-100"
-                    title="Close notification">
+                    title="Close">
                     <svg
                         class="size-6"
                         viewBox="0 0 26 24"
@@ -286,19 +445,19 @@
             </div>
         </div>
 
-        <!-- Progress -->
-        <template v-if="uploadStatus === 'pending' || uploadStatus === 'error'">
-            <div class="flex items-end justify-between">
+        <!-- Progress Area -->
+        <template
+            v-if="status === 'pending' || status === 'uploading' || status === 'finalizing' || status === 'error'">
+            <!-- File Info (Image only has this styled this way, Video just shows bar) -->
+            <div
+                v-if="type === 'image'"
+                class="flex items-end justify-between">
                 <p class="text-xs text-slate-500">{{ fileInfo.fileSize }}</p>
-                <p
-                    v-if="uploadStatus === 'pending'"
-                    class="text-sm font-semibold">
-                    {{ `${uploadProgress}%` }}
-                </p>
                 <button
-                    @click="uploadFile"
-                    v-else
+                    @click="startImageUpload"
+                    v-if="status === 'error'"
                     class="group relative">
+                    <!-- Retry Icon -->
                     <svg
                         class="size-8"
                         viewBox="0 0 47 45"
@@ -312,34 +471,89 @@
                             d="M32.5089 17.0062C32.0633 16.3499 31.1528 16.1812 30.4941 16.6124C29.8353 17.0437 29.6416 17.9249 30.0872 18.5624C30.9978 19.8749 31.4627 21.4124 31.4627 22.9874C31.4627 27.3749 27.7624 30.9562 23.2289 30.9562C18.6955 30.9562 14.9951 27.3749 14.9951 22.9874C14.9951 18.5999 18.6955 15.0187 23.2289 15.0187C23.597 15.0187 23.9457 15.0562 24.3138 15.0937L23.2483 15.8624C22.6089 16.3124 22.4539 17.1937 22.9383 17.8312C23.2289 18.2062 23.6745 18.4124 24.1201 18.4124C24.4107 18.4124 24.7207 18.3187 24.9725 18.1499L28.731 15.4874C28.7504 15.4687 28.7504 15.4499 28.7698 15.4499C28.7892 15.4312 28.8085 15.4312 28.8279 15.4124C28.886 15.3562 28.9248 15.2999 28.9635 15.2437C29.0216 15.1687 29.0991 15.1124 29.1379 15.0187C29.1766 14.9437 29.196 14.8499 29.2347 14.7749C29.2541 14.6812 29.2929 14.6062 29.3123 14.5124C29.3316 14.4187 29.3122 14.3437 29.2929 14.2499C29.2929 14.1562 29.2929 14.0812 29.2541 13.9874C29.2348 13.8937 29.1766 13.8187 29.1379 13.7249C29.0991 13.6687 29.0991 13.5937 29.041 13.5187C29.0217 13.4999 29.0023 13.4999 29.0023 13.4812C28.9829 13.4624 28.9829 13.4437 28.9635 13.4249L25.7281 9.84368C25.205 9.26243 24.2751 9.18743 23.6745 9.71243C23.0739 10.2187 23.0158 11.1187 23.5389 11.6999L24.0813 12.2999C23.8101 12.2812 23.5389 12.2437 23.2483 12.2437C17.1068 12.2437 12.1084 17.0812 12.1084 23.0249C12.1084 28.9687 17.1068 33.8062 23.2483 33.8062C29.3897 33.8062 34.3882 28.9687 34.3882 23.0249C34.3882 20.8499 33.7488 18.7874 32.5089 17.0062Z"
                             fill="#2178FF" />
                     </svg>
-
                     <div class="absolute top-full -left-2 z-10 mt-1.5 hidden w-max group-hover:block">
                         <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
                             Retry
-                            <!-- Arrow -->
                             <div
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
                         </div>
                     </div>
                 </button>
             </div>
-            <div class="relative mt-1 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+
+            <!-- Progress Bar -->
+            <div class="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
                 <div
-                    v-if="uploadStatus === 'pending'"
-                    :style="{ width: `${uploadProgress}%` }"
-                    class="let-0 absolute inset-y-0 bg-linear-to-r from-blue-500 to-cyan-500 transition-all duration-150 ease-out"></div>
+                    v-if="status !== 'error'"
+                    class="animate-indeterminate absolute inset-y-0 left-0 w-1/3 rounded-full bg-linear-to-r from-blue-500 to-cyan-500"></div>
+                <div
+                    v-if="status === 'error'"
+                    class="h-full w-full rounded-full bg-red-500"></div>
             </div>
+
+            <!-- Status Text -->
             <p class="mt-2 text-right text-xs text-slate-400">
-                {{ uploadStatus === 'pending' ? '12 Second Remaining' : 'Error 500  API not working' }}
+                <template v-if="status === 'error'">
+                    {{ type === 'image' ? 'Error 500 API not working' : '' }}
+                    <!-- Video didn't have error text there, just hidden or failed status -->
+                    <template v-if="type === 'video'">Processing...</template>
+                    <!-- Video UI kept showing 'Processing' even in some error states in original code?! Check original: <template v-if="status === 'uploading' || status === 'finalizing' || status === 'error'"> <p>Processing...</p> </template> -->
+                </template>
+                <template v-else> Processing... </template>
             </p>
         </template>
 
-        <template v-if="uploadStatus === 'success'">
+        <!-- Success Actions -->
+        <template v-if="status === 'success'">
             <div class="flex gap-2 pb-4">
                 <div
                     class="flex-1 truncate rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-sm text-blue-500">
                     {{ link }}
                 </div>
+                <!-- Open in file manager -->
+                <button
+                    v-if="fileInfo.path"
+                    @click="openInFileManager"
+                    class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="size-5"
+                        viewBox="0 0 24 24"
+                        fill="none">
+                        <g clip-path="url(#clip0_4418_9182)">
+                            <path
+                                d="M22 11V17C22 21 21 22 17 22H7C3 22 2 21 2 17V7C2 3 3 2 7 2H8.5C10 2 10.33 2.44 10.9 3.2L12.4 5.2C12.78 5.7 13 6 14 6H17C21 6 22 7 22 11Z"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-miterlimit="10" />
+                            <path
+                                d="M8 2H17C19 2 20 3 20 5V6.38"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-miterlimit="10"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_4418_9182">
+                                <rect
+                                    width="24"
+                                    height="24"
+                                    fill="white" />
+                            </clipPath>
+                        </defs>
+                    </svg>
+
+                    <!-- Tooltip -->
+                    <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
+                        <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
+                            Show in folder
+                            <div
+                                class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
+                        </div>
+                    </div>
+                </button>
+                <!-- Copy Button -->
                 <button
                     @click="copyToClipboard"
                     class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
@@ -347,33 +561,30 @@
                         class="size-5"
                         viewBox="0 0 24 24"
                         fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M16 12.9V17.1C16 20.6 14.6 22 11.1 22H6.9C3.4 22 2 20.6 2 17.1V12.9C2 9.4 3.4 8 6.9 8H11.1C14.6 8 16 9.4 16 12.9Z"
-                            stroke="#2178FF"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round" />
-                        <path
-                            d="M22 6.9V11.1C22 14.6 20.6 16 17.1 16H16V12.9C16 9.4 14.6 8 11.1 8H8V6.9C8 3.4 9.4 2 12.9 2H17.1C20.6 2 22 3.4 22 6.9Z"
-                            stroke="#2178FF"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round" />
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <rect
+                            x="9"
+                            y="9"
+                            width="13"
+                            height="13"
+                            rx="2"
+                            ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                     </svg>
-
                     <!-- Tooltip -->
                     <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
                         <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
                             {{ tooltipText }}
-                            <!-- Arrow -->
                             <div
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
                         </div>
                     </div>
                 </button>
+                <!-- Open Button -->
                 <button
-                    type="button"
                     @click="openLink"
                     class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 hover:bg-blue-200">
                     <svg
@@ -383,28 +594,26 @@
                         fill="none">
                         <path
                             d="M13 10.9998L21.2 2.7998"
-                            stroke="#2178ff"
+                            stroke="currentColor"
                             stroke-width="1.5"
                             stroke-linecap="round"
                             stroke-linejoin="round" />
                         <path
                             d="M22 6.8V2H17.2"
-                            stroke="#2178ff"
+                            stroke="currentColor"
                             stroke-width="1.5"
                             stroke-linecap="round"
                             stroke-linejoin="round" />
                         <path
                             d="M11 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22H15C20 22 22 20 22 15V13"
-                            stroke="#2178ff"
+                            stroke="currentColor"
                             stroke-width="1.5"
                             stroke-linecap="round"
                             stroke-linejoin="round" />
                     </svg>
-
                     <div class="absolute top-full mt-1.5 hidden group-hover:block">
                         <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
                             Open
-                            <!-- Arrow -->
                             <div
                                 class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
                         </div>
@@ -434,5 +643,18 @@
 
     .box-shadow {
         box-shadow: 0px 11px 35px 0px #2178ff4a;
+    }
+
+    .animate-indeterminate {
+        animation: indeterminate 1.5s infinite linear;
+    }
+
+    @keyframes indeterminate {
+        0% {
+            left: -40%;
+        }
+        100% {
+            left: 100%;
+        }
     }
 </style>
