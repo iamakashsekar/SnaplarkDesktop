@@ -37,7 +37,7 @@
 <template>
     <div class="pointer-events-none fixed top-0 left-0 h-screen w-screen overflow-hidden bg-transparent">
         <div
-            class="pointer-events-none absolute z-[9999] box-border border-2 border-red-500"
+            class="dashed-border-black pointer-events-none absolute z-[9999] box-border"
             :style="{
                 left: `${selection.left - 2}px`,
                 top: `${selection.top - 2}px`,

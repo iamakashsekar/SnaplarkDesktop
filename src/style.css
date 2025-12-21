@@ -1,50 +1,50 @@
-@import url("https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-pt-sans: "PT Sans", sans-serif;
-  --color-primary-blue: #2178ff;
-  --color-cyan: #58dfff;
-  --color-gray-black: #1f2937;
-  --color-gray-200: #455772;
-  --color-gray-300: #6c82a3;
-  --color-gray-400: #e6ebf2;
+    --font-pt-sans: 'PT Sans', sans-serif;
+    --color-primary-blue: #2178ff;
+    --color-cyan: #58dfff;
+    --color-gray-black: #1f2937;
+    --color-gray-200: #455772;
+    --color-gray-300: #6c82a3;
+    --color-gray-400: #e6ebf2;
 
-  --color-dark-blue: #172136;
-  --color-dark-700: #25334f;
-  --color-dark-800: #1d2840;
-  --color-dark-900: #172136;
+    --color-dark-blue: #172136;
+    --color-dark-700: #25334f;
+    --color-dark-800: #1d2840;
+    --color-dark-900: #172136;
 }
 
 html,
 body {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .drag {
-  -webkit-app-region: drag;
+    -webkit-app-region: drag;
 }
 
 .no-drag {
-  -webkit-app-region: no-drag;
+    -webkit-app-region: no-drag;
 }
 
 /* Line clamp utilities for text truncation */
 .line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .animated-dashed-border {
@@ -55,22 +55,22 @@ body {
     --color2: white;
 
     background:
-            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* top */
-            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* bottom */
-            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y, /* left */
-            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* top */ linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* bottom */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y,
+        /* left */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
 
     background-size:
-            calc(var(--dash) * 2) var(--thickness),
-            calc(var(--dash) * 2) var(--thickness),
-            var(--thickness) calc(var(--dash) * 2),
-            var(--thickness) calc(var(--dash) * 2);
+        calc(var(--dash) * 2) var(--thickness),
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2),
+        var(--thickness) calc(var(--dash) * 2);
 
     background-position:
-            0 0,
-            0 100%,
-            0 0,
-            100% 0;
+        0 0,
+        0 100%,
+        0 0,
+        100% 0;
 
     animation: border-dance var(--speed) linear infinite;
 }
@@ -78,10 +78,10 @@ body {
 @keyframes border-dance {
     to {
         background-position:
-                calc(var(--dash) * -2) 0,        /* top moves left */
-                calc(var(--dash) * 2) 100%,      /* bottom moves right */
-                0 calc(var(--dash) * 2),         /* left moves down */
-                100% calc(var(--dash) * -2);     /* right moves up */
+            calc(var(--dash) * -2) 0,
+            /* top moves left */ calc(var(--dash) * 2) 100%,
+            /* bottom moves right */ 0 calc(var(--dash) * 2),
+            /* left moves down */ 100% calc(var(--dash) * -2); /* right moves up */
     }
 }
 
@@ -95,16 +95,16 @@ body {
     --color2: white;
 
     background:
-            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* top */
-            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* left */
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* top */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* left */
 
     background-size:
-            calc(var(--dash) * 2) var(--thickness),
-            var(--thickness) calc(var(--dash) * 2);
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2);
 
     background-position:
-            0 0,
-            0 0;
+        0 0,
+        0 0;
 
     animation: border-dance-selecting-top-left var(--speed) linear infinite;
 }
@@ -112,8 +112,8 @@ body {
 @keyframes border-dance-selecting-top-left {
     to {
         background-position:
-                calc(var(--dash) * -2) 0,        /* top moves left */
-                0 calc(var(--dash) * 2);         /* left moves down */
+            calc(var(--dash) * -2) 0,
+            /* top moves left */ 0 calc(var(--dash) * 2); /* left moves down */
     }
 }
 
@@ -126,16 +126,16 @@ body {
     --color2: white;
 
     background:
-            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* top */
-            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* top */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
 
     background-size:
-            calc(var(--dash) * 2) var(--thickness),
-            var(--thickness) calc(var(--dash) * 2);
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2);
 
     background-position:
-            0 0,
-            100% 0;
+        0 0,
+        100% 0;
 
     animation: border-dance-selecting-top-right var(--speed) linear infinite;
 }
@@ -143,8 +143,8 @@ body {
 @keyframes border-dance-selecting-top-right {
     to {
         background-position:
-                calc(var(--dash) * -2) 0,        /* top moves left */
-                100% calc(var(--dash) * 2);      /* right moves down */
+            calc(var(--dash) * -2) 0,
+            /* top moves left */ 100% calc(var(--dash) * 2); /* right moves down */
     }
 }
 
@@ -157,16 +157,16 @@ body {
     --color2: white;
 
     background:
-            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* bottom */
-            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* left */
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* bottom */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* left */
 
     background-size:
-            calc(var(--dash) * 2) var(--thickness),
-            var(--thickness) calc(var(--dash) * 2);
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2);
 
     background-position:
-            0 100%,
-            0 0;
+        0 100%,
+        0 0;
 
     animation: border-dance-selecting-bottom-left var(--speed) linear infinite;
 }
@@ -174,8 +174,8 @@ body {
 @keyframes border-dance-selecting-bottom-left {
     to {
         background-position:
-                calc(var(--dash) * 2) 100%,      /* bottom moves right */
-                0 calc(var(--dash) * 2);         /* left moves down */
+            calc(var(--dash) * 2) 100%,
+            /* bottom moves right */ 0 calc(var(--dash) * 2); /* left moves down */
     }
 }
 
@@ -188,16 +188,16 @@ body {
     --color2: white;
 
     background:
-            linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x, /* bottom */
-            linear-gradient(0deg,  var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* bottom */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
 
     background-size:
-            calc(var(--dash) * 2) var(--thickness),
-            var(--thickness) calc(var(--dash) * 2);
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2);
 
     background-position:
-            0 100%,
-            100% 0;
+        0 100%,
+        100% 0;
 
     animation: border-dance-selecting-bottom-right var(--speed) linear infinite;
 }
@@ -205,8 +205,8 @@ body {
 @keyframes border-dance-selecting-bottom-right {
     to {
         background-position:
-                calc(var(--dash) * 2) 100%,      /* bottom moves right */
-                100% calc(var(--dash) * -2);     /* right moves up */
+            calc(var(--dash) * 2) 100%,
+            /* bottom moves right */ 100% calc(var(--dash) * -2); /* right moves up */
     }
 }
 
@@ -218,12 +218,8 @@ body {
     --color1: black;
     --color2: white;
 
-    background: linear-gradient(
-            90deg,
-            var(--color1) 50%,
-            var(--color2) 0
-    )
-    0 50% / calc(var(--dash) * 2) var(--thickness) repeat-x;
+    background: linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) 0 50% / calc(var(--dash) * 2)
+        var(--thickness) repeat-x;
 
     animation: dash-x var(--speed) linear infinite;
 }
@@ -236,12 +232,8 @@ body {
     --color1: black;
     --color2: white;
 
-    background: linear-gradient(
-            0deg,
-            var(--color1) 50%,
-            var(--color2) 0
-    )
-    50% 0 / var(--thickness) calc(var(--dash) * 2) repeat-y;
+    background: linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) 50% 0 / var(--thickness) calc(var(--dash) * 2)
+        repeat-y;
 
     animation: dash-y var(--speed) linear infinite;
 }
@@ -260,16 +252,45 @@ body {
 
 /* Background */
 .png-background {
-    --size: 20px;          /* square size */
-    --color1: #eee;        /* light gray */
-    --color2: #ccc;        /* darker gray */
+    --size: 20px; /* square size */
+    --color1: #eee; /* light gray */
+    --color2: #ccc; /* darker gray */
 
     background-image:
-            linear-gradient(45deg, var(--color1) 25%, transparent 25%),
-            linear-gradient(-45deg, var(--color1) 25%, transparent 25%),
-            linear-gradient(45deg, transparent 75%, var(--color1) 75%),
-            linear-gradient(-45deg, transparent 75%, var(--color1) 75%);
+        linear-gradient(45deg, var(--color1) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--color1) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--color1) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--color1) 75%);
     background-size: var(--size) var(--size);
-    background-position: 0 0, 0 var(--size), var(--size) -var(--size), -var(--size) 0;
+    background-position:
+        0 0,
+        0 var(--size),
+        var(--size) -var(--size),
+        -var(--size) 0;
     background-color: var(--color2);
+}
+
+.dashed-border-black {
+    --dash: 5px;
+    --thickness: 2px;
+    --color1: black; /* red-500 */
+    --color2: white;
+
+    background:
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* top */ linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* bottom */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y,
+        /* left */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+
+    background-size:
+        calc(var(--dash) * 2) var(--thickness),
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2),
+        var(--thickness) calc(var(--dash) * 2);
+
+    background-position:
+        0 0,
+        0 100%,
+        0 0,
+        100% 0;
 }
