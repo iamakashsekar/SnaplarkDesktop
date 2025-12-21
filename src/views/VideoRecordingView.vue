@@ -1302,7 +1302,9 @@
                 <div
                     v-if="showToolbar"
                     class="flex items-center gap-4">
-                    <div class="flex items-center gap-4 rounded-full bg-white/90">
+                    <div
+                        v-if="!isRecording"
+                        class="flex items-center gap-4 rounded-full bg-white/90">
                         <!-- Webcam Controls -->
                         <div class="group webcam-settings-container relative overflow-visible">
                             <button

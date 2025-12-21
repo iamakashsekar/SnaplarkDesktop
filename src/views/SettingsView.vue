@@ -39,9 +39,9 @@
     const previousHotkeyValue = ref({})
 
     const mainTabs = [
-        { id: 'general', label: 'General', height: 750 },
-        { id: 'hotkeys', label: 'Hotkeys', height: 440 },
-        { id: 'capture', label: 'Capture', height: 680 }
+        { id: 'general', label: 'General', width: 420, height: 650 },
+        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 310 },
+        { id: 'capture', label: 'Capture', width: 420, height: 540 }
     ]
 
     const browseSaveFolder = async () => {
@@ -112,13 +112,13 @@
     }
 
     const changeTab = async (tab) => {
-        await resizeWindowTo('settings', 600, tab.height)
+        await resizeWindowTo('settings', tab.width, tab.height)
         activeTab.value = tab.id
     }
 
     onMounted(async () => {
         // Init window to the General tab height
-        await resizeWindowTo('settings', 600, 700)
+        // await resizeWindowTo('settings', 600, 700)
     })
 </script>
 
@@ -129,21 +129,21 @@
         <!-- Custom Title Bar -->
         <TitleBar :title="WINDOW_TITLES.settings" />
 
-        <div class="mb-6 space-y-2 px-7">
-            <h1 class="text-2xl font-bold dark:text-white">Settings</h1>
+        <div class="mb-2.5 space-y-0.5 px-4">
+            <h1 class="text-xl font-semibold dark:text-white">Settings</h1>
             <p class="text-sm text-slate-500 dark:text-gray-400">Configure Snaplark to your preferences</p>
         </div>
 
         <nav
             v-if="mainTabs.length > 1"
-            class="dark:bg-dark-800 mx-7 mb-6 flex space-x-1 rounded-xl bg-slate-100 p-1">
+            class="dark:bg-dark-800 mx-4 mb-2.5 flex space-x-1 rounded-xl bg-slate-100 p-1">
             <button
                 v-for="tab in mainTabs"
                 :key="tab.id"
                 @click="changeTab(tab)"
                 type="button"
                 :class="[
-                    'w-full rounded-lg py-2.5 text-sm leading-5 font-medium transition-all',
+                    'w-full cursor-pointer rounded-lg py-2 text-sm font-medium transition-all',
                     tab.id === activeTab
                         ? 'dark:bg-dark-700 bg-white text-blue-700 shadow dark:text-blue-400'
                         : 'dark:hover:bg-dark-700 text-slate-700 hover:bg-gray-50 hover:text-blue-600 dark:text-gray-400 dark:hover:text-gray-400'
@@ -152,7 +152,7 @@
             </button>
         </nav>
 
-        <div class="custom-scrollbar flex-1 overflow-y-auto rounded-xl px-7 pb-2">
+        <div class="custom-scrollbar flex-1 overflow-y-auto rounded-xl px-4 pb-2">
             <transition
                 mode="out-in"
                 enter-active-class="transition duration-150 ease-out"
@@ -163,7 +163,7 @@
                 leave-to-class="opacity-0">
                 <div
                     :key="activeTab"
-                    class="space-y-4 pb-4">
+                    class="space-y-2 pb-2">
                     <!-- GENERAL TAB -->
                     <template v-if="activeTab === 'general'">
                         <!-- Launch at Startup -->
@@ -186,15 +186,15 @@
 
                         <!-- Language Selection -->
                         <div
-                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
                             <label class="block">
-                                <h3 class="text-base font-semibold dark:text-gray-100">Language</h3>
+                                <h3 class="text-sm font-medium dark:text-gray-100">Language</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
                                     Choose your preferred language
                                 </p>
                                 <select
                                     v-model="settings.language"
-                                    class="dark:border-dark-700 dark:bg-dark-900 mt-3 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none dark:text-gray-200">
+                                    class="dark:border-dark-700 dark:bg-dark-900 mt-1.5 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none dark:text-gray-400">
                                     <option value="en">English</option>
                                     <option value="ru">Russian</option>
                                 </select>
@@ -212,8 +212,8 @@
                             v-if="!settings.promptForSaveLocation"
                             class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <label class="block">
-                                <h3 class="text-base font-semibold dark:text-gray-100">Default Save Folder</h3>
-                                <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
+                                <h3 class="ttext-sm font-medium dark:text-gray-100">Default Save Folder</h3>
+                                <p class="mt-1 text-sm font-medium text-slate-500 dark:text-gray-300">
                                     Where screenshots and recordings are saved
                                 </p>
                                 <div class="mt-3 flex gap-2">
@@ -225,7 +225,7 @@
                                     <button
                                         type="button"
                                         @click="browseSaveFolder"
-                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-500/20 focus:ring-2 focus:ring-blue-500/30 focus:outline-none dark:text-blue-400">
+                                        class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm text-blue-600 transition hover:bg-blue-500/20 focus:ring-2 focus:ring-blue-500/30 focus:outline-none dark:text-blue-400">
                                         Browse
                                     </button>
                                 </div>
@@ -236,11 +236,10 @@
                     <!-- HOTKEYS TAB -->
                     <template v-else-if="activeTab === 'hotkeys'">
                         <div
-                            class="dark:border-dark-700 dark:bg-dark-800 space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
-                            <div
-                                class="dark:border-dark-700/50 flex items-center justify-between border-b border-slate-200/50 pb-4">
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
+                            <div class="dark:border-dark-700/50 flex items-center justify-between border-slate-200/50">
                                 <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Screenshot</h3>
+                                    <h3 class="text-sm font-medium dark:text-gray-100">Screenshot</h3>
                                     <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Capture screen area</p>
                                 </div>
                                 <input
@@ -261,10 +260,11 @@
                                     readonly />
                             </div>
 
-                            <div
-                                class="dark:border-dark-700/50 flex items-center justify-between border-b border-slate-200/50 py-4">
+                            <hr class="dark:border-dark-700/50 my-2 border-slate-100" />
+
+                            <div class="dark:border-dark-700/50 flex items-center justify-between border-slate-200/50">
                                 <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Recording</h3>
+                                    <h3 class="text-sm font-medium dark:text-gray-100">Recording</h3>
                                     <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Start screen recording</p>
                                 </div>
                                 <input
@@ -287,7 +287,7 @@
 
                             <!-- <div class="flex items-center justify-between pt-4">
                                 <div>
-                                    <h3 class="text-base font-semibold dark:text-gray-100">Quick Menu</h3>
+                                    <h3 class="text-base  dark:text-gray-100">Quick Menu</h3>
                                     <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Open quick menu</p>
                                 </div>
                                 <input
@@ -314,34 +314,30 @@
                     <template v-else-if="activeTab === 'capture'">
                         <!-- Crop Tools -->
                         <div
-                            class="dark:border-dark-700 dark:bg-dark-800 space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
                             <div>
-                                <h3 class="text-base font-semibold dark:text-gray-100">Crop Screen Tools</h3>
+                                <h3 class="text-sm font-medium dark:text-gray-100">Crop Screen Tools</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
                                     Enable additional capture tools
                                 </p>
                             </div>
 
                             <div class="flex items-center justify-between pt-2">
-                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
-                                    >Show Magnifier</label
-                                >
+                                <label class="text-sm text-slate-700 dark:text-gray-100">Show Magnifier</label>
                                 <Switch
                                     v-model="settings.showMagnifier"
                                     size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
-                                    >Show Crosshair</label
-                                >
+                                <label class="text-sm text-slate-700 dark:text-gray-100">Show Crosshair</label>
                                 <Switch
                                     v-model="settings.showCrosshair"
                                     size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100">Show Cursor</label>
+                                <label class="text-sm text-slate-700 dark:text-gray-100">Show Cursor</label>
                                 <Switch
                                     v-model="settings.showCursor"
                                     size="md" />
@@ -350,27 +346,23 @@
 
                         <!-- Recording  -->
                         <div
-                            class="dark:border-dark-700 dark:bg-dark-800 space-y-4 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <div>
-                                <h3 class="text-base font-semibold dark:text-gray-100">Recording</h3>
+                                <h3 class="text-sm font-medium dark:text-gray-100">Recording</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
                                     Enable additional capture tools
                                 </p>
                             </div>
 
                             <div class="flex items-center justify-between pt-2">
-                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
-                                    >Mirror Webcam</label
-                                >
+                                <label class="text-sm text-slate-700 dark:text-gray-100">Mirror Webcam</label>
                                 <Switch
                                     v-model="settings.flipCamera"
                                     size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm font-medium text-slate-700 dark:text-gray-100"
-                                    >3 Second Countdown</label
-                                >
+                                <label class="text-sm text-slate-700 dark:text-gray-100">3 Second Countdown</label>
                                 <Switch
                                     v-model="settings.recordingCountdown"
                                     size="md" />

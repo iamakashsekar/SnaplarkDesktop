@@ -220,7 +220,7 @@
 
                             <button
                                 @click="nextStep"
-                                class="no-drag w-full rounded-full bg-blue-500 py-2 text-lg font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
+                                class="no-drag w-full cursor-pointer rounded-full bg-blue-500 py-2 text-lg font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
                                 {{ currentStep === steps.length - 1 ? 'Finish' : 'Next' }}
                             </button>
                         </div>
@@ -233,7 +233,7 @@
                         :key="index"
                         @click="goToStep(index)"
                         :class="[
-                            'h-2.5 w-10 rounded-full focus:outline-none',
+                            'h-2.5 w-10 cursor-pointer rounded-full focus:outline-none',
                             currentStep === index ? 'bg-blue-500' : 'bg-gray-200/60 dark:bg-gray-600'
                         ]"></button>
                 </div>

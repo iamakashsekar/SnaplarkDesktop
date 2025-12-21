@@ -10,6 +10,7 @@
     const store = useStore()
 
     const isUserMenuOpen = ref(false)
+    const userMenuContainer = ref(null)
 
     const openSettings = async () => {
         isUserMenuOpen.value = false
@@ -75,8 +76,15 @@
         window.electron?.quitApp()
     }
 
-    const toggleUserMenu = () => {
+    const toggleUserMenu = (event) => {
+        event.stopPropagation()
         isUserMenuOpen.value = !isUserMenuOpen.value
+    }
+
+    const handleClickOutside = (event) => {
+        if (userMenuContainer.value && !userMenuContainer.value.contains(event.target)) {
+            isUserMenuOpen.value = false
+        }
     }
 
     onMounted(async () => {
@@ -89,9 +97,12 @@
         }
         await resizeWindowTo('main', 232, 550)
         console.log('Main window resized')
+        document.addEventListener('click', handleClickOutside)
     })
 
-    onUnmounted(() => {})
+    onUnmounted(() => {
+        document.removeEventListener('click', handleClickOutside)
+    })
 </script>
 
 <template>
@@ -103,7 +114,7 @@
                     <button
                         type="button"
                         @click="takeScreenshot"
-                        class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                        class="dark:hover:bg-dark-800 group flex w-full cursor-pointer items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                         <svg
                             width="28"
                             height="25"
@@ -137,7 +148,7 @@
                     <button
                         type="button"
                         @click="recordVideo()"
-                        class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                        class="dark:hover:bg-dark-800 group flex w-full cursor-pointer items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                         <svg
                             width="29"
                             height="30"
@@ -197,7 +208,7 @@
                         type="button"
                         @click="openLastCapture"
                         :class="{ 'opacity-50': !store.lastCapture }"
-                        class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                        class="dark:hover:bg-dark-800 group flex w-full cursor-pointer items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                         <svg
                             width="29"
                             height="29"
@@ -241,7 +252,7 @@
                 <button
                     type="button"
                     @click="uploadMedia"
-                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    class="dark:hover:bg-dark-800 group flex w-full cursor-pointer items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                     <svg
                         width="29"
                         height="29"
@@ -273,7 +284,7 @@
                 <button
                     type="button"
                     @click="viewUploadedHistory"
-                    class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                    class="dark:hover:bg-dark-800 group flex w-full cursor-pointer items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                     <svg
                         width="29"
                         height="29"
@@ -327,7 +338,7 @@
                     <button
                         type="button"
                         @click="quitApplication"
-                        class="dark:hover:bg-dark-800 group flex w-full items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
+                        class="dark:hover:bg-dark-800 group flex w-full cursor-pointer items-center gap-6 rounded-lg px-2.5 py-1.5 text-gray-700 transition-colors hover:bg-gray-200/10 dark:text-gray-200">
                         <svg
                             width="29"
                             height="29"
@@ -350,7 +361,9 @@
                     </span>
                 </div>
                 <!-- User Profile -->
-                <div class="relative flex items-center gap-3 rounded-2xl px-2.5 py-1.5">
+                <div
+                    ref="userMenuContainer"
+                    class="relative flex items-center gap-3 rounded-2xl px-2.5 py-1.5">
                     <img
                         class="ring-primary-blue h-10 w-10 cursor-pointer rounded-full object-cover shadow-lg ring-2"
                         @click="visitProfile"
@@ -370,7 +383,7 @@
 
                     <button
                         @click="toggleUserMenu"
-                        class="rounded-lg px-4 py-2 text-gray-500 hover:bg-gray-200/10 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        class="cursor-pointer rounded-lg px-4 py-2 text-gray-500 hover:bg-gray-200/10 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                         <svg
                             width="5"
                             height="23"
@@ -419,7 +432,7 @@
                         <button
                             @click="openSettings"
                             type="button"
-                            class="dark:hover:bg-dark-700 dark:group-hover:text-primary-blue flex w-full items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200/10 dark:text-white">
+                            class="dark:hover:bg-dark-700 dark:group-hover:text-primary-blue flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200/10 dark:text-white">
                             <svg
                                 width="29"
                                 height="29"

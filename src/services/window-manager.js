@@ -52,8 +52,8 @@ class WindowManager {
 
             settings: {
                 ...common,
-                width: 600,
-                height: 750,
+                width: 420,
+                height: 650,
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: true,

@@ -10,7 +10,9 @@
 </script>
 
 <template>
-    <div :class="{ dark: store.settings.darkMode }">
+    <div
+        class="select-none"
+        :class="{ dark: store.settings.darkMode }">
         <router-view />
     </div>
 </template>
