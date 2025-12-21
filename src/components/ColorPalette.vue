@@ -16,7 +16,7 @@
 </script>
 
 <template>
-    <div class="absolute top-full right-0 mt-2.5 flex gap-1.5 rounded-md bg-slate-50 p-2">
+    <div class="dark:bg-dark-700 absolute top-full right-0 mt-2.5 flex gap-1.5 rounded-md bg-slate-50 p-2">
         <button
             v-for="color in colors"
             :key="color"

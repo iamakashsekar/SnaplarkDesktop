@@ -1,7 +1,5 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed } from 'vue'
-    import { apiClient } from '../api/config.js'
-    import axios from 'axios'
     import KonvaEditor from '../components/KonvaEditor.vue'
     import SizeIndicatorPill from '../components/SizeIndicatorPill.vue'
     import { createWorker } from 'tesseract.js'
@@ -34,10 +32,6 @@
     const zoomFactor = 2
     const magnifierCanvas = ref(null)
     const fullScreenImage = ref(null)
-
-    // Upload notifications
-    const uploadNotifications = ref([])
-    const nextNotificationId = ref(1)
 
     // OCR Modal state
     const showOCRModal = ref(false)
@@ -604,33 +598,6 @@
         }
     }
 
-    // Notification actions
-    const copyUploadLink = async (url) => {
-        try {
-            await navigator.clipboard.writeText(url)
-        } catch (err) {
-            console.error('Failed to copy link:', err)
-        }
-    }
-
-    const shareUploadLink = (url) => {
-        if (navigator.share) {
-            navigator.share({ title: 'Screenshot', url }).catch(console.error)
-        } else {
-            window.open(url, '_blank')
-        }
-    }
-
-    const removeNotification = (id) => {
-        const index = uploadNotifications.value.findIndex((n) => n.id === id)
-        if (index !== -1) uploadNotifications.value.splice(index, 1)
-    }
-
-    const retryUpload = (notification) => {
-        removeNotification(notification.id)
-        captureAndUpload()
-    }
-
     // Screenshot actions
     const copyToClipboard = async () => {
         try {
@@ -1026,11 +993,11 @@
             <!-- Drag Handle -->
             <div class="group relative">
                 <div
-                    class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
+                    class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
                     @mousedown="handleToolbarDragStart"
                     title="Drag to move toolbar">
                     <svg
-                        class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                        class="size-5 text-gray-600 transition-colors dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="currentColor"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1055,13 +1022,13 @@
                 </span>
             </div>
 
-            <div class="flex items-center rounded-full bg-white/90">
+            <div class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
                 <button
                     @click="handleUpload"
                     title="Upload"
-                    class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                    class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
                     <svg
-                        class="size-6 group-hover:text-white"
+                        class="size-6 group-hover:text-white dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1075,9 +1042,9 @@
                 <button
                     @click="handleCopy"
                     title="Copy"
-                    class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                    class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
                     <svg
-                        class="size-6 group-hover:text-white"
+                        class="size-6 group-hover:text-white dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1097,9 +1064,9 @@
                 <button
                     @click="handleSave"
                     title="Save"
-                    class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                    class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
                     <svg
-                        class="size-6 group-hover:text-white"
+                        class="size-6 group-hover:text-white dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1113,10 +1080,10 @@
                 <button
                     @click="handleOCR"
                     title="OCR"
-                    class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                    class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        class="size-6 group-hover:text-white"
+                        class="size-6 group-hover:text-white dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="currentColor">
                         <g clip-path="url(#clip0_4418_8491)">
@@ -1144,9 +1111,9 @@
                 <button
                     @click="handleSearch"
                     title="Search with Google Lens"
-                    class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                    class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
                     <svg
-                        class="size-6 group-hover:text-white"
+                        class="size-6 group-hover:text-white dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1182,9 +1149,9 @@
                 <button
                     @click="handleEdit"
                     title="Edit"
-                    class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
+                    class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
                     <svg
-                        class="size-6 group-hover:text-white"
+                        class="size-6 group-hover:text-white dark:text-gray-400"
                         viewBox="0 0 24 24"
                         fill="none"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1202,7 +1169,7 @@
                 </button>
             </div>
 
-            <div class="flex items-center rounded-full bg-white/90">
+            <div class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
                 <div class="group relative">
                     <button
                         @click="handleCancel"
@@ -1240,274 +1207,6 @@
             @save="mode = 'edited'"
             :selectionRect="selectionRect"
             :toolbarStyle="toolbarStyle" />
-
-        <!-- Upload Notifications -->
-        <div class="fixed top-4 right-4 z-[10000] min-w-[380px] space-y-3">
-            <transition-group
-                name="notification"
-                tag="div">
-                <div
-                    v-for="notification in uploadNotifications"
-                    :key="notification.id"
-                    class="rounded-lg border border-gray-100 bg-white p-4 shadow-2xl">
-                    <!-- Uploading State -->
-                    <div v-if="notification.status === 'uploading'">
-                        <div class="mb-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M9 17H15V22H9V17Z"
-                                            fill="#3B82F6" />
-                                        <path
-                                            d="M12 2L7 7H10V15H14V7H17L12 2Z"
-                                            fill="#3B82F6" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium text-gray-900">Uploading</h4>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    @click="notification.status = 'minimized'"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M5 8L10 13L15 8"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="removeNotification(notification.id)"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M6 6L14 14M6 14L14 6"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <div class="flex justify-between text-sm text-gray-500">
-                                <span>{{ notification.fileSize }}</span>
-                                <span>{{ notification.progress }}%</span>
-                            </div>
-                            <div class="h-2 w-full rounded-full bg-gray-200">
-                                <div
-                                    class="h-2 rounded-full bg-blue-500 transition-all duration-300"
-                                    :style="{ width: `${notification.progress}%` }"></div>
-                            </div>
-                            <div class="text-center text-xs text-gray-400">
-                                {{ notification.remainingTime || 'Calculating...' }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Upload Complete State -->
-                    <div v-else-if="notification.status === 'completed'">
-                        <div class="mb-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M9 17H15V22H9V17Z"
-                                            fill="#3B82F6" />
-                                        <path
-                                            d="M12 2L7 7H10V15H14V7H17L12 2Z"
-                                            fill="#3B82F6" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium text-gray-900">Upload Complete</h4>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    @click="notification.status = 'minimized'"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M5 8L10 13L15 8"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="removeNotification(notification.id)"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M6 6L14 14M6 14L14 6"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between rounded-lg bg-gray-50 p-2">
-                                <a
-                                    :href="notification.url"
-                                    target="_blank"
-                                    class="mr-2 flex-1 truncate text-sm text-blue-600 hover:text-blue-700">
-                                    {{ notification.url }}
-                                </a>
-                                <div class="flex items-center gap-1">
-                                    <button
-                                        @click="copyUploadLink(notification.url)"
-                                        class="rounded p-1.5 transition-colors hover:bg-gray-200"
-                                        title="Copy Link">
-                                        <svg
-                                            width="18"
-                                            height="18"
-                                            viewBox="0 0 18 18"
-                                            fill="none">
-                                            <path
-                                                d="M12 1.5H3C2.175 1.5 1.5 2.175 1.5 3V12.75H3V3H12V1.5ZM14.25 4.5H6C5.175 4.5 4.5 5.175 4.5 6V15C4.5 15.825 5.175 16.5 6 16.5H14.25C15.075 16.5 15.75 15.825 15.75 15V6C15.75 5.175 15.075 4.5 14.25 4.5ZM14.25 15H6V6H14.25V15Z"
-                                                fill="#6B7280" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        @click="shareUploadLink(notification.url)"
-                                        class="rounded p-1.5 transition-colors hover:bg-gray-200"
-                                        title="Share">
-                                        <svg
-                                            width="18"
-                                            height="18"
-                                            viewBox="0 0 18 18"
-                                            fill="none">
-                                            <path
-                                                d="M14.25 12.375C13.5525 12.375 12.9375 12.6975 12.5175 13.185L6.3075 9.735C6.345 9.5775 6.375 9.42 6.375 9.255C6.375 9.09 6.345 8.9325 6.3075 8.775L12.435 5.3625C12.87 5.88 13.515 6.2175 14.25 6.2175C15.495 6.2175 16.5 5.2125 16.5 3.9675C16.5 2.7225 15.495 1.7175 14.25 1.7175C13.005 1.7175 12 2.7225 12 3.9675C12 4.1325 12.03 4.29 12.0675 4.4475L5.94 7.86C5.505 7.3425 4.86 7.005 4.125 7.005C2.88 7.005 1.875 8.01 1.875 9.255C1.875 10.5 2.88 11.505 4.125 11.505C4.86 11.505 5.505 11.1675 5.94 10.65L12.1425 14.1075C12.105 14.25 12.0825 14.4 12.0825 14.55C12.0825 15.7575 13.065 16.74 14.2725 16.74C15.48 16.74 16.4625 15.7575 16.4625 14.55C16.4625 13.3425 15.48 12.36 14.2725 12.36L14.25 12.375Z"
-                                                fill="#6B7280" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <button
-                                @click="removeNotification(notification.id)"
-                                class="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800">
-                                Copy Link
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Upload Failed State -->
-                    <div v-else-if="notification.status === 'failed'">
-                        <div class="mb-3 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100">
-                                    <svg
-                                        width="24"
-                                        height="24"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"
-                                            fill="#EF4444" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-medium text-gray-900">Upload Failed</h4>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    @click="notification.status = 'minimized'"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M5 8L10 13L15 8"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    @click="removeNotification(notification.id)"
-                                    class="text-gray-400 hover:text-gray-600">
-                                    <svg
-                                        width="20"
-                                        height="20"
-                                        viewBox="0 0 20 20"
-                                        fill="none">
-                                        <path
-                                            d="M6 6L14 14M6 14L14 6"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="space-y-3">
-                            <div class="flex items-center gap-2 rounded-lg bg-red-50 p-3">
-                                <div
-                                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
-                                    <svg
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 16 16"
-                                        fill="none">
-                                        <path
-                                            d="M8 1C4.13 1 1 4.13 1 8C1 11.87 4.13 15 8 15C11.87 15 15 11.87 15 8C15 4.13 11.87 1 8 1ZM8 9C7.45 9 7 8.55 7 8V5C7 4.45 7.45 4 8 4C8.55 4 9 4.45 9 5V8C9 8.55 8.55 9 8 9ZM9 11H7V13H9V11Z"
-                                            fill="#EF4444" />
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-medium text-red-800">
-                                        {{ notification.error }}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                @click="retryUpload(notification)"
-                                class="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800">
-                                Try Again
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </transition-group>
-        </div>
 
         <!-- OCR Loading Overlay -->
         <transition
@@ -1569,13 +1268,13 @@
                     <div
                         v-if="showOCRModal"
                         class="relative w-full max-w-lg rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md">
-                        <div class="rounded-2xl bg-white p-6 shadow-2xl">
+                        <div class="dark:bg-dark-900 rounded-2xl bg-white p-6 shadow-2xl">
                             <!-- Modal Header -->
                             <div class="mb-6 flex items-center justify-between">
-                                <h3 class="text-xl font-semibold text-gray-900">OCR Text</h3>
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">OCR Text</h3>
                                 <button
                                     @click="closeOCRModal"
-                                    class="text-gray-7 rounded-full p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-900">
+                                    class="text-gray-7 dark:hover:bg-dark-700 rounded-full p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:text-white">
                                     <svg
                                         class="h-5 w-5"
                                         fill="none"
@@ -1592,11 +1291,12 @@
 
                             <!-- OCR Text Content -->
                             <div class="mb-8">
-                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div
+                                    class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-gray-200 bg-gray-50 p-4">
                                     <textarea
                                         :value="ocrText"
                                         readonly
-                                        class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none"
+                                        class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none dark:text-gray-200"
                                         placeholder="OCR text will appear here...">
                                     </textarea>
                                 </div>

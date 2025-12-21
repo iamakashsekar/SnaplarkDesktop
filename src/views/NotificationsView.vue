@@ -178,7 +178,7 @@
                 :key="n.id"
                 v-show="!n._hidden"
                 class="size-full rounded-2xl bg-linear-to-r from-blue-500 to-cyan-500 pt-2 shadow-md">
-                <div class="rounded-2xl bg-white p-5">
+                <div class="dark:bg-dark-900 rounded-2xl bg-white p-5">
                     <UploadNotification
                         v-if="n.variant === 'upload' || n.variant === 'video-upload'"
                         :type="n.variant === 'upload' ? 'image' : 'video'"

@@ -934,11 +934,11 @@
         <!-- Drag Handle -->
         <div class="group relative">
             <div
-                class="flex cursor-move items-center rounded-full bg-white p-2 transition-colors hover:bg-gray-100"
+                class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
                 @mousedown="handleToolbarDragStart"
                 title="Drag to move toolbar">
                 <svg
-                    class="pointer-events-none size-5 text-gray-600 transition-colors hover:text-gray-800"
+                    class="size-5 text-gray-600 transition-colors dark:text-gray-400"
                     viewBox="0 0 24 24"
                     fill="currentColor"
                     xmlns="http://www.w3.org/2000/svg">
@@ -963,13 +963,13 @@
             </span>
         </div>
 
-        <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
+        <div class="dark:bg-dark-800 flex items-center gap-3 rounded-full bg-white px-4 py-2">
             <div class="group relative">
                 <button
-                    class="flex"
+                    class="flex transition-colors"
                     :class="{
                         'cursor-not-allowed opacity-40': !canUndo,
-                        'hover:text-primary-blue cursor-pointer': canUndo
+                        'hover:text-primary-blue cursor-pointer dark:text-gray-400': canUndo
                     }"
                     @click="undo"
                     :disabled="!canUndo">
@@ -984,10 +984,10 @@
 
             <div class="group relative">
                 <button
-                    class="flex"
+                    class="flex transition-colors"
                     :class="{
                         'cursor-not-allowed opacity-40': !canRedo,
-                        'hover:text-primary-blue cursor-pointer': canRedo
+                        'hover:text-primary-blue cursor-pointer dark:text-gray-400': canRedo
                     }"
                     @click="redo"
                     :disabled="!canRedo">
@@ -1001,15 +1001,15 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
+        <div class="dark:bg-dark-800 flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
             <!-- Line -->
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('line')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'line',
-                        'hover:text-primary-blue': activeTool !== 'line'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'line'
                     }">
                     <LineIcon />
                 </button>
@@ -1023,11 +1023,11 @@
             <!-- Arrow -->
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('arrow')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'arrow',
-                        'hover:text-primary-blue': activeTool !== 'arrow'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'arrow'
                     }">
                     <ArrowIcon />
                 </button>
@@ -1041,11 +1041,11 @@
             <!-- Circle -->
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('ellipse')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'ellipse',
-                        'hover:text-primary-blue': activeTool !== 'ellipse'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'ellipse'
                     }">
                     <EllipseIcon />
                 </button>
@@ -1059,11 +1059,11 @@
             <!-- Rectangle -->
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('rect')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'rect',
-                        'hover:text-primary-blue': activeTool !== 'rect'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'rect'
                     }">
                     <RectangleIcon />
                 </button>
@@ -1077,11 +1077,11 @@
             <!-- Pencil -->
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('pencil')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'pencil',
-                        'hover:text-primary-blue': activeTool !== 'pencil'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'pencil'
                     }">
                     <PencilIcon />
                 </button>
@@ -1095,11 +1095,11 @@
             <!-- Highlight -->
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('highlighter')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'highlighter',
-                        'hover:text-primary-blue': activeTool !== 'highlighter'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'highlighter'
                     }">
                     <HighlighterIcon />
                 </button>
@@ -1112,11 +1112,11 @@
 
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('eraser')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'eraser',
-                        'hover:text-primary-blue': activeTool !== 'eraser'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'eraser'
                     }">
                     <EraserIcon />
                 </button>
@@ -1129,11 +1129,11 @@
 
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('blur')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'blur',
-                        'hover:text-primary-blue': activeTool !== 'blur'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'blur'
                     }">
                     <BlurIcon />
                 </button>
@@ -1146,11 +1146,11 @@
 
             <div class="group relative">
                 <button
-                    class="flex size-6 cursor-pointer items-center justify-center rounded"
+                    class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('text')"
                     :class="{
                         'bg-primary-blue text-white': activeTool === 'text',
-                        'hover:text-primary-blue': activeTool !== 'text'
+                        'hover:text-primary-blue dark:text-gray-400': activeTool !== 'text'
                     }">
                     <TextIcon />
                 </button>
@@ -1181,11 +1181,11 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
+        <div class="dark:bg-dark-800 flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
             <div class="group relative">
                 <button
                     @click="$emit('cancel')"
-                    class="flex cursor-pointer text-red-500 hover:text-red-600">
+                    class="flex cursor-pointer text-red-500 transition-colors hover:text-red-600">
                     <DeleteIcon />
                 </button>
 
@@ -1198,7 +1198,7 @@
             <div class="group relative">
                 <button
                     @click="$emit('save')"
-                    class="flex cursor-pointer text-green-500 hover:text-green-600">
+                    class="flex cursor-pointer text-green-500 transition-colors hover:text-green-600">
                     <CheckIcon />
                 </button>
 
