@@ -11,10 +11,6 @@
 
     const isUserMenuOpen = ref(false)
 
-    const openLogin = async () => {
-        await createWindow('login')
-    }
-
     const openSettings = async () => {
         isUserMenuOpen.value = false
         hideWindow('main')
@@ -30,10 +26,6 @@
         await window.electron?.startVideoRecordingMode()
     }
 
-    const recordGIF = async () => {
-        await createWindow('webcam')
-    }
-
     const openLastCapture = () => {
         if (store.lastCapture) {
             hideWindow('main')
@@ -46,8 +38,9 @@
     }
 
     const uploadMedia = async () => {
-        store.openExternal(BASE_URL + '/captures?showUploadModal=true')
-        hideWindow('main')
+        await window.electronWindows.createWindow('welcome')
+        // store.openExternal(BASE_URL + '/captures?showUploadModal=true')
+        // hideWindow('main')
     }
 
     const viewUploadedHistory = () => {

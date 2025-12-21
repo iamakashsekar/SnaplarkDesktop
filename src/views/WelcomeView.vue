@@ -180,7 +180,7 @@
 
                         <button
                             @click="startTour"
-                            class="no-drag mt-10 rounded-full bg-blue-500 px-6 py-3 font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
+                            class="no-drag mt-10 cursor-pointer rounded-full bg-blue-500 px-6 py-3 font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
                             Let's get started
                         </button>
                     </div>
@@ -214,7 +214,7 @@
                         <div class="mt-4 flex items-center justify-between">
                             <button
                                 @click="finishSetup"
-                                class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-400 transition-all duration-300 ease-in-out dark:text-gray-500">
+                                class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-500 transition-all duration-300 ease-in-out hover:text-gray-700 dark:text-gray-100 dark:hover:text-white">
                                 Skip Tour
                             </button>
 

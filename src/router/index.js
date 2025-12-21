@@ -30,19 +30,19 @@ const routes = [
         path: '/settings',
         name: 'settings',
         component: SettingsView,
-        meta: { windowType: 'settings' }
+        meta: { windowType: 'settings', title: 'Snaplark - Settings' }
     },
     {
         path: '/welcome',
         name: 'welcome',
         component: WelcomeView,
-        meta: { windowType: 'welcome' }
+        meta: { windowType: 'welcome', title: 'Welcome to Snaplark' }
     },
     {
         path: '/tour',
         name: 'tour',
         component: TourView,
-        meta: { windowType: 'tour' }
+        meta: { windowType: 'tour', title: 'Snaplark Tour' }
     },
     {
         path: '/screenshot',
@@ -66,7 +66,7 @@ const routes = [
         path: '/design',
         name: 'design',
         component: DesignView,
-        meta: { windowType: 'design' }
+        meta: { windowType: 'design', title: 'Snaplark Design Workspace' }
     },
     {
         path: '/notifications',
@@ -84,7 +84,7 @@ const routes = [
         path: '/permissions',
         name: 'permissions',
         component: () => import('../views/PermissionsView.vue'),
-        meta: { windowType: 'permissions' }
+        meta: { windowType: 'permissions', title: 'Snaplark - Permissions' }
     }
 ]
 
@@ -130,6 +130,13 @@ router.beforeEach(async (to, from, next) => {
     } catch (error) {
         console.error('Error in router navigation guard:', error)
         next()
+    }
+})
+
+router.afterEach((to) => {
+    // Update the document title based on the route meta
+    if (to.meta.title) {
+        document.title = to.meta.title
     }
 })
 
