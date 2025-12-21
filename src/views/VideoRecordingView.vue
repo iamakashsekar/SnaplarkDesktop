@@ -1092,28 +1092,28 @@
                 <!-- Resize handles -->
                 <div v-if="mode === 'confirming' || mode === 'resizing'">
                     <div
-                        class="pointer-events-all absolute -top-[5px] -left-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute -top-[5px] -left-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'top-left')"></div>
                     <div
-                        class="pointer-events-all absolute -top-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute -top-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'top')"></div>
                     <div
-                        class="pointer-events-all absolute -top-[5px] -right-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute -top-[5px] -right-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'top-right')"></div>
                     <div
-                        class="pointer-events-all absolute top-1/2 -right-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute top-1/2 -right-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'right')"></div>
                     <div
-                        class="pointer-events-all absolute -right-[5px] -bottom-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute -right-[5px] -bottom-[5px] h-[10px] w-[10px] cursor-nwse-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom-right')"></div>
                     <div
-                        class="pointer-events-all absolute -bottom-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute -bottom-[5px] left-1/2 h-[10px] w-[10px] -translate-x-1/2 cursor-ns-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom')"></div>
                     <div
-                        class="pointer-events-all absolute -bottom-[5px] -left-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute -bottom-[5px] -left-[5px] h-[10px] w-[10px] cursor-nesw-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'bottom-left')"></div>
                     <div
-                        class="pointer-events-all absolute top-1/2 -left-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white"
+                        class="pointer-events-all dark:bg-dark-800 absolute top-1/2 -left-[5px] h-[10px] w-[10px] -translate-y-1/2 cursor-ew-resize rounded-full border border-black bg-white dark:border-white"
                         @mousedown.stop="handleResizeHandleMouseDown($event, 'left')"></div>
                 </div>
             </div>
@@ -1180,9 +1180,9 @@
                 <div
                     @mousedown="handleToolbarDragStart"
                     :class="{ drag: isRecording }"
-                    class="flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100">
+                    class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100">
                     <svg
-                        class="size-5 text-gray-600 transition-colors hover:text-gray-800"
+                        class="size-5 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                         viewBox="0 0 24 24"
                         fill="currentColor"
                         xmlns="http://www.w3.org/2000/svg">
@@ -1210,10 +1210,10 @@
             </div>
 
             <div class="relative">
-                <div class="group relative overflow-visible rounded-full bg-white/90">
+                <div class="group dark:bg-dark-800/90 relative overflow-visible rounded-full bg-white/90">
                     <button
                         @click="isRecording ? handleStop() : handleStart()"
-                        class="flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-transparent px-4 py-2.5 transition-colors">
+                        class="flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-transparent px-4 py-2.5 transition-colors dark:text-white">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             width="24"
@@ -1260,7 +1260,7 @@
                     <div
                         v-if="!showToolbar"
                         class="absolute top-1.5 -right-5">
-                        <div class="group relative overflow-visible rounded-full bg-white/90">
+                        <div class="group dark:bg-dark-800/90 relative overflow-visible rounded-full bg-white/90">
                             <button
                                 @click="expandToolbar"
                                 class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors">
@@ -1272,7 +1272,8 @@
                                     xmlns="http://www.w3.org/2000/svg">
                                     <path
                                         d="M5.9668 13.28L10.3135 8.93333C10.8268 8.42 10.8268 7.58 10.3135 7.06667L5.9668 2.72"
-                                        stroke="#6C82A3"
+                                        stroke="currentColor"
+                                        class="text-gray-600 dark:text-gray-400"
                                         stroke-width="1.5"
                                         stroke-miterlimit="10"
                                         stroke-linecap="round"
@@ -1304,17 +1305,17 @@
                     class="flex items-center gap-4">
                     <div
                         v-if="!isRecording"
-                        class="flex items-center gap-4 rounded-full bg-white/90">
+                        class="dark:bg-dark-800/90 flex items-center gap-4 rounded-full bg-white/90">
                         <!-- Webcam Controls -->
                         <div class="group webcam-settings-container relative overflow-visible">
                             <button
                                 ref="webcamSettingsButtonRef"
                                 @click="toggleWebcamSettings"
                                 type="button"
-                                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors hover:bg-gray-100"
+                                class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors hover:bg-gray-100"
                                 :class="{
-                                    'bg-blue-100': store.settings.webcamEnabled,
-                                    'bg-gray-100': showWebcamSettings
+                                    'bg-blue-100 dark:bg-blue-900/40': store.settings.webcamEnabled,
+                                    'dark:bg-dark-700 bg-gray-100': showWebcamSettings
                                 }">
                                 <svg
                                     v-if="store.settings.webcamEnabled"
@@ -1358,7 +1359,8 @@
                                     xmlns="http://www.w3.org/2000/svg">
                                     <path
                                         d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
-                                        stroke="#455772"
+                                        stroke="currentColor"
+                                        class="text-gray-600 dark:text-gray-400"
                                         stroke-width="1.5"
                                         stroke-miterlimit="10"
                                         stroke-linecap="round"
@@ -1370,18 +1372,18 @@
                             <div
                                 v-if="showWebcamSettings"
                                 ref="webcamDropdownRef"
-                                class="absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
+                                class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                 :class="[webcamDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                 <div class="flex flex-col">
                                     <div
                                         v-for="device in videoDevices"
                                         :key="device.deviceId"
                                         @click="selectWebcamDevice(device)"
-                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                        class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
                                         :class="[
                                             selectedWebcamDeviceId === device.deviceId
-                                                ? 'font-medium text-blue-600'
-                                                : 'text-gray-700'
+                                                ? 'font-medium text-blue-600 dark:text-blue-400'
+                                                : 'text-gray-700 dark:text-gray-300'
                                         ]">
                                         <span class="truncate">{{ device.label }}</span>
                                         <svg
@@ -1409,7 +1411,7 @@
                                     <!-- Disable Option -->
                                     <div
                                         @click="disableWebcam"
-                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                                         :class="{ 'font-medium': !store.settings.webcamEnabled }">
                                         <span>Disable Camera</span>
                                         <svg
@@ -1445,8 +1447,8 @@
                                 ref="audioSettingsButtonRef"
                                 @click="toggleAudioSettings"
                                 type="button"
-                                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pr-4 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                                :class="{ 'bg-gray-100': showAudioSettings }">
+                                class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pr-4 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                :class="{ 'dark:bg-dark-700 bg-gray-100': showAudioSettings }">
                                 <svg
                                     v-if="selectedAudioDeviceId"
                                     width="24"
@@ -1491,7 +1493,8 @@
                                     xmlns="http://www.w3.org/2000/svg">
                                     <path
                                         d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
-                                        stroke="#455772"
+                                        stroke="currentColor"
+                                        class="text-gray-600 dark:text-gray-400"
                                         stroke-width="1.5"
                                         stroke-miterlimit="10"
                                         stroke-linecap="round"
@@ -1503,18 +1506,18 @@
                             <div
                                 v-if="showAudioSettings"
                                 ref="audioDropdownRef"
-                                class="absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
+                                class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                 :class="[audioDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                 <div class="flex flex-col">
                                     <div
                                         v-for="audioDevice in audioDevices"
                                         :key="audioDevice.deviceId"
                                         @click="selectAudioDevice(audioDevice)"
-                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                        class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
                                         :class="[
                                             selectedAudioDeviceId === audioDevice.deviceId
-                                                ? 'font-medium text-blue-600'
-                                                : 'text-gray-700'
+                                                ? 'font-medium text-blue-600 dark:text-blue-400'
+                                                : 'text-gray-700 dark:text-gray-300'
                                         ]">
                                         <span class="truncate">{{ audioDevice.label }}</span>
                                         <svg
@@ -1542,7 +1545,7 @@
                                     <!-- Mute Option -->
                                     <div
                                         @click="muteAudio"
-                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50"
+                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                                         :class="{ 'font-medium': !selectedAudioDeviceId }">
                                         <span>Mute</span>
                                         <svg
@@ -1573,10 +1576,10 @@
                         </div>
                     </div>
 
-                    <div class="group relative overflow-visible rounded-full bg-white/90">
+                    <div class="group dark:bg-dark-800/90 relative overflow-visible rounded-full bg-white/90">
                         <button
                             @click="handleCancel"
-                            class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white">
+                            class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white dark:hover:bg-red-600">
                             <svg
                                 class="size-6"
                                 viewBox="0 0 24 24"
@@ -1599,10 +1602,10 @@
                             position="bottom" />
                     </div>
 
-                    <div class="group relative overflow-visible rounded-full bg-white/90">
+                    <div class="group dark:bg-dark-800/90 relative overflow-visible rounded-full bg-white/90">
                         <button
                             @click="collapseToolbar"
-                            class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors">
+                            class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors hover:bg-gray-100">
                             <svg
                                 width="16"
                                 height="16"
@@ -1611,7 +1614,8 @@
                                 xmlns="http://www.w3.org/2000/svg">
                                 <path
                                     d="M10.0332 13.28L5.68654 8.93333C5.1732 8.42 5.1732 7.58 5.68654 7.06667L10.0332 2.72"
-                                    stroke="#6C82A3"
+                                    stroke="currentColor"
+                                    class="text-gray-600 dark:text-gray-400"
                                     stroke-width="1.5"
                                     stroke-miterlimit="10"
                                     stroke-linecap="round"
