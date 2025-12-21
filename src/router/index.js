@@ -3,7 +3,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import MainView from '../views/MainView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import WelcomeView from '../views/WelcomeView.vue'
-import TourView from '../views/TourView.vue'
 import LoginView from '../views/LoginView.vue'
 import ScreenshotView from '../views/ScreenshotView.vue'
 import DesignView from '../views/DesignView.vue'
@@ -12,6 +11,7 @@ import { useStore } from '../store'
 import VideoRecordingView from '../views/VideoRecordingView.vue'
 import WebcamView from '../views/WebcamView.vue'
 import RecordingOverlayView from '../views/RecordingOverlayView.vue'
+import { WINDOW_TITLES } from '../constants/window-config'
 
 const routes = [
     {
@@ -30,19 +30,13 @@ const routes = [
         path: '/settings',
         name: 'settings',
         component: SettingsView,
-        meta: { windowType: 'settings', title: 'Snaplark - Settings' }
+        meta: { windowType: 'settings', title: WINDOW_TITLES.settings }
     },
     {
         path: '/welcome',
         name: 'welcome',
         component: WelcomeView,
-        meta: { windowType: 'welcome', title: 'Welcome to Snaplark' }
-    },
-    {
-        path: '/tour',
-        name: 'tour',
-        component: TourView,
-        meta: { windowType: 'tour', title: 'Snaplark Tour' }
+        meta: { windowType: 'welcome', title: WINDOW_TITLES.welcome }
     },
     {
         path: '/screenshot',
@@ -66,7 +60,7 @@ const routes = [
         path: '/design',
         name: 'design',
         component: DesignView,
-        meta: { windowType: 'design', title: 'Snaplark Design Workspace' }
+        meta: { windowType: 'design', title: WINDOW_TITLES.design }
     },
     {
         path: '/notifications',
@@ -84,7 +78,7 @@ const routes = [
         path: '/permissions',
         name: 'permissions',
         component: () => import('../views/PermissionsView.vue'),
-        meta: { windowType: 'permissions', title: 'Snaplark - Permissions' }
+        meta: { windowType: 'permissions', title: WINDOW_TITLES.permissions }
     }
 ]
 

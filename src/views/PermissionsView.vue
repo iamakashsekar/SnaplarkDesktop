@@ -1,6 +1,7 @@
 <script setup>
     import { ref, onMounted } from 'vue'
     import TitleBar from '@/components/TitleBar.vue'
+    import { WINDOW_TITLES } from '@/constants/window-config'
 
     const permissions = ref([
         {
@@ -106,7 +107,7 @@
     <div
         class="dark:bg-dark-blue flex h-full w-full flex-col items-center justify-center bg-white text-slate-900 shadow-xl select-none dark:text-gray-200">
         <!-- Reusable Title Bar -->
-        <TitleBar title="Snaplark - Permissions" />
+        <TitleBar :title="WINDOW_TITLES.permissions" />
 
         <div class="flex w-full flex-1 flex-col items-center justify-center p-6">
             <div class="mb-6 flex flex-col items-center">

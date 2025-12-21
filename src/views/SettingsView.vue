@@ -5,6 +5,7 @@
     import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
     import Switch from '@/components/Switch.vue'
     import TitleBar from '@/components/TitleBar.vue'
+    import { WINDOW_TITLES } from '@/constants/window-config'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()
@@ -126,7 +127,7 @@
         ref="contentRef"
         class="dark:bg-dark-blue relative flex h-screen w-full flex-col bg-white text-slate-900 dark:text-gray-200">
         <!-- Custom Title Bar -->
-        <TitleBar title="Snaplark - Settings" />
+        <TitleBar :title="WINDOW_TITLES.settings" />
 
         <div class="mb-6 space-y-2 px-7">
             <h1 class="text-2xl font-bold dark:text-white">Settings</h1>

@@ -1,5 +1,6 @@
 import { BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'node:path'
+import { WINDOW_TITLES } from '../constants/window-config.js'
 
 class WindowManager {
     constructor(viteDevServerUrl, viteName) {
@@ -56,7 +57,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: true,
-                title: 'Snaplark - Settings',
+                title: WINDOW_TITLES.settings,
                 show: false,
                 modal: false,
                 frame: false,
@@ -81,22 +82,9 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: false,
-                title: 'Welcome to Snaplark',
+                title: WINDOW_TITLES.welcome,
                 show: false,
                 modal: false
-            },
-
-            tour: {
-                width: 600,
-                height: 500,
-                resizable: false,
-                frame: true,
-                transparent: false,
-                alwaysOnTop: true,
-                skipTaskbar: false,
-                title: 'Snaplark Tour',
-                show: false,
-                modal: true
             },
 
             screenshot: {
@@ -125,6 +113,7 @@ class WindowManager {
                     titleBarOverlay: false
                 })
             },
+
             recording: {
                 frame: false,
                 transparent: true,
@@ -214,7 +203,6 @@ class WindowManager {
                 resizable: true,
                 alwaysOnTop: false,
                 skipTaskbar: false,
-                title: 'Snaplark Design Workspace',
                 show: false,
                 modal: false
             },
@@ -240,7 +228,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: false,
-                title: 'Snaplark - Permissions',
+                title: WINDOW_TITLES.permissions,
                 show: false,
                 modal: false,
                 frame: false,
