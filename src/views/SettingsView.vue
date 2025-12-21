@@ -4,6 +4,7 @@
     import { useStore } from '@/store'
     import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
     import Switch from '@/components/Switch.vue'
+    import TitleBar from '@/components/TitleBar.vue'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()
@@ -125,18 +126,16 @@
         ref="contentRef"
         class="dark:bg-dark-blue relative flex h-screen w-full flex-col bg-white text-slate-900 dark:text-gray-200">
         <!-- Custom Title Bar -->
-        <div class="drag flex h-14 w-full shrink-0 items-center justify-center bg-transparent">
-            <span class="text-sm font-semibold text-slate-500/80 dark:text-gray-400">Snaplark - Settings</span>
-        </div>
+        <TitleBar title="Snaplark - Settings" />
 
-        <div class="no-drag mb-6 space-y-2 px-7">
+        <div class="mb-6 space-y-2 px-7">
             <h1 class="text-2xl font-bold dark:text-white">Settings</h1>
             <p class="text-sm text-slate-500 dark:text-gray-400">Configure Snaplark to your preferences</p>
         </div>
 
         <nav
             v-if="mainTabs.length > 1"
-            class="no-drag dark:bg-dark-800 mx-7 mb-6 flex space-x-1 rounded-xl bg-slate-100 p-1">
+            class="dark:bg-dark-800 mx-7 mb-6 flex space-x-1 rounded-xl bg-slate-100 p-1">
             <button
                 v-for="tab in mainTabs"
                 :key="tab.id"
@@ -152,7 +151,7 @@
             </button>
         </nav>
 
-        <div class="no-drag custom-scrollbar flex-1 overflow-y-auto rounded-xl px-7 pb-2">
+        <div class="custom-scrollbar flex-1 overflow-y-auto rounded-xl px-7 pb-2">
             <transition
                 mode="out-in"
                 enter-active-class="transition duration-150 ease-out"

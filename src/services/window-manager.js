@@ -236,14 +236,25 @@ class WindowManager {
             permissions: {
                 ...common,
                 width: 400,
-                height: 650,
+                height: 640,
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: false,
                 title: 'Snaplark - Permissions',
                 show: false,
                 modal: false,
-                frame: true,
+                frame: false,
+                titleBarStyle: 'hidden',
+                ...(process.platform === 'darwin' && {
+                    trafficLightPosition: { x: 18, y: 18 }
+                }),
+                ...(process.platform === 'win32' && {
+                    titleBarOverlay: {
+                        color: '#ffffff',
+                        symbolColor: '#334155',
+                        height: 48
+                    }
+                }),
                 transparent: false
             }
         }
