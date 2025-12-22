@@ -133,10 +133,17 @@ const createWindow = () => {
 
     tray = new SystemTray(windowManager)
 
-    // Automatically show main window near tray icon on app startup
-    setTimeout(() => {
-        tray.showMainAtTray(null, { force: true, gap: 5 })
-    }, 200)
+    // Only auto-show the window if the app was NOT launched at login
+    // When launched at login, it should stay hidden until user clicks tray or uses shortcut
+    const launchInfo = app.getLoginItemSettings()
+    const wasOpenedAtLogin = launchInfo.wasOpenedAtLogin || app.getLoginItemSettings().wasOpenedAsHidden
+
+    if (!wasOpenedAtLogin) {
+        // Automatically show main window near tray icon on app startup (manual launches only)
+        setTimeout(() => {
+            tray.showMainAtTray(null, { force: true, gap: 5 })
+        }, 200)
+    }
 
     // const welcomeCompleted = store.get('welcomeCompleted')
     // if (!welcomeCompleted) {
