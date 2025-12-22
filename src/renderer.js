@@ -41,6 +41,15 @@ if (window.electron?.ipcRenderer) {
             console.error('Error starting video recording mode:', error)
         }
     })
+
+    window.electron.ipcRenderer.on('trigger-quick-menu', async () => {
+        console.log('Video recording triggered via global shortcut')
+        try {
+            await window.electron.showMainAtTray({ force: true, gap: 5 })
+        } catch (error) {
+            console.error('Error starting video recording mode:', error)
+        }
+    })
 }
 
 // Listen for auth events from the HTTP client

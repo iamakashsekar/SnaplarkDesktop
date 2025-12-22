@@ -22,7 +22,9 @@ import ScreenshotService from './services/screenshot-service.js'
 import VideoRecordingService from './services/video-recording-service.js'
 import NotificationService from './services/notification-service.js'
 import StoreService from './services/store-service.js'
+import ShortcutManager from './services/shortcut-manager.js'
 import { getPersistableDefaults } from './store-defaults.js'
+import { SHORTCUT_DEFINITIONS } from './config/shortcuts.js'
 
 // ==================== CONFIGURATION & INITIALIZATION ====================
 
@@ -74,8 +76,7 @@ let screenshotService
 let videoRecordingService
 let notificationService
 let storeService
-let currentScreenshotShortcut = null
-let currentRecordingShortcut = null
+let shortcutManager
 
 const checkAppPermissions = () => {
     if (process.platform !== 'darwin') {
@@ -149,177 +150,103 @@ const createWindow = () => {
 
 // ==================== GLOBAL SHORTCUTS ====================
 
-const convertHotkeyToElectron = (hotkey) => {
-    if (!hotkey || typeof hotkey !== 'string') return null
-
-    // Trim whitespace
-    hotkey = hotkey.trim()
-    if (!hotkey) return null
-
-    // Convert from our format (Shift + Cmd + S) to Electron format (Shift+Command+S)
-    let electronKey = hotkey
-        .replace(/\s*\+\s*/g, '+') // Remove spaces around +
-        .replace(/Cmd/gi, 'Command') // Convert Cmd to Command (case insensitive)
-        .replace(/Ctrl/gi, 'Control') // Convert Ctrl to Control (case insensitive)
-
-    // Handle special key names that Electron expects
-    const keyMappings = {
-        ArrowUp: 'Up',
-        ArrowDown: 'Down',
-        ArrowLeft: 'Left',
-        ArrowRight: 'Right',
-        Enter: 'Return',
-        ' ': 'Space'
+/**
+ * Register a shortcut from store settings using ShortcutManager
+ * @param {string} shortcutId - The shortcut ID from SHORTCUT_DEFINITIONS
+ */
+const registerShortcutFromStore = (shortcutId) => {
+    const definition = SHORTCUT_DEFINITIONS[shortcutId]
+    if (!definition) {
+        console.error(`[Main] Shortcut definition not found: ${shortcutId}`)
+        return { success: false, error: 'Shortcut definition not found' }
     }
 
-    // Replace any mapped keys (handle both start and middle of string)
-    Object.keys(keyMappings).forEach((key) => {
-        // Escape special regex characters in the key name
-        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        // Match key at start, after +, or at end
-        const regex = new RegExp(`(^|\\+)${escapedKey}(\\+|$)`, 'gi')
-        electronKey = electronKey.replace(regex, `$1${keyMappings[key]}$2`)
+    const settings = store.get('settings') || {}
+    const hotkey = settings[definition.storeKey]
+
+    if (!hotkey) {
+        console.log(`[Main] No hotkey configured for ${shortcutId}`)
+        // Unregister if no hotkey is set
+        if (shortcutManager && shortcutManager.isRegistered(definition.id)) {
+            shortcutManager.unregister(definition.id)
+        }
+        return { success: true, message: 'No hotkey configured' }
+    }
+
+    // Determine the action based on the shortcut type
+    let action
+    switch (definition.id) {
+        case 'screenshot':
+            action = () => {
+                if (screenshotService && windowManager) {
+                    const mainWindow = windowManager.getWindow('main')
+                    if (mainWindow && mainWindow.webContents) {
+                        mainWindow.webContents.send('trigger-screenshot')
+                    }
+                }
+            }
+            break
+        case 'recording':
+            action = () => {
+                if (videoRecordingService && windowManager) {
+                    const mainWindow = windowManager.getWindow('main')
+                    if (mainWindow && mainWindow.webContents) {
+                        mainWindow.webContents.send('trigger-video-recording')
+                    }
+                }
+            }
+            break
+        case 'quickMenu':
+            action = () => {
+                if (windowManager) {
+                    const mainWindow = windowManager.getWindow('main')
+                    if (mainWindow && mainWindow.webContents) {
+                        mainWindow.webContents.send('trigger-quick-menu')
+                    }
+                }
+            }
+            break
+        default:
+            console.error(`[Main] Unknown shortcut action for: ${definition.id}`)
+            return { success: false, error: 'Unknown shortcut action' }
+    }
+
+    // Register the shortcut
+    const result = shortcutManager.register({
+        id: definition.id,
+        hotkey,
+        action,
+        type: definition.type,
+        windowId: definition.windowId,
+        description: definition.description
     })
 
-    return electronKey
+    return result
 }
 
-const registerScreenshotShortcut = () => {
-    const settings = store.get('settings') || {}
-    const hotkey = settings.hotkeyScreenshot
-
-    if (!hotkey) {
-        console.log('No screenshot hotkey configured')
-        // Clear current shortcut if no hotkey is set
-        if (currentScreenshotShortcut) {
-            globalShortcut.unregister(currentScreenshotShortcut)
-            currentScreenshotShortcut = null
-        }
+/**
+ * Register all shortcuts from store
+ */
+const registerAllShortcuts = () => {
+    if (!shortcutManager) {
+        console.error('[Main] ShortcutManager not initialized')
         return
     }
 
-    // Unregister previous shortcut if it exists
-    if (currentScreenshotShortcut) {
-        try {
-            globalShortcut.unregister(currentScreenshotShortcut)
-            console.log(`Unregistered previous screenshot shortcut: ${currentScreenshotShortcut}`)
-        } catch (error) {
-            console.error(`Error unregistering previous shortcut:`, error)
-        }
-        currentScreenshotShortcut = null
-    }
-
-    const electronKey = convertHotkeyToElectron(hotkey)
-    if (!electronKey) {
-        console.error(`Invalid hotkey format: ${hotkey}`)
-        return
-    }
-
-    // Check if shortcut is already registered
-    if (globalShortcut.isRegistered(electronKey)) {
-        console.log(`Shortcut ${electronKey} is already registered by another application`)
-        // Try to unregister it first (might not work if registered by another app)
-        try {
-            globalShortcut.unregister(electronKey)
-        } catch (error) {
-            console.error(`Cannot unregister existing shortcut:`, error)
-        }
-    }
-
-    try {
-        const registered = globalShortcut.register(electronKey, () => {
-            console.log(`Screenshot shortcut triggered: ${electronKey}`)
-            // Trigger screenshot mode
-            if (screenshotService && windowManager) {
-                const mainWindow = windowManager.getWindow('main')
-                if (mainWindow && mainWindow.webContents) {
-                    mainWindow.webContents.send('trigger-screenshot')
-                }
-            }
-        })
-
-        if (registered) {
-            currentScreenshotShortcut = electronKey
-            console.log(`Successfully registered screenshot shortcut: ${electronKey}`)
-            return { success: true, shortcut: electronKey }
-        } else {
-            console.error(`Failed to register screenshot shortcut: ${electronKey}`)
-            return { success: false, error: 'Failed to register shortcut. It may be in use by another application.' }
-        }
-    } catch (error) {
-        console.error(`Error registering screenshot shortcut:`, error)
-        return { success: false, error: error.message }
-    }
+    // Register all defined shortcuts
+    Object.keys(SHORTCUT_DEFINITIONS).forEach((key) => {
+        registerShortcutFromStore(key)
+    })
 }
 
-const registerRecordingShortcut = () => {
-    const settings = store.get('settings') || {}
-    const hotkey = settings.hotkeyRecording
-
-    if (!hotkey) {
-        console.log('No recording hotkey configured')
-        if (currentRecordingShortcut) {
-            globalShortcut.unregister(currentRecordingShortcut)
-            currentRecordingShortcut = null
-        }
-        return
-    }
-
-    if (currentRecordingShortcut) {
-        try {
-            globalShortcut.unregister(currentRecordingShortcut)
-            console.log(`Unregistered previous recording shortcut: ${currentRecordingShortcut}`)
-        } catch (error) {
-            console.error(`Error unregistering previous shortcut:`, error)
-        }
-        currentRecordingShortcut = null
-    }
-
-    const electronKey = convertHotkeyToElectron(hotkey)
-    if (!electronKey) {
-        console.error(`Invalid hotkey format: ${hotkey}`)
-        return
-    }
-
-    if (globalShortcut.isRegistered(electronKey)) {
-        console.log(`Shortcut ${electronKey} is already registered by another application`)
-        try {
-            globalShortcut.unregister(electronKey)
-        } catch (error) {
-            console.error(`Cannot unregister existing shortcut:`, error)
-        }
-    }
-
-    try {
-        const registered = globalShortcut.register(electronKey, () => {
-            console.log(`Recording shortcut triggered: ${electronKey}`)
-            if (videoRecordingService && windowManager) {
-                const mainWindow = windowManager.getWindow('main')
-                if (mainWindow && mainWindow.webContents) {
-                    mainWindow.webContents.send('trigger-video-recording')
-                }
-            }
-        })
-
-        if (registered) {
-            currentRecordingShortcut = electronKey
-            console.log(`Successfully registered recording shortcut: ${electronKey}`)
-            return { success: true, shortcut: electronKey }
-        } else {
-            console.error(`Failed to register recording shortcut: ${electronKey}`)
-            return { success: false, error: 'Failed to register shortcut. It may be in use by another application.' }
-        }
-    } catch (error) {
-        console.error(`Error registering recording shortcut:`, error)
-        return { success: false, error: error.message }
-    }
-}
-
+/**
+ * Unregister all shortcuts
+ */
 const unregisterAllShortcuts = () => {
-    globalShortcut.unregisterAll()
-    currentScreenshotShortcut = null
-    currentRecordingShortcut = null
-    console.log('Unregistered all shortcuts')
+    if (shortcutManager) {
+        shortcutManager.unregisterAll()
+    }
+    console.log('[Main] Unregistered all shortcuts')
 }
 
 // ==================== APP LIFECYCLE ====================
@@ -344,9 +271,11 @@ app.whenReady().then(() => {
 
     createWindow()
 
-    // Register global shortcuts after window is created
-    registerScreenshotShortcut()
-    registerRecordingShortcut()
+    // Initialize ShortcutManager
+    shortcutManager = new ShortcutManager(store)
+
+    // Register all global shortcuts after window is created
+    registerAllShortcuts()
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -455,24 +384,27 @@ function setupIPCHandlers() {
     })
 
     // Shortcut handlers
-    ipcMain.handle('update-screenshot-shortcut', async (event, hotkeyValue) => {
-        // If hotkeyValue is provided, temporarily update store to ensure consistency
-        if (hotkeyValue !== undefined) {
-            const settings = store.get('settings') || {}
-            settings.hotkeyScreenshot = hotkeyValue
-            store.set('settings', settings)
-        }
-        const result = registerScreenshotShortcut()
-        return result || { success: true }
-    })
+    // Generic shortcut update handler
+    ipcMain.handle('update-shortcut', async (event, storeKey, hotkeyValue) => {
+        console.log(`[Main] Updating shortcut: ${storeKey} = ${hotkeyValue}`)
 
-    ipcMain.handle('update-recording-shortcut', async (event, hotkeyValue) => {
+        // Update store
         if (hotkeyValue !== undefined) {
             const settings = store.get('settings') || {}
-            settings.hotkeyRecording = hotkeyValue
+            settings[storeKey] = hotkeyValue
             store.set('settings', settings)
         }
-        const result = registerRecordingShortcut()
+
+        // Find the corresponding shortcut definition
+        const shortcutEntry = Object.entries(SHORTCUT_DEFINITIONS).find(([, def]) => def.storeKey === storeKey)
+
+        if (!shortcutEntry) {
+            console.error(`[Main] No shortcut definition found for store key: ${storeKey}`)
+            return { success: false, error: 'Shortcut not found' }
+        }
+
+        const [shortcutKey] = shortcutEntry
+        const result = registerShortcutFromStore(shortcutKey)
         return result || { success: true }
     })
 

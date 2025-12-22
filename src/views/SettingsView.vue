@@ -3,6 +3,7 @@
     import { useWindows } from '@/composables/useWindows'
     import { useStore } from '@/store'
     import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
+    import SettingsHotkeyItem from '@/components/SettingsHotkeyItem.vue'
     import Switch from '@/components/Switch.vue'
     import TitleBar from '@/components/TitleBar.vue'
     import { WINDOW_TITLES } from '@/constants/window-config'
@@ -13,30 +14,8 @@
     // Direct reference to store.settings (it's already reactive)
     const settings = store.settings
 
-    watch(
-        () => settings.hotkeyScreenshot,
-        (newValue) => {
-            if (window.electron?.invoke) {
-                window.electron.invoke('update-screenshot-shortcut', newValue)
-            }
-        }
-    )
-
-    watch(
-        () => settings.hotkeyRecording,
-        (newValue) => {
-            if (window.electron?.invoke) {
-                window.electron.invoke('update-recording-shortcut', newValue)
-            }
-        }
-    )
-
     const activeTab = ref('general')
     const contentRef = ref(null)
-
-    // Track which hotkey field is currently being recorded
-    const recordingHotkey = ref(null)
-    const previousHotkeyValue = ref({})
 
     const mainTabs = [
         { id: 'general', label: 'General', width: 420, height: 650 },
@@ -50,64 +29,6 @@
             if (!result.canceled && result.filePaths.length > 0) {
                 store.updateSetting('defaultSaveFolder', result.filePaths[0])
             }
-        }
-    }
-
-    const startRecordingHotkey = (field) => {
-        // Store the current value before clearing
-        previousHotkeyValue.value[field] = settings[field] || ''
-        recordingHotkey.value = field
-        // Clear the value for visual feedback
-        settings[field] = ''
-    }
-
-    const stopRecordingHotkey = () => {
-        // Only restore if we're still recording and no new value was set
-        if (recordingHotkey.value && previousHotkeyValue.value[recordingHotkey.value] !== undefined) {
-            // Only restore if the field is still empty (no key was recorded)
-            if (!settings[recordingHotkey.value] || settings[recordingHotkey.value] === '') {
-                settings[recordingHotkey.value] = previousHotkeyValue.value[recordingHotkey.value]
-            }
-            delete previousHotkeyValue.value[recordingHotkey.value]
-        }
-        recordingHotkey.value = null
-    }
-
-    const recordHotkey = async (field, event) => {
-        event.preventDefault()
-
-        // Handle Escape key to cancel recording
-        if (event.key === 'Escape') {
-            // Restore previous value
-            if (previousHotkeyValue.value[field] !== undefined) {
-                settings[field] = previousHotkeyValue.value[field]
-            }
-            recordingHotkey.value = null
-            delete previousHotkeyValue.value[field]
-            return
-        }
-
-        const keys = []
-
-        if (event.ctrlKey) keys.push('Ctrl')
-        if (event.altKey) keys.push('Alt')
-        if (event.shiftKey) keys.push('Shift')
-        if (event.metaKey) keys.push('Cmd')
-
-        const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
-
-        // Skip modifier keys themselves
-        if (!['Control', 'Alt', 'Shift', 'Meta', 'Tab', 'Escape'].includes(event.key)) {
-            keys.push(key)
-        }
-
-        // Only set if we have at least one modifier and a key, or if it's a valid single key combo
-        if (keys.length > 0) {
-            const hotkeyString = keys.join(' + ')
-            await store.updateSetting(field, hotkeyString)
-            // Clear recording state and previous value since we successfully recorded
-            recordingHotkey.value = null
-            delete previousHotkeyValue.value[field]
         }
     }
 
@@ -236,77 +157,28 @@
                     <!-- HOTKEYS TAB -->
                     <template v-else-if="activeTab === 'hotkeys'">
                         <div
-                            class="dark:border-dark-700 dark:bg-dark-800 space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
-                            <div class="dark:border-dark-700/50 flex items-center justify-between border-slate-200/50">
-                                <div>
-                                    <h3 class="text-sm font-medium dark:text-gray-100">Screenshot</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Capture screen area</p>
-                                </div>
-                                <input
-                                    type="text"
-                                    :value="recordingHotkey === 'hotkeyScreenshot' ? '' : settings.hotkeyScreenshot"
-                                    :placeholder="
-                                        recordingHotkey === 'hotkeyScreenshot' ? 'Recording...' : 'Click to set'
-                                    "
-                                    @focus="startRecordingHotkey('hotkeyScreenshot')"
-                                    @blur="stopRecordingHotkey()"
-                                    @keydown.prevent="recordHotkey('hotkeyScreenshot', $event)"
-                                    :class="[
-                                        'dark:bg-dark-900 w-40 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
-                                        recordingHotkey === 'hotkeyScreenshot'
-                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20 dark:text-blue-400'
-                                            : 'dark:border-dark-700 border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20 dark:text-gray-300'
-                                    ]"
-                                    readonly />
-                            </div>
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
+                            <SettingsHotkeyItem
+                                title="Screenshot"
+                                description="Capture screen area"
+                                storeKey="hotkeyScreenshot"
+                                v-model="settings.hotkeyScreenshot" />
 
-                            <hr class="dark:border-dark-700/50 my-2 border-slate-100" />
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
 
-                            <div class="dark:border-dark-700/50 flex items-center justify-between border-slate-200/50">
-                                <div>
-                                    <h3 class="text-sm font-medium dark:text-gray-100">Recording</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Start screen recording</p>
-                                </div>
-                                <input
-                                    type="text"
-                                    :value="recordingHotkey === 'hotkeyRecording' ? '' : settings.hotkeyRecording"
-                                    :placeholder="
-                                        recordingHotkey === 'hotkeyRecording' ? 'Recording...' : 'Click to set'
-                                    "
-                                    @focus="startRecordingHotkey('hotkeyRecording')"
-                                    @blur="stopRecordingHotkey()"
-                                    @keydown.prevent="recordHotkey('hotkeyRecording', $event)"
-                                    :class="[
-                                        'dark:bg-dark-900 w-40 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
-                                        recordingHotkey === 'hotkeyRecording'
-                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20 dark:text-blue-400'
-                                            : 'dark:border-dark-700 border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20 dark:text-gray-300'
-                                    ]"
-                                    readonly />
-                            </div>
+                            <SettingsHotkeyItem
+                                title="Recording"
+                                description="Start screen recording"
+                                storeKey="hotkeyRecording"
+                                v-model="settings.hotkeyRecording" />
 
-                            <!-- <div class="flex items-center justify-between pt-4">
-                                <div>
-                                    <h3 class="text-base  dark:text-gray-100">Quick Menu</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">Open quick menu</p>
-                                </div>
-                                <input
-                                    type="text"
-                                    :value="recordingHotkey === 'hotkeyQuickMenu' ? '' : settings.hotkeyQuickMenu"
-                                    :placeholder="
-                                        recordingHotkey === 'hotkeyQuickMenu' ? 'Recording...' : 'Click to set'
-                                    "
-                                    @focus="startRecordingHotkey('hotkeyQuickMenu')"
-                                    @blur="stopRecordingHotkey()"
-                                    @keydown.prevent="recordHotkey('hotkeyQuickMenu', $event)"
-                                    :class="[
-                                        'dark:bg-dark-900 w-40 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors focus:ring-2 focus:outline-none',
-                                        recordingHotkey === 'hotkeyQuickMenu'
-                                            ? 'border-blue-500 text-blue-600 placeholder-blue-400 focus:ring-blue-500/20 dark:text-blue-400'
-                                            : 'dark:border-dark-700 border-slate-200 text-slate-700 focus:border-blue-500 focus:ring-blue-500/20 dark:text-gray-300'
-                                    ]"
-                                    readonly />
-                            </div> -->
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Quick Menu"
+                                description="Open quick menu"
+                                storeKey="hotkeyQuickMenu"
+                                v-model="settings.hotkeyQuickMenu" />
                         </div>
                     </template>
 
