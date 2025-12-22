@@ -681,6 +681,64 @@
         captureAndUpload(true)
     }
 
+    // Local keyboard shortcuts handler
+    const parseHotkeyString = (hotkeyStr) => {
+        if (!hotkeyStr) return null
+        const parts = hotkeyStr.split('+').map((p) => p.trim().toLowerCase())
+        return {
+            ctrl: parts.includes('ctrl') || parts.includes('control'),
+            shift: parts.includes('shift'),
+            alt: parts.includes('alt') || parts.includes('option'),
+            meta: parts.includes('cmd') || parts.includes('command') || parts.includes('meta'),
+            key: parts[parts.length - 1]
+        }
+    }
+
+    const matchesHotkey = (event, hotkeyStr) => {
+        const hotkey = parseHotkeyString(hotkeyStr)
+        if (!hotkey) return false
+
+        const eventKey = event.key.toLowerCase()
+        const keyMatches = eventKey === hotkey.key || event.code.toLowerCase() === hotkey.key
+
+        return (
+            keyMatches &&
+            event.ctrlKey === hotkey.ctrl &&
+            event.shiftKey === hotkey.shift &&
+            event.altKey === hotkey.alt &&
+            event.metaKey === hotkey.meta
+        )
+    }
+
+    const handleToolbarShortcuts = (event) => {
+        // Only handle shortcuts when toolbar is visible (confirming or edited mode)
+        if (mode.value !== 'confirming' && mode.value !== 'edited') return
+
+        // Don't handle shortcuts if OCR modal is open
+        if (showOCRModal.value) return
+
+        // Check each toolbar shortcut
+        if (matchesHotkey(event, store.settings.hotkeyUpload)) {
+            event.preventDefault()
+            handleUpload()
+        } else if (matchesHotkey(event, store.settings.hotkeyCopy)) {
+            event.preventDefault()
+            handleCopy()
+        } else if (matchesHotkey(event, store.settings.hotkeySave)) {
+            event.preventDefault()
+            handleSave()
+        } else if (matchesHotkey(event, store.settings.hotkeyOCR)) {
+            event.preventDefault()
+            handleOCR()
+        } else if (matchesHotkey(event, store.settings.hotkeySearch)) {
+            event.preventDefault()
+            handleSearch()
+        } else if (matchesHotkey(event, store.settings.hotkeyEdit)) {
+            event.preventDefault()
+            handleEdit()
+        }
+    }
+
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
@@ -711,6 +769,7 @@
         }
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
+        document.addEventListener('keydown', handleToolbarShortcuts)
 
         // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
@@ -794,6 +853,7 @@
 
     onUnmounted(() => {
         document.removeEventListener('keydown', handleEscapeKeyCancel)
+        document.removeEventListener('keydown', handleToolbarShortcuts)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
     })
 
