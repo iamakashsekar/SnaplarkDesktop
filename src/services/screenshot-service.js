@@ -198,7 +198,7 @@ class ScreenshotService {
                         }
                         win.webContents.send('display-activation-changed', activationData)
                     }
-                    
+
                     // Store activeDisplayId on window for reference
                     win.activeDisplayId = initialActiveDisplay.id
 
@@ -254,19 +254,19 @@ class ScreenshotService {
                                     mouseY: cursorPos.y - win.displayInfo.bounds.y
                                 }
 
-                        // Send activation data immediately, regardless of loading state
-                        // The Vue component will handle it when ready
-                        if (win.webContents.isLoading()) {
-                            win.webContents.once('did-finish-load', () => {
-                                setTimeout(() => {
-                                    win.webContents.send('display-activation-changed', activationData)
-                                }, 50)
-                            })
-                        } else {
-                            setTimeout(() => {
-                                win.webContents.send('display-activation-changed', activationData)
-                            }, 50)
-                        }
+                                // Send activation data immediately, regardless of loading state
+                                // The Vue component will handle it when ready
+                                if (win.webContents.isLoading()) {
+                                    win.webContents.once('did-finish-load', () => {
+                                        setTimeout(() => {
+                                            win.webContents.send('display-activation-changed', activationData)
+                                        }, 50)
+                                    })
+                                } else {
+                                    setTimeout(() => {
+                                        win.webContents.send('display-activation-changed', activationData)
+                                    }, 50)
+                                }
                             }
                         })
                     }
@@ -565,7 +565,6 @@ class ScreenshotService {
                 return { success: false, error: error.message }
             }
         })
-
     }
 
     cleanup() {

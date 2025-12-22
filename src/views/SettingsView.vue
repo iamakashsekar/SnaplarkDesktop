@@ -19,7 +19,7 @@
 
     const mainTabs = [
         { id: 'general', label: 'General', width: 420, height: 650 },
-        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 310 },
+        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 680 },
         { id: 'capture', label: 'Capture', width: 420, height: 540 }
     ]
 
@@ -179,6 +179,63 @@
                                 description="Open quick menu"
                                 storeKey="hotkeyQuickMenu"
                                 v-model="settings.hotkeyQuickMenu" />
+                        </div>
+
+                        <!-- CAPTURE TOOLBAR HOTKEYS -->
+                        <div class="mt-5 mb-3 px-1">
+                            <h3
+                                class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
+                                Capture Toolbar (Local)
+                            </h3>
+                        </div>
+
+                        <div
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
+                            <SettingsHotkeyItem
+                                title="Upload"
+                                description="Upload to website"
+                                storeKey="hotkeyUpload"
+                                v-model="settings.hotkeyUpload" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Copy"
+                                description="Copy to clipboard"
+                                storeKey="hotkeyCopy"
+                                v-model="settings.hotkeyCopy" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Save"
+                                description="Save to file"
+                                storeKey="hotkeySave"
+                                v-model="settings.hotkeySave" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="OCR"
+                                description="Read text from image"
+                                storeKey="hotkeyOCR"
+                                v-model="settings.hotkeyOCR" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Search"
+                                description="Search with Google Lens"
+                                storeKey="hotkeySearch"
+                                v-model="settings.hotkeySearch" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Edit"
+                                description="Open in editor"
+                                storeKey="hotkeyEdit"
+                                v-model="settings.hotkeyEdit" />
                         </div>
                     </template>
 

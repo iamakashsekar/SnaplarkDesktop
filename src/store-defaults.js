@@ -26,6 +26,14 @@ export const defaultState = {
         hotkeyRecording: 'Shift + Cmd + R',
         hotkeyQuickMenu: 'Ctrl + Alt + S',
 
+        // Capture Toolbar Shortcuts (Local to Screenshot Window)
+        hotkeyUpload: 'Ctrl + U',
+        hotkeyCopy: 'Ctrl + C',
+        hotkeySave: 'Ctrl + S',
+        hotkeyOCR: 'Ctrl + O',
+        hotkeySearch: 'Ctrl + Shift + S',
+        hotkeyEdit: 'Ctrl + E',
+
         // Capture
         showMagnifier: true,
         showCrosshair: true,
