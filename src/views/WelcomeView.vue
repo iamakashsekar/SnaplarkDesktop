@@ -3,6 +3,7 @@
     import { useWindows } from '../composables/useWindows'
     import { useStore } from '../store'
     import GradientFrame from '../components/GradientFrame.vue'
+    import CloseButton from '../components/CloseButton.vue'
 
     const store = useStore()
 
@@ -21,7 +22,7 @@
         {
             id: 1,
             title: 'Click on widget',
-            image: store.getOs === 'darwin' ? '1-step-mac.png' : '1-step-win.png'
+            image: store.getOs() === 'darwin' ? '1-step-mac.png' : '1-step-win.png'
         },
         {
             id: 2,
@@ -31,7 +32,7 @@
         {
             id: 3,
             title: 'Right click widget for all the menu options',
-            image: store.getOs === 'darwin' ? '3-step-mac.png' : '3-step-win.png'
+            image: store.getOs() === 'darwin' ? '3-step-mac.png' : '3-step-win.png'
         }
     ])
 
@@ -185,6 +186,8 @@
                         </button>
                     </div>
                 </div>
+
+                <CloseButton @click="finishSetup"/>
             </GradientFrame>
 
             <div

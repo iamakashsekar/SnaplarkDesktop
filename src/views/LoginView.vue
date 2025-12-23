@@ -41,11 +41,6 @@
         await hideWindow('main')
     }
 
-    // Handle guest mode (you can implement this as needed)
-    const handleGuestMode = async () => {
-        console.log('Guest mode selected')
-    }
-
     // Blog post state
     const latestPost = ref(null)
 
@@ -125,55 +120,11 @@
                         <span v-else>Register</span>
                     </button>
                 </div>
-
-                <!-- Offline Mode -->
-                <!-- <div class="space-y-1.5 text-center">
-                    <p class="text-sm text-gray-300">No Internet? No Problem you can still use Snaplark</p>
-                    <button
-                        @click="handleGuestMode"
-                        class="dark:bg-dark-700 dark:hover:bg-dark-600 w-full rounded-full bg-gray-100 px-6 py-3 text-base font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-200 dark:text-gray-300">
-                        Guest
-                    </button>
-                </div> -->
             </div>
 
             <div
                 :style="{ backgroundImage: `url(${whatsNewBg})` }"
                 class="shadow-cyan/50 relative min-h-56 rounded-2xl bg-cover bg-center shadow-lg">
-                <!-- Toggle Button -->
-                <div class="absolute top-4 right-4 z-10">
-                    <button
-                        @click="store.toggleDarkMode()"
-                        class="relative inline-flex h-7 w-14 cursor-pointer items-center rounded-full transition-colors duration-300 focus:outline-none"
-                        :class="store.isDarkMode ? 'bg-dark-700' : 'bg-blue-500'">
-                        <span
-                            class="absolute top-0.5 left-0.5 inline-flex h-6 w-6 transform items-center justify-center rounded-full bg-white shadow-md ring-0 transition-transform duration-300 ease-in-out"
-                            :class="{ 'translate-x-7': store.isDarkMode }">
-                            <!-- Sun Icon -->
-                            <svg
-                                v-if="!store.isDarkMode"
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-4 w-4 text-yellow-500"
-                                viewBox="0 0 20 20"
-                                fill="currentColor">
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.706-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-2.172 4.243a1 1 0 011.414 0l.707.707a1 1 0 11-1.414 1.414l-.707-.707a1 1 0 010-1.414zM10 18a1 1 0 01-1-1v-1a1 1 0 112 0v1a1 1 0 01-1 1zm-4.95-2.121a1 1 0 00-1.414 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707zM3 11a1 1 0 100 2h1a1 1 0 100-2H3zM6.757 5.243a1 1 0 001.414-1.414L7.464 3.12a1 1 0 10-1.414 1.414l.707.707z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            <!-- Moon Icon -->
-                            <svg
-                                v-if="store.isDarkMode"
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-4 w-4 text-indigo-600"
-                                viewBox="0 0 20 20"
-                                fill="currentColor">
-                                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                            </svg>
-                        </span>
-                    </button>
-                </div>
-
                 <Carousel v-bind="carouselConfig">
                     <!-- Blog Slider -->
                     <Slide>
