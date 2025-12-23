@@ -11,9 +11,10 @@ module.exports = {
         extraResource: ['./resources/icons'],
         asar: true, // Required because fuses enforce OnlyLoadAppFromAsar and ASAR integrity validation
         extendInfo: {
-            NSCameraUsageDescription: 'This app needs access to the camera to record videos.',
-            NSMicrophoneUsageDescription: 'This app needs access to the microphone to record audio.',
-            NSAccessibilityUsageDescription: 'This app needs accessibility access to record your screen.'
+            NSCameraUsageDescription: 'Snaplark needs camera access to record videos with webcam.',
+            NSMicrophoneUsageDescription: 'Snaplark needs microphone access to record audio in your videos.',
+            NSScreenCaptureUsageDescription: 'Snaplark needs screen recording permission to capture your screen.',
+            NSAccessibilityUsageDescription: 'Snaplark needs accessibility access to record specific windows.'
         },
         osxSign: {
             identity: process.env.APP_IDENTITY,

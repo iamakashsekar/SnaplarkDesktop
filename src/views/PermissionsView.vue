@@ -39,7 +39,6 @@
     const checkPermissions = async () => {
         try {
             const statuses = await window.electron.checkSystemPermissions()
-            // statuses: { camera: bool, microphone: bool, screen: bool, accessibility: bool }
             permissions.value.forEach((p) => {
                 if (statuses[p.id] !== undefined) {
                     p.granted = statuses[p.id]
@@ -53,36 +52,27 @@
     }
 
     const requestPermission = async (id) => {
-        // For camera and microphone, try getUserMedia first to trigger OS prompt reliably
-        // We use a timeout because sometimes this can hang if Electron/OS doesn't respond fast enough
         if (id === 'camera' || id === 'microphone') {
             try {
                 const constraints = id === 'camera' ? { video: true } : { audio: true }
 
-                // Race between getUserMedia and a timeout
-                const stream = await Promise.race([
-                    navigator.mediaDevices.getUserMedia(constraints),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Timeout waiting for permission')), 3000)
-                    )
-                ])
-
-                // If we get here, permission was granted
+                const stream = await navigator.mediaDevices.getUserMedia(constraints)
+                
                 stream.getTracks().forEach((track) => track.stop())
 
-                // Refresh permissions state
+                await new Promise(resolve => setTimeout(resolve, 300))
                 await checkPermissions()
                 return
             } catch (e) {
-                console.warn('getUserMedia failed or timed out:', e)
-                // Fall through to requestSystemPermission to handle 'denied' state (open settings)
+                console.warn('getUserMedia failed:', e)
+                await window.electron.requestSystemPermission(id)
             }
+        } else {
+            await window.electron.requestSystemPermission(id)
         }
 
-        await window.electron.requestSystemPermission(id)
-        // We can't always know immediately if it was granted (OS dialog), but we can try re-checking
-        // often the user has to restart or toggle a setting.
-        // For this UI, "Enable" usually opens System Preferences.
+        await new Promise(resolve => setTimeout(resolve, 500))
+        await checkPermissions()
     }
 
     const relaunch = () => {
@@ -95,11 +85,7 @@
 
     onMounted(() => {
         checkPermissions()
-        // Poll for changes every few seconds in case user toggles them
         setInterval(checkPermissions, 2000)
-
-        // Resize window to fit content
-        // window.electron.resizeWindow('permissions', 450, 600)
     })
 </script>
 

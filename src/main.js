@@ -454,53 +454,66 @@ function setupIPCHandlers() {
 
         console.log(`[Main] Requesting permission for: ${permissionId}`)
 
-        if (permissionId === 'camera') {
-            const status = systemPreferences.getMediaAccessStatus('camera')
-            console.log(`[Main] Camera status: ${status}`)
+        if (permissionId === 'camera' || permissionId === 'microphone') {
+            const mediaType = permissionId
+            const status = systemPreferences.getMediaAccessStatus(mediaType)
+            console.log(`[Main] ${mediaType} status: ${status}`)
+            
             if (status === 'not-determined') {
-                const granted = await systemPreferences.askForMediaAccess('camera')
-                if (!granted) {
-                    await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
-                }
+                const granted = await systemPreferences.askForMediaAccess(mediaType)
+                console.log(`[Main] ${mediaType} permission granted: ${granted}`)
                 return granted
             } else if (status === 'granted') {
                 return true
-            } else {
-                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Camera')
-                return false
-            }
-        } else if (permissionId === 'microphone') {
-            const status = systemPreferences.getMediaAccessStatus('microphone')
-            console.log(`[Main] Microphone status: ${status}`)
-            if (status === 'not-determined') {
-                const granted = await systemPreferences.askForMediaAccess('microphone')
-                if (!granted) {
-                    await shell.openExternal(
-                        'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
-                    )
-                }
-                return granted
-            } else if (status === 'granted') {
-                return true
-            } else {
-                await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone')
+            } else if (status === 'denied' || status === 'restricted') {
+                const privacyType = permissionId === 'camera' ? 'Privacy_Camera' : 'Privacy_Microphone'
+                await shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${privacyType}`)
                 return false
             }
         } else if (permissionId === 'screen') {
-            // Screen recording permission is tricky.
-            // Often triggered by capturing, but we can open settings.
+            const status = systemPreferences.getMediaAccessStatus('screen')
+            console.log(`[Main] Screen recording status: ${status}`)
+            
+            if (status === 'granted') {
+                return true
+            }
+            
+            if (status === 'not-determined') {
+                try {
+                    const { desktopCapturer } = require('electron')
+                    await desktopCapturer.getSources({ 
+                        types: ['screen'], 
+                        thumbnailSize: { width: 1, height: 1 } 
+                    })
+                    
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    const newStatus = systemPreferences.getMediaAccessStatus('screen')
+                    console.log(`[Main] Screen recording new status: ${newStatus}`)
+                    
+                    if (newStatus === 'granted') {
+                        return true
+                    }
+                } catch (error) {
+                    console.error('[Main] Error triggering screen capture:', error)
+                }
+            }
+            
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
             return false
         } else if (permissionId === 'accessibility') {
-            const entrusted = systemPreferences.isTrustedAccessibilityClient(true)
-            if (!entrusted) {
-                // If prompt didn't help or already denied, open settings
-                await shell.openExternal(
-                    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
-                )
+            const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
+            console.log(`[Main] Accessibility trusted: ${isTrusted}`)
+            
+            if (isTrusted) {
+                return true
             }
-            return entrusted
+            
+            systemPreferences.isTrustedAccessibilityClient(true)
+            
+            await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+            return false
         }
+        
         return false
     })
 
