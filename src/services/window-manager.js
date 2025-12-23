@@ -177,8 +177,8 @@ class WindowManager {
                 width: 208,
                 height: 208,
                 show: false,
-                focusable: true,
-                acceptFirstMouse: true,
+                focusable: false,
+                acceptFirstMouse: false,
                 fullscreenable: false,
                 enableLargerThanScreen: true,
                 webPreferences: {
@@ -307,11 +307,6 @@ class WindowManager {
         }
 
         window.on('closed', () => {
-            // Clean up any intervals when window is closed
-            if (window._keepOnTopInterval) {
-                clearInterval(window._keepOnTopInterval)
-                window._keepOnTopInterval = null
-            }
             this.windows.delete(type)
         })
 
@@ -352,60 +347,22 @@ class WindowManager {
                 height: webcamHeight
             })
 
-            // Ensure window can appear over system UI elements
-            // These settings are also applied in applyPlatformSpecificSettings, but set here for immediate effect
             if (process.platform === 'darwin') {
-                // On macOS, ensure window appears over menubar and use screen-saver level with higher priority
                 window.setAlwaysOnTop(true, 'screen-saver', 2)
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-                // Ensure webcam window can receive mouse events
                 window.setIgnoreMouseEvents(false)
             } else if (process.platform === 'win32') {
-                // On Windows, ensure window appears over taskbar
                 window.setSkipTaskbar(true)
                 window.setAlwaysOnTop(true, 'floating')
+                window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                 window.setIgnoreMouseEvents(false)
             }
         }
 
         if (type !== 'main' && !isSelectionWindow) {
-            // Ensure webcam window is brought to front when shown
             if (isWebcamWindow) {
-                // Set up interval to keep webcam window on top while it's visible
-                const keepOnTopInterval = setInterval(() => {
-                    if (window.isDestroyed() || !window.isVisible()) {
-                        clearInterval(keepOnTopInterval)
-                        return
-                    }
-                    // Periodically bring webcam window to front and focus to ensure it stays above recording window and can receive mouse events
-                    window.moveTop()
-                    window.focus()
-                }, 1000) // Check every second
-
-                // Store interval reference on window for cleanup
-                window._keepOnTopInterval = keepOnTopInterval
-
-                // Ensure webcam window can receive mouse events and is focusable
                 window.setIgnoreMouseEvents(false)
-                window.setFocusable(true)
-
                 window.show()
-                // Bring webcam window to front after showing to ensure it's above recording window
-                // Use multiple timeouts to ensure it stays on top even if recording window tries to come forward
-                const bringToFront = () => {
-                    if (!window.isDestroyed()) {
-                        window.moveTop()
-                        // Focus webcam window to ensure it can receive mouse events
-                        window.focus()
-                    }
-                }
-
-                // Bring to front immediately and focus to receive mouse events
-                setTimeout(bringToFront, 50)
-                // Bring to front again after a short delay to handle any focus changes
-                setTimeout(bringToFront, 200)
-                // One more time to ensure it stays on top
-                setTimeout(bringToFront, 500)
             } else if (isRecordingOverlay && options.displayInfo) {
                 // Position overlay to cover the entire display
                 const display = options.displayInfo.display || options.displayInfo
@@ -437,12 +394,9 @@ class WindowManager {
     applyPlatformSpecificSettings(window, type, isSelectionWindow, config) {
         if (process.platform === 'darwin' && config.alwaysOnTop) {
             if (type === 'webcam') {
-                // Webcam window should be on top of all other windows including recording
-                // Use 'screen-saver' level with a higher window level (2) to ensure it's above recording window (level 1)
                 window.setAlwaysOnTop(true, 'screen-saver', 2)
                 window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                 window.setFullScreenable(false)
-                // Ensure webcam window can receive mouse events
                 window.setIgnoreMouseEvents(false)
             } else if (isSelectionWindow) {
                 window.setAlwaysOnTop(true, 'screen-saver')
@@ -457,9 +411,9 @@ class WindowManager {
                 window.setAlwaysOnTop(true, 'screen-saver')
             }
         } else if (config.alwaysOnTop) {
-            // For Windows and Linux, ensure webcam window has higher priority
             if (type === 'webcam') {
                 window.setAlwaysOnTop(true, 'floating')
+                window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
             }
         }
     }
@@ -552,57 +506,17 @@ class WindowManager {
     showWindow(type) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
-            // Ensure webcam window stays on top of all other windows
             if (type === 'webcam') {
                 if (process.platform === 'darwin') {
-                    // Use 'screen-saver' level with higher priority (2) to ensure it's above recording window
                     window.setAlwaysOnTop(true, 'screen-saver', 2)
                     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-                    // Ensure webcam window can receive mouse events
                     window.setIgnoreMouseEvents(false)
                 } else {
                     window.setAlwaysOnTop(true, 'floating')
+                    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
                     window.setIgnoreMouseEvents(false)
                 }
-
-                // Set up interval to keep webcam window on top while it's visible (if not already set)
-                if (!window._keepOnTopInterval) {
-                    const keepOnTopInterval = setInterval(() => {
-                        if (window.isDestroyed() || !window.isVisible()) {
-                            clearInterval(keepOnTopInterval)
-                            window._keepOnTopInterval = null
-                            return
-                        }
-                        // Periodically bring webcam window to front and focus to ensure it stays above recording window and can receive mouse events
-                        window.moveTop()
-                        window.focus()
-                    }, 1000) // Check every second
-
-                    // Store interval reference on window for cleanup
-                    window._keepOnTopInterval = keepOnTopInterval
-                }
-
-                // Ensure webcam window can receive mouse events and is focusable
-                window.setIgnoreMouseEvents(false)
-                window.setFocusable(true)
-
                 window.show()
-                // Bring webcam window to front after showing to ensure it's above recording window
-                // Use multiple timeouts to ensure it stays on top even if recording window tries to come forward
-                const bringToFront = () => {
-                    if (!window.isDestroyed()) {
-                        window.moveTop()
-                        // Focus webcam window to ensure it can receive mouse events
-                        window.focus()
-                    }
-                }
-
-                // Bring to front immediately and focus to receive mouse events
-                setTimeout(bringToFront, 50)
-                // Bring to front again after a short delay to handle any focus changes
-                setTimeout(bringToFront, 200)
-                // One more time to ensure it stays on top
-                setTimeout(bringToFront, 500)
             } else {
                 window.show()
                 window.focus()

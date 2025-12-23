@@ -89,7 +89,7 @@
             }
         } catch (error) {
             console.error('Webcam start error:', error)
-            hasError.value = trueœ
+            hasError.value = true
             if (error.name === 'OverconstrainedError') {
                 errorMessage.value = 'Selected camera not found'
             } else if (error.name === 'NotAllowedError') {
