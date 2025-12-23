@@ -387,6 +387,7 @@
 
     // Action handlers
     const handleStart = async () => {
+        showToolbar.value = false
         const { left, top, width, height } = selectionRect.value
 
         if (!isFullScreen.value) {
@@ -699,7 +700,7 @@
         document.addEventListener('mouseup', handleToolbarDragEnd)
     }
 
-    const showToolbar = ref(false)
+    const showToolbar = ref(true)
 
     const expandToolbar = async () => {
         if (isRecording.value) {
