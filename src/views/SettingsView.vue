@@ -16,6 +16,7 @@
 
     const activeTab = ref('general')
     const contentRef = ref(null)
+    const appVersion = ref('')
 
     const mainTabs = [
         { id: 'general', label: 'General', width: 420, height: 650 },
@@ -40,6 +41,11 @@
     onMounted(async () => {
         // Init window to the General tab height
         // await resizeWindowTo('settings', 600, 700)
+
+        // Get app version
+        if (window.electron?.getAppVersion) {
+            appVersion.value = await window.electron.getAppVersion()
+        }
     })
 </script>
 
@@ -51,7 +57,7 @@
         <TitleBar :title="WINDOW_TITLES.settings" />
 
         <div class="mb-2.5 space-y-0.5 px-4">
-            <h1 class="text-xl font-semibold dark:text-white">Settings</h1>
+            <h1 class="text-xl font-semibold dark:text-white">Settings <span class="text-sm text-slate-500 dark:text-gray-400">(v{{ appVersion }})</span></h1>
             <p class="text-sm text-slate-500 dark:text-gray-400">Configure Snaplark to your preferences</p>
         </div>
 

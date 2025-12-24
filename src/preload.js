@@ -9,6 +9,7 @@ const storeSend = (action, key, value) => ipcRenderer.sendSync('store-send', { a
 contextBridge.exposeInMainWorld('electron', {
     // System
     platform: process.platform,
+    getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
     getDeviceName: () => ipcRenderer.invoke('get-device-name'),

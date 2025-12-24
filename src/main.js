@@ -355,6 +355,10 @@ function setupIPCHandlers() {
         return os.hostname()
     })
 
+    ipcMain.handle('get-app-version', () => {
+        return app.getVersion()
+    })
+
     ipcMain.handle('open-external', (event, url) => {
         shell.openExternal(url)
     })
