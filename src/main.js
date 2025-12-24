@@ -25,6 +25,8 @@ import StoreService from './services/store-service.js'
 import ShortcutManager from './services/shortcut-manager.js'
 import { getPersistableDefaults } from './store-defaults.js'
 import { SHORTCUT_DEFINITIONS } from './config/shortcuts.js'
+import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
+
 
 // ==================== CONFIGURATION & INITIALIZATION ====================
 
@@ -256,6 +258,22 @@ const unregisterAllShortcuts = () => {
     console.log('[Main] Unregistered all shortcuts')
 }
 
+// ==================== AUTO UPDATER ====================
+// Setup auto-updater using native autoUpdater module
+const setupAutoUpdater = () => {
+    // Only enable auto-updater in production
+    if (!app.isPackaged) {
+        console.log('Development mode - auto-updater disabled')
+        return
+    }
+
+    updateElectronApp({
+        updateSource: {
+            type: UpdateSourceType.StaticStorage,
+            baseUrl: `https://main-storage.usc1.digitaloceanspaces.com/releases/${process.platform}/${process.arch}`
+        }
+    })
+}
 // ==================== APP LIFECYCLE ====================
 
 app.whenReady().then(() => {
