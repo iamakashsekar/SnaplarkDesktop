@@ -270,7 +270,7 @@ const setupAutoUpdater = () => {
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
-            baseUrl: `https://main-storage.usc1.digitaloceanspaces.com/releases/${process.platform}/${process.arch}`
+            baseUrl: `https://usc1.contabostorage.com/main-storage/releases/${process.platform}/${process.arch}`
         }
     })
 }

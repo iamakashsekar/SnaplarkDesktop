@@ -49,7 +49,7 @@ module.exports = {
             name: '@electron-forge/maker-zip',
             platforms: ['darwin'],
             config: (arch) => ({
-                macUpdateManifestBaseUrl: `https://${process.env.AWS_BUCKET}.${process.env.AWS_DEFAULT_REGION}.digitaloceanspaces.com/releases/darwin/${arch}`
+                macUpdateManifestBaseUrl: `https://${process.env.AWS_DEFAULT_REGION}.contabostorage.com/${process.env.AWS_BUCKET}/releases/darwin/${arch}`
             })
         },
         {
@@ -69,7 +69,7 @@ module.exports = {
                 region: process.env.AWS_DEFAULT_REGION,
                 accessKeyId: process.env.AWS_ACCESS_KEY_ID,
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-                endpoint: `https://${process.env.AWS_DEFAULT_REGION}.digitaloceanspaces.com`,
+                endpoint: `https://${process.env.AWS_DEFAULT_REGION}.contabostorage.com`,
                 public: true,
                 folder: 'releases'
             }
