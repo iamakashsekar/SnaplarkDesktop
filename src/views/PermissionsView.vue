@@ -35,10 +35,12 @@
     ])
 
     const loading = ref(true)
+    const checkingPermission = ref(null)
 
     const checkPermissions = async () => {
         try {
             const statuses = await window.electron.checkSystemPermissions()
+            console.log('Permission statuses:', statuses)
             permissions.value.forEach((p) => {
                 if (statuses[p.id] !== undefined) {
                     p.granted = statuses[p.id]
@@ -52,27 +54,80 @@
     }
 
     const requestPermission = async (id) => {
-        if (id === 'camera' || id === 'microphone') {
-            try {
-                const constraints = id === 'camera' ? { video: true } : { audio: true }
+        checkingPermission.value = id
+        console.log(`Requesting permission for: ${id}`)
+        
+        try {
+            if (id === 'camera' || id === 'microphone') {
+                try {
+                    const constraints = id === 'camera' ? { video: true } : { audio: true }
+                    console.log(`Trying getUserMedia for ${id}...`)
 
-                const stream = await navigator.mediaDevices.getUserMedia(constraints)
-                
-                stream.getTracks().forEach((track) => track.stop())
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+                    console.log(`getUserMedia succeeded for ${id}`)
+                    
+                    stream.getTracks().forEach((track) => track.stop())
 
-                await new Promise(resolve => setTimeout(resolve, 300))
-                await checkPermissions()
-                return
-            } catch (e) {
-                console.warn('getUserMedia failed:', e)
+                    // Wait longer for macOS to register the permission
+                    await new Promise(resolve => setTimeout(resolve, 1000))
+                    await checkPermissions()
+                    
+                    // Keep checking for a few more seconds to catch delayed updates
+                    for (let i = 0; i < 3; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        await checkPermissions()
+                        
+                        const perm = permissions.value.find(p => p.id === id)
+                        if (perm && perm.granted) {
+                            console.log(`Permission ${id} confirmed as granted`)
+                            break
+                        }
+                    }
+                    return
+                } catch (e) {
+                    console.warn('getUserMedia failed, trying system permission:', e)
+                    // If getUserMedia fails, use the system API
+                    const granted = await window.electron.requestSystemPermission(id)
+                    console.log(`System permission result for ${id}:`, granted)
+                    
+                    await new Promise(resolve => setTimeout(resolve, 1000))
+                    await checkPermissions()
+                    
+                    // Keep checking
+                    for (let i = 0; i < 3; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        await checkPermissions()
+                        
+                        const perm = permissions.value.find(p => p.id === id)
+                        if (perm && perm.granted) {
+                            console.log(`Permission ${id} confirmed as granted`)
+                            break
+                        }
+                    }
+                }
+            } else {
+                // For screen and accessibility permissions
                 await window.electron.requestSystemPermission(id)
+                console.log(`Requested system permission for ${id}`)
+                
+                // For screen recording, keep checking more persistently
+                const checkCount = id === 'screen' ? 10 : 5
+                const checkDelay = id === 'screen' ? 1000 : 500
+                
+                for (let i = 0; i < checkCount; i++) {
+                    await new Promise(resolve => setTimeout(resolve, checkDelay))
+                    await checkPermissions()
+                    
+                    const perm = permissions.value.find(p => p.id === id)
+                    if (perm && perm.granted) {
+                        console.log(`Permission ${id} confirmed as granted`)
+                        break
+                    }
+                }
             }
-        } else {
-            await window.electron.requestSystemPermission(id)
+        } finally {
+            checkingPermission.value = null
         }
-
-        await new Promise(resolve => setTimeout(resolve, 500))
-        await checkPermissions()
     }
 
     const relaunch = () => {
@@ -107,7 +162,7 @@
                 <p class="text-sm text-slate-500 dark:text-gray-400">Enable all permissions to get started</p>
             </div>
 
-            <div class="mb-6 w-full space-y-4">
+            <div class="mb-4 w-full space-y-4">
                 <div
                     v-for="perm in permissions"
                     :key="perm.id"
@@ -206,11 +261,14 @@
                     </div>
 
                     <button
-                        @click="!perm.granted && requestPermission(perm.id)"
+                        @click="!perm.granted && checkingPermission !== perm.id && requestPermission(perm.id)"
+                        :disabled="checkingPermission === perm.id"
                         :class="[
                             'flex items-center justify-center space-x-1 rounded-full px-6 py-2 text-sm font-semibold transition-colors',
                             perm.granted
                                 ? 'cursor-default bg-green-600 text-white'
+                                : checkingPermission === perm.id
+                                ? 'cursor-wait bg-blue-400 text-white'
                                 : 'cursor-pointer bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-600'
                         ]">
                         <span v-if="perm.granted">Done</span>
@@ -224,6 +282,12 @@
                                 d="M6 1.125C5.03582 1.125 4.09329 1.41091 3.2916 1.94659C2.48991 2.48226 1.86507 3.24363 1.49609 4.13442C1.12711 5.02521 1.03057 6.00541 1.21867 6.95107C1.40678 7.89672 1.87108 8.76537 2.55286 9.44715C3.23464 10.1289 4.10328 10.5932 5.04894 10.7813C5.99459 10.9694 6.97479 10.8729 7.86558 10.5039C8.75637 10.1349 9.51775 9.51009 10.0534 8.70841C10.5891 7.90672 10.875 6.96418 10.875 6C10.8736 4.70749 10.3596 3.46831 9.44564 2.55436C8.5317 1.64042 7.29251 1.12636 6 1.125ZM8.14032 5.14031L5.51532 7.76531C5.48049 7.80018 5.43913 7.82784 5.39361 7.84671C5.34808 7.86558 5.29928 7.8753 5.25 7.8753C5.20072 7.8753 5.15192 7.86558 5.1064 7.84671C5.06088 7.82784 5.01952 7.80018 4.98469 7.76531L3.85969 6.64031C3.78932 6.56995 3.74979 6.47451 3.74979 6.375C3.74979 6.27549 3.78932 6.18005 3.85969 6.10969C3.93005 6.03932 4.02549 5.99979 4.125 5.99979C4.22451 5.99979 4.31995 6.03932 4.39032 6.10969L5.25 6.96984L7.60969 4.60969C7.64453 4.57485 7.68589 4.54721 7.73142 4.52835C7.77694 4.5095 7.82573 4.49979 7.875 4.49979C7.92428 4.49979 7.97307 4.5095 8.01859 4.52835C8.06411 4.54721 8.10547 4.57485 8.14032 4.60969C8.17516 4.64453 8.20279 4.68589 8.22165 4.73141C8.24051 4.77694 8.25021 4.82573 8.25021 4.875C8.25021 4.92427 8.24051 4.97306 8.22165 5.01859C8.20279 5.06411 8.17516 5.10547 8.14032 5.14031Z"
                                 fill="white" />
                         </svg>
+                        <span v-else-if="checkingPermission === perm.id">
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
                         <span v-else>Enable</span>
                     </button>
                 </div>

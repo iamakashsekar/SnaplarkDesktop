@@ -468,8 +468,12 @@ function setupIPCHandlers() {
         })
     })
     // Permission Management Handlers
-    ipcMain.handle('check-system-permissions', () => {
-        return checkAppPermissions().statuses
+    ipcMain.handle('check-system-permissions', async () => {
+        // Add a small delay to ensure macOS has updated its permission state
+        await new Promise(resolve => setTimeout(resolve, 100))
+        const permissions = checkAppPermissions().statuses
+        console.log('[Main] Current permissions status:', permissions)
+        return permissions
     })
 
     ipcMain.handle('request-system-permission', async (event, permissionId) => {
@@ -480,47 +484,83 @@ function setupIPCHandlers() {
         if (permissionId === 'camera' || permissionId === 'microphone') {
             const mediaType = permissionId
             const status = systemPreferences.getMediaAccessStatus(mediaType)
-            console.log(`[Main] ${mediaType} status: ${status}`)
+            console.log(`[Main] ${mediaType} status before request: ${status}`)
             
             if (status === 'not-determined') {
-                const granted = await systemPreferences.askForMediaAccess(mediaType)
-                console.log(`[Main] ${mediaType} permission granted: ${granted}`)
-                return granted
+                try {
+                    const granted = await systemPreferences.askForMediaAccess(mediaType)
+                    console.log(`[Main] ${mediaType} permission granted: ${granted}`)
+                    
+                    // Wait a bit for the system to register the permission
+                    await new Promise(resolve => setTimeout(resolve, 500))
+                    
+                    const newStatus = systemPreferences.getMediaAccessStatus(mediaType)
+                    console.log(`[Main] ${mediaType} status after request: ${newStatus}`)
+                    
+                    return granted
+                } catch (error) {
+                    console.error(`[Main] Error requesting ${mediaType} permission:`, error)
+                    return false
+                }
             } else if (status === 'granted') {
+                console.log(`[Main] ${mediaType} already granted`)
                 return true
             } else if (status === 'denied' || status === 'restricted') {
+                console.log(`[Main] ${mediaType} denied/restricted, opening System Settings`)
                 const privacyType = permissionId === 'camera' ? 'Privacy_Camera' : 'Privacy_Microphone'
                 await shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${privacyType}`)
                 return false
             }
         } else if (permissionId === 'screen') {
             const status = systemPreferences.getMediaAccessStatus('screen')
-            console.log(`[Main] Screen recording status: ${status}`)
+            console.log(`[Main] Screen recording status before request: ${status}`)
             
             if (status === 'granted') {
+                console.log('[Main] Screen recording already granted')
                 return true
             }
             
-            if (status === 'not-determined') {
-                try {
-                    const { desktopCapturer } = require('electron')
-                    await desktopCapturer.getSources({ 
-                        types: ['screen'], 
-                        thumbnailSize: { width: 1, height: 1 } 
-                    })
-                    
-                    await new Promise(resolve => setTimeout(resolve, 500))
-                    const newStatus = systemPreferences.getMediaAccessStatus('screen')
-                    console.log(`[Main] Screen recording new status: ${newStatus}`)
-                    
-                    if (newStatus === 'granted') {
-                        return true
+            // Always try to trigger the permission dialog first
+            try {
+                console.log('[Main] Attempting to trigger screen recording permission dialog...')
+                const { desktopCapturer } = require('electron')
+                
+                // Create a hidden browser window to trigger the permission
+                const permissionWindow = new BrowserWindow({
+                    show: false,
+                    webPreferences: {
+                        nodeIntegration: false,
+                        contextIsolation: true
                     }
-                } catch (error) {
-                    console.error('[Main] Error triggering screen capture:', error)
+                })
+                
+                // This will trigger the screen recording permission dialog
+                const sources = await desktopCapturer.getSources({ 
+                    types: ['screen', 'window'],
+                    thumbnailSize: { width: 150, height: 150 }
+                })
+                
+                permissionWindow.destroy()
+                
+                console.log(`[Main] Desktop capturer returned ${sources.length} sources`)
+                
+                // Wait for the system to register the permission
+                await new Promise(resolve => setTimeout(resolve, 1000))
+                
+                const newStatus = systemPreferences.getMediaAccessStatus('screen')
+                console.log(`[Main] Screen recording status after request: ${newStatus}`)
+                
+                if (newStatus === 'granted') {
+                    return true
                 }
+                
+                // If still not granted, open System Settings
+                console.log('[Main] Screen recording not granted, opening System Settings')
+            } catch (error) {
+                console.error('[Main] Error triggering screen capture permission:', error)
             }
             
+            // Open System Settings for manual permission grant
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
             return false
         } else if (permissionId === 'accessibility') {
@@ -531,6 +571,7 @@ function setupIPCHandlers() {
                 return true
             }
             
+            // Prompt for accessibility access
             systemPreferences.isTrustedAccessibilityClient(true)
             
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')

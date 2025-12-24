@@ -72,6 +72,7 @@ module.exports = {
                 endpoint: `https://${process.env.AWS_DEFAULT_REGION}.contabostorage.com`,
                 s3ForcePathStyle: true,
                 public: true,
+                acl: 'public-read',
                 folder: 'releases'
             }
         }
