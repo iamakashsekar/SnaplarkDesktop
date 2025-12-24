@@ -277,6 +277,7 @@ const setupAutoUpdater = () => {
 // ==================== APP LIFECYCLE ====================
 
 app.whenReady().then(() => {
+    setupAutoUpdater()
     setupProtocolHandlers()
     setupIPCHandlers()
 
