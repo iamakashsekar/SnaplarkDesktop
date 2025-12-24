@@ -281,14 +281,16 @@ app.whenReady().then(() => {
     setupProtocolHandlers()
     setupIPCHandlers()
 
-    // Set launch at startup based on stored settings
-    try {
-        app.setLoginItemSettings({
-            openAtLogin: store.get('settings.launchAtStartup'),
-            openAsHidden: true
-        })
-    } catch (error) {
-        console.error('Failed to set login item settings:', error)
+    // Set launch at startup based on stored settings (only works in packaged app)
+    if (app.isPackaged) {
+        try {
+            app.setLoginItemSettings({
+                openAtLogin: store.get('settings.launchAtStartup'),
+                openAsHidden: true
+            })
+        } catch (error) {
+            console.error('[Main] Failed to set login item settings:', error)
+        }
     }
 
     if (process.platform === 'darwin') {
