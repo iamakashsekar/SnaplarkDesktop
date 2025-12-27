@@ -10,7 +10,6 @@ import {
     globalShortcut,
     systemPreferences,
     clipboard,
-    autoUpdater
 } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
