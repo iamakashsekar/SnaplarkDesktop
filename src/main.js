@@ -9,7 +9,8 @@ import {
     dialog,
     globalShortcut,
     systemPreferences,
-    clipboard
+    clipboard,
+    autoUpdater
 } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
@@ -261,23 +262,10 @@ const unregisterAllShortcuts = () => {
 // ==================== AUTO UPDATER ====================
 // Setup auto-updater using native autoUpdater module
 const setupAutoUpdater = () => {
-    const updateUrl = `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/${process.platform}/${process.arch}`
-    
-    console.log('[Auto-Updater] Initializing...')
-    console.log('[Auto-Updater] Current version:', app.getVersion())
-    console.log('[Auto-Updater] Update URL:', updateUrl)
-    console.log('[Auto-Updater] Platform:', process.platform, 'Arch:', process.arch)
-    
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
-            baseUrl: updateUrl
-        },
-        logger: {
-            log: (message) => console.log('[Auto-Updater]', message),
-            info: (message) => console.log('[Auto-Updater]', message),
-            warn: (message) => console.warn('[Auto-Updater]', message),
-            error: (message) => console.error('[Auto-Updater]', message)
+            baseUrl: `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/${process.platform}/${process.arch}`
         }
     })
 }
