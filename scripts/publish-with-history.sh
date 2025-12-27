@@ -2,14 +2,25 @@
 
 # This script ensures we maintain release history when publishing from a fresh clone
 # It downloads the existing RELEASES.json before running the publish command
+#
+# Usage:
+#   npm run publish                    # Auto-detect platform and arch
+#   bash scripts/publish-with-history.sh darwin arm64   # Specific platform
+#   bash scripts/publish-with-history.sh win32 x64      # Windows x64
 
 set -e
 
 echo "🎯 Starting publish with history preservation..."
 echo ""
 
-# Step 1: Prepare release artifacts (download existing RELEASES.json)
-bash scripts/prepare-release.sh
+# Pass any arguments (platform/arch) to prepare-release script
+if [ -n "$1" ] && [ -n "$2" ]; then
+    echo "📌 Building for: $1 / $2"
+    bash scripts/prepare-release.sh "$1" "$2"
+else
+    echo "🔍 Auto-detecting platform and architecture..."
+    bash scripts/prepare-release.sh
+fi
 
 echo ""
 echo "════════════════════════════════════════════════════════════"
