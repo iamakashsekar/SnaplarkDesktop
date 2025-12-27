@@ -25,12 +25,33 @@ mkdir -p "${OUTPUT_DIR}"
 # Download existing RELEASES.json from S3 (if it exists)
 echo ""
 echo "⬇️  Attempting to download existing RELEASES.json..."
-if curl -f -s -o "${OUTPUT_DIR}/RELEASES.json" "${RELEASE_JSON_URL}"; then
-    echo "✅ Successfully downloaded existing RELEASES.json"
-    echo "📄 Existing releases:"
-    cat "${OUTPUT_DIR}/RELEASES.json" | python3 -m json.tool 2>/dev/null || cat "${OUTPUT_DIR}/RELEASES.json"
+
+# Add cache-busting timestamp to URL to bypass CDN/browser caching
+TIMESTAMP=$(date +%s)
+CACHE_BUSTED_URL="${RELEASE_JSON_URL}?t=${TIMESTAMP}"
+
+echo "🔗 Fetching: ${CACHE_BUSTED_URL}"
+
+# Download with verbose error handling
+HTTP_CODE=$(curl -s -w "%{http_code}" \
+    -H "Cache-Control: no-cache, no-store, must-revalidate" \
+    -H "Pragma: no-cache" \
+    -H "Expires: 0" \
+    -o "${OUTPUT_DIR}/RELEASES.json" \
+    "${CACHE_BUSTED_URL}")
+
+if [ "$HTTP_CODE" -eq 200 ]; then
+    echo "✅ Successfully downloaded existing RELEASES.json (HTTP $HTTP_CODE)"
+    echo "📄 Current version on server:"
+    cat "${OUTPUT_DIR}/RELEASES.json" | python3 -c "import sys, json; data = json.load(sys.stdin); print(f\"  Latest: {data.get('currentRelease', 'unknown')}\"); print(f\"  Total releases: {len(data.get('releases', []))}\")" 2>/dev/null || cat "${OUTPUT_DIR}/RELEASES.json"
+elif [ "$HTTP_CODE" -eq 404 ]; then
+    echo "⚠️  No existing RELEASES.json found on server (HTTP 404)"
+    echo "   This is normal for the first release"
+    # Create an empty placeholder that Electron Forge will populate
+    echo '{"currentRelease":"","releases":[]}' > "${OUTPUT_DIR}/RELEASES.json"
 else
-    echo "⚠️  No existing RELEASES.json found (this is fine for first release)"
+    echo "⚠️  Failed to download RELEASES.json (HTTP $HTTP_CODE)"
+    echo "   Creating empty placeholder - you may want to manually download from S3 dashboard"
     # Create an empty placeholder that Electron Forge will populate
     echo '{"currentRelease":"","releases":[]}' > "${OUTPUT_DIR}/RELEASES.json"
 fi
