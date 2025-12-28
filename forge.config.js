@@ -49,11 +49,8 @@ module.exports = {
             name: '@electron-forge/maker-zip',
             platforms: ['darwin'],
             config: (arch) => {
-                // CRITICAL: This URL must match the baseUrl in setupAutoUpdater() in main.js
-                const baseUrl = `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/darwin/${arch}`
-                console.log(`[Maker-Zip] Base URL for ${arch}:`, baseUrl)
                 return {
-                    macUpdateManifestBaseUrl: baseUrl
+                    macUpdateManifestBaseUrl: `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/darwin/${arch}`
                 }
             }
         },
