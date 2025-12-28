@@ -465,16 +465,34 @@
 
     const selectAudioDevice = (audioDevice) => {
         selectedAudioDeviceId.value = audioDevice.deviceId
+        lastSelectedAudioDeviceId.value = audioDevice.deviceId
         showAudioSettings.value = false
         // Save to settings
         store.updateSetting('selectedMicrophoneDeviceId', audioDevice.deviceId)
     }
 
     const muteAudio = () => {
+        if (selectedAudioDeviceId.value) {
+            lastSelectedAudioDeviceId.value = selectedAudioDeviceId.value
+        }
         selectedAudioDeviceId.value = null
         showAudioSettings.value = false
         // Save muted state to settings
         store.updateSetting('selectedMicrophoneDeviceId', null)
+    }
+
+    const toggleAudioMute = () => {
+        if (selectedAudioDeviceId.value) {
+            // Currently unmuted, mute it
+            muteAudio()
+        } else {
+            // Currently muted, unmute by selecting the last device or first available
+            if (lastSelectedAudioDeviceId.value && audioDevices.value.some((device) => device.deviceId === lastSelectedAudioDeviceId.value)) {
+                selectAudioDevice(audioDevices.value.find((device) => device.deviceId === lastSelectedAudioDeviceId.value))
+            } else if (audioDevices.value.length > 0) {
+                selectAudioDevice(audioDevices.value[0])
+            }
+        }
     }
 
     const repositionWebcam = async (throttle = false) => {
@@ -722,6 +740,7 @@
     const audioDropdownPosition = ref('bottom')
     const audioSettingsButtonRef = ref(null)
     const audioDropdownRef = ref(null)
+    const lastSelectedAudioDeviceId = ref(null)
 
     const toggleAudioSettings = async () => {
         showAudioSettings.value = !showAudioSettings.value
@@ -885,6 +904,7 @@
             const deviceExists = audioDevices.value.some((device) => device.deviceId === savedMicrophoneDeviceId)
             if (deviceExists) {
                 selectedAudioDeviceId.value = savedMicrophoneDeviceId
+                lastSelectedAudioDeviceId.value = savedMicrophoneDeviceId
             } else {
                 // Device no longer exists, clear the setting and set to null (muted)
                 selectedAudioDeviceId.value = null
@@ -1306,68 +1326,75 @@
                     class="flex items-center gap-4">
                     <div
                         v-if="!isRecording"
-                        class="dark:bg-dark-800/90 flex items-center gap-4 rounded-full bg-white/90">
+                        class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
                         <!-- Webcam Controls -->
                         <div class="group webcam-settings-container relative overflow-visible">
-                            <button
+                            <div
                                 ref="webcamSettingsButtonRef"
-                                @click="toggleWebcamSettings"
-                                type="button"
-                                class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pl-4 transition-colors hover:bg-gray-100"
+                                class="flex items-center overflow-hidden rounded-full"
                                 :class="{
                                     'bg-blue-100 dark:bg-blue-900/40': store.settings.webcamEnabled,
                                     'dark:bg-dark-700 bg-gray-100': showWebcamSettings
                                 }">
-                                <svg
-                                    v-if="store.settings.webcamEnabled"
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M21.15 6.17C20.74 5.95 19.88 5.72 18.71 6.54L17.24 7.58C17.13 4.47 15.78 3.25 12.5 3.25H6.5C3.08 3.25 1.75 4.58 1.75 8V16C1.75 18.3 3 20.75 6.5 20.75H12.5C15.78 20.75 17.13 19.53 17.24 16.42L18.71 17.46C19.33 17.9 19.87 18.04 20.3 18.04C20.67 18.04 20.96 17.93 21.15 17.83C21.56 17.62 22.25 17.05 22.25 15.62V8.38C22.25 6.95 21.56 6.38 21.15 6.17ZM11 11.38C9.97 11.38 9.12 10.54 9.12 9.5C9.12 8.46 9.97 7.62 11 7.62C12.03 7.62 12.88 8.46 12.88 9.5C12.88 10.54 12.03 11.38 11 11.38Z"
-                                        fill="#2178FF" />
-                                </svg>
+                                <button
+                                    @click="toggleWebcam"
+                                    type="button"
+                                    class="flex cursor-pointer items-center justify-center border-none bg-transparent py-2.5 pl-3 pr-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+                                    <svg
+                                        v-if="store.settings.webcamEnabled"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M21.15 6.17C20.74 5.95 19.88 5.72 18.71 6.54L17.24 7.58C17.13 4.47 15.78 3.25 12.5 3.25H6.5C3.08 3.25 1.75 4.58 1.75 8V16C1.75 18.3 3 20.75 6.5 20.75H12.5C15.78 20.75 17.13 19.53 17.24 16.42L18.71 17.46C19.33 17.9 19.87 18.04 20.3 18.04C20.67 18.04 20.96 17.93 21.15 17.83C21.56 17.62 22.25 17.05 22.25 15.62V8.38C22.25 6.95 21.56 6.38 21.15 6.17ZM11 11.38C9.97 11.38 9.12 10.54 9.12 9.5C9.12 8.46 9.97 7.62 11 7.62C12.03 7.62 12.88 8.46 12.88 9.5C12.88 10.54 12.03 11.38 11 11.38Z"
+                                            fill="#2178FF" />
+                                    </svg>
 
-                                <svg
-                                    v-else
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        opacity="0.4"
-                                        d="M17.7405 7.57C17.7505 7.64 17.7505 7.72 17.7405 7.79C17.7405 7.72 17.7305 7.65 17.7305 7.58L17.7405 7.57Z"
-                                        fill="#2178FF" />
-                                    <path
-                                        d="M17.2809 6.56L3.83086 20.01C2.43086 19.12 1.88086 17.53 1.88086 16V8C1.88086 4.58 3.21086 3.25 6.63086 3.25H12.6309C15.5209 3.25 16.9109 4.2 17.2809 6.56Z"
-                                        fill="#6C82A3" />
-                                    <path
-                                        d="M21.4 2.23C21.1 1.93 20.61 1.93 20.31 2.23L1.85 20.69C1.55 20.99 1.55 21.48 1.85 21.78C2 21.92 2.2 22 2.39 22C2.59 22 2.78 21.92 2.93 21.77L21.4 3.31C21.7 3.01 21.7 2.53 21.4 2.23Z"
-                                        fill="#6C82A3" />
-                                    <path
-                                        d="M22.3802 8.38V15.62C22.3802 17.05 21.6802 17.62 21.2802 17.83C21.0902 17.93 20.7902 18.04 20.4202 18.04C19.9902 18.04 19.4602 17.9 18.8402 17.46L17.3602 16.42C17.2902 18.63 16.5902 19.89 15.0002 20.42C14.3602 20.65 13.5702 20.75 12.6202 20.75H6.62016C6.38016 20.75 6.15016 20.74 5.91016 20.71L15.0002 11.63L20.6502 5.98C20.9102 6 21.1202 6.08 21.2802 6.17C21.6802 6.38 22.3802 6.95 22.3802 8.38Z"
-                                        fill="#6C82A3" />
-                                </svg>
-
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 14 14"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
-                                        stroke="currentColor"
-                                        class="text-gray-600 dark:text-gray-400"
-                                        stroke-width="1.5"
-                                        stroke-miterlimit="10"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round" />
-                                </svg>
-                            </button>
+                                    <svg
+                                        v-else
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            opacity="0.4"
+                                            d="M17.7405 7.57C17.7505 7.64 17.7505 7.72 17.7405 7.79C17.7405 7.72 17.7305 7.65 17.7305 7.58L17.7405 7.57Z"
+                                            fill="#2178FF" />
+                                        <path
+                                            d="M17.2809 6.56L3.83086 20.01C2.43086 19.12 1.88086 17.53 1.88086 16V8C1.88086 4.58 3.21086 3.25 6.63086 3.25H12.6309C15.5209 3.25 16.9109 4.2 17.2809 6.56Z"
+                                            fill="#6C82A3" />
+                                        <path
+                                            d="M21.4 2.23C21.1 1.93 20.61 1.93 20.31 2.23L1.85 20.69C1.55 20.99 1.55 21.48 1.85 21.78C2 21.92 2.2 22 2.39 22C2.59 22 2.78 21.92 2.93 21.77L21.4 3.31C21.7 3.01 21.7 2.53 21.4 2.23Z"
+                                            fill="#6C82A3" />
+                                        <path
+                                            d="M22.3802 8.38V15.62C22.3802 17.05 21.6802 17.62 21.2802 17.83C21.0902 17.93 20.7902 18.04 20.4202 18.04C19.9902 18.04 19.4602 17.9 18.8402 17.46L17.3602 16.42C17.2902 18.63 16.5902 19.89 15.0002 20.42C14.3602 20.65 13.5702 20.75 12.6202 20.75H6.62016C6.38016 20.75 6.15016 20.74 5.91016 20.71L15.0002 11.63L20.6502 5.98C20.9102 6 21.1202 6.08 21.2802 6.17C21.6802 6.38 22.3802 6.95 22.3802 8.38Z"
+                                            fill="#6C82A3" />
+                                    </svg>
+                                </button>
+                                <button
+                                    @click="toggleWebcamSettings"
+                                    type="button"
+                                    class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+                                    <svg
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 14 14"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
+                                            stroke="currentColor"
+                                            class="text-gray-600 dark:text-gray-400"
+                                            stroke-width="1.5"
+                                            stroke-miterlimit="10"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
 
                             <!-- Webcam Settings Dropdown -->
                             <div
@@ -1408,28 +1435,6 @@
                                         class="px-4 py-2.5 text-sm text-gray-500">
                                         No cameras found
                                     </div>
-
-                                    <!-- Disable Option -->
-                                    <div
-                                        @click="disableWebcam"
-                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        :class="{ 'font-medium': !store.settings.webcamEnabled }">
-                                        <span>Disable Camera</span>
-                                        <svg
-                                            v-if="!store.settings.webcamEnabled"
-                                            width="24"
-                                            height="24"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            xmlns="http://www.w3.org/2000/svg">
-                                            <path
-                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
-                                                stroke="#2178FF"
-                                                stroke-width="2.0625"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round" />
-                                        </svg>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1438,70 +1443,80 @@
                                 :showToolbar="showToolbar"
                                 :displayId="displayId"
                                 :isRecording="isRecording"
-                                text="Webcam settings"
+                                :text="store.settings.webcamEnabled ? 'Disable webcam' : 'Enable webcam'"
                                 position="bottom" />
                         </div>
 
                         <!-- Audio Controls -->
                         <div class="group audio-settings-container relative overflow-visible">
-                            <button
+                            <div
                                 ref="audioSettingsButtonRef"
-                                @click="toggleAudioSettings"
-                                type="button"
-                                class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none bg-transparent py-2.5 pr-4 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                :class="{ 'dark:bg-dark-700 bg-gray-100': showAudioSettings }">
-                                <svg
-                                    v-if="selectedAudioDeviceId"
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M19.1197 9.12C18.7297 9.12 18.4197 9.43 18.4197 9.82V11.4C18.4197 14.94 15.5397 17.82 11.9997 17.82C8.45969 17.82 5.57969 14.94 5.57969 11.4V9.81C5.57969 9.42 5.26969 9.11 4.87969 9.11C4.48969 9.11 4.17969 9.42 4.17969 9.81V11.39C4.17969 15.46 7.30969 18.81 11.2997 19.17V21.3C11.2997 21.69 11.6097 22 11.9997 22C12.3897 22 12.6997 21.69 12.6997 21.3V19.17C16.6797 18.82 19.8197 15.46 19.8197 11.39V9.81C19.8097 9.43 19.4997 9.12 19.1197 9.12Z"
-                                        fill="#2178FF" />
-                                    <path
-                                        d="M12.0001 2C9.56008 2 7.58008 3.98 7.58008 6.42V11.54C7.58008 13.98 9.56008 15.96 12.0001 15.96C14.4401 15.96 16.4201 13.98 16.4201 11.54V6.42C16.4201 3.98 14.4401 2 12.0001 2ZM13.3101 8.95C13.2401 9.21 13.0101 9.38 12.7501 9.38C12.7001 9.38 12.6501 9.37 12.6001 9.36C12.2101 9.25 11.8001 9.25 11.4101 9.36C11.0901 9.45 10.7801 9.26 10.7001 8.95C10.6101 8.64 10.8001 8.32 11.1101 8.24C11.7001 8.08 12.3201 8.08 12.9101 8.24C13.2101 8.32 13.3901 8.64 13.3101 8.95ZM13.8401 7.01C13.7501 7.25 13.5301 7.39 13.2901 7.39C13.2201 7.39 13.1601 7.38 13.0901 7.36C12.3901 7.1 11.6101 7.1 10.9101 7.36C10.6101 7.47 10.2701 7.31 10.1601 7.01C10.0501 6.71 10.2101 6.37 10.5101 6.27C11.4701 5.92 12.5301 5.92 13.4901 6.27C13.7901 6.38 13.9501 6.71 13.8401 7.01Z"
-                                        fill="#2178FF" />
-                                </svg>
+                                class="flex items-center overflow-hidden rounded-full"
+                                :class="{
+                                    'bg-blue-100 dark:bg-blue-900/40': selectedAudioDeviceId,
+                                    'dark:bg-dark-700 bg-gray-100': showAudioSettings
+                                }">
+                                <button
+                                    @click="toggleAudioMute"
+                                    type="button"
+                                    class="flex cursor-pointer items-center justify-center border-none bg-transparent py-2.5 pl-3 pr-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+                                    <svg
+                                        v-if="selectedAudioDeviceId"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M19.1197 9.12C18.7297 9.12 18.4197 9.43 18.4197 9.82V11.4C18.4197 14.94 15.5397 17.82 11.9997 17.82C8.45969 17.82 5.57969 14.94 5.57969 11.4V9.81C5.57969 9.42 5.26969 9.11 4.87969 9.11C4.48969 9.11 4.17969 9.42 4.17969 9.81V11.39C4.17969 15.46 7.30969 18.81 11.2997 19.17V21.3C11.2997 21.69 11.6097 22 11.9997 22C12.3897 22 12.6997 21.69 12.6997 21.3V19.17C16.6797 18.82 19.8197 15.46 19.8197 11.39V9.81C19.8097 9.43 19.4997 9.12 19.1197 9.12Z"
+                                            fill="#2178FF" />
+                                        <path
+                                            d="M12.0001 2C9.56008 2 7.58008 3.98 7.58008 6.42V11.54C7.58008 13.98 9.56008 15.96 12.0001 15.96C14.4401 15.96 16.4201 13.98 16.4201 11.54V6.42C16.4201 3.98 14.4401 2 12.0001 2ZM13.3101 8.95C13.2401 9.21 13.0101 9.38 12.7501 9.38C12.7001 9.38 12.6501 9.37 12.6001 9.36C12.2101 9.25 11.8001 9.25 11.4101 9.36C11.0901 9.45 10.7801 9.26 10.7001 8.95C10.6101 8.64 10.8001 8.32 11.1101 8.24C11.7001 8.08 12.3201 8.08 12.9101 8.24C13.2101 8.32 13.3901 8.64 13.3101 8.95ZM13.8401 7.01C13.7501 7.25 13.5301 7.39 13.2901 7.39C13.2201 7.39 13.1601 7.38 13.0901 7.36C12.3901 7.1 11.6101 7.1 10.9101 7.36C10.6101 7.47 10.2701 7.31 10.1601 7.01C10.0501 6.71 10.2101 6.37 10.5101 6.27C11.4701 5.92 12.5301 5.92 13.4901 6.27C13.7901 6.38 13.9501 6.71 13.8401 7.01Z"
+                                            fill="#2178FF" />
+                                    </svg>
 
-                                <svg
-                                    v-else
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M16.4201 6.42V7.58L9.14008 14.86C8.18008 13.99 7.58008 12.71 7.58008 11.34V6.42C7.58008 4.36 8.98008 2.65 10.8801 2.16C11.0701 2.11 11.2501 2.27 11.2501 2.46V4C11.2501 4.41 11.5901 4.75 12.0001 4.75C12.4101 4.75 12.7501 4.41 12.7501 4V2.46C12.7501 2.27 12.9301 2.11 13.1201 2.16C15.0201 2.65 16.4201 4.36 16.4201 6.42Z"
-                                        fill="#6C82A3" />
-                                    <path
-                                        d="M19.8098 9.81V11.4C19.8098 15.47 16.6798 18.82 12.6998 19.17V21.3C12.6998 21.69 12.3898 22 11.9998 22C11.6098 22 11.2998 21.69 11.2998 21.3V19.17C10.2098 19.07 9.17977 18.75 8.25977 18.24L9.28977 17.21C10.1098 17.59 11.0298 17.81 11.9998 17.81C15.5398 17.81 18.4198 14.93 18.4198 11.4V9.81C18.4198 9.43 18.7298 9.12 19.1198 9.12C19.4998 9.12 19.8098 9.43 19.8098 9.81Z"
-                                        fill="#6C82A3" />
-                                    <path
-                                        d="M16.4202 10.08V11.53C16.4202 14.11 14.2002 16.18 11.5602 15.93C11.2802 15.9 11.0002 15.85 10.7402 15.76L16.4202 10.08Z"
-                                        fill="#6C82A3" />
-                                    <path
-                                        d="M21.7691 2.23C21.4691 1.93 20.9791 1.93 20.6791 2.23L7.22914 15.68C6.19914 14.55 5.57914 13.05 5.57914 11.4V9.81C5.57914 9.43 5.26914 9.12 4.87914 9.12C4.49914 9.12 4.18914 9.43 4.18914 9.81V11.4C4.18914 13.43 4.96914 15.28 6.23914 16.67L2.21914 20.69C1.91914 20.99 1.91914 21.48 2.21914 21.78C2.37914 21.92 2.56914 22 2.76914 22C2.96914 22 3.15914 21.92 3.30914 21.77L21.7691 3.31C22.0791 3.01 22.0791 2.53 21.7691 2.23Z"
-                                        fill="#6C82A3" />
-                                </svg>
-
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 14 14"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
-                                        stroke="currentColor"
-                                        class="text-gray-600 dark:text-gray-400"
-                                        stroke-width="1.5"
-                                        stroke-miterlimit="10"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round" />
-                                </svg>
-                            </button>
+                                    <svg
+                                        v-else
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M16.4201 6.42V7.58L9.14008 14.86C8.18008 13.99 7.58008 12.71 7.58008 11.34V6.42C7.58008 4.36 8.98008 2.65 10.8801 2.16C11.0701 2.11 11.2501 2.27 11.2501 2.46V4C11.2501 4.41 11.5901 4.75 12.0001 4.75C12.4101 4.75 12.7501 4.41 12.7501 4V2.46C12.7501 2.27 12.9301 2.11 13.1201 2.16C15.0201 2.65 16.4201 4.36 16.4201 6.42Z"
+                                            fill="#6C82A3" />
+                                        <path
+                                            d="M19.8098 9.81V11.4C19.8098 15.47 16.6798 18.82 12.6998 19.17V21.3C12.6998 21.69 12.3898 22 11.9998 22C11.6098 22 11.2998 21.69 11.2998 21.3V19.17C10.2098 19.07 9.17977 18.75 8.25977 18.24L9.28977 17.21C10.1098 17.59 11.0298 17.81 11.9998 17.81C15.5398 17.81 18.4198 14.93 18.4198 11.4V9.81C18.4198 9.43 18.7298 9.12 19.1198 9.12C19.4998 9.12 19.8098 9.43 19.8098 9.81Z"
+                                            fill="#6C82A3" />
+                                        <path
+                                            d="M16.4202 10.08V11.53C16.4202 14.11 14.2002 16.18 11.5602 15.93C11.2802 15.9 11.0002 15.85 10.7402 15.76L16.4202 10.08Z"
+                                            fill="#6C82A3" />
+                                        <path
+                                            d="M21.7691 2.23C21.4691 1.93 20.9791 1.93 20.6791 2.23L7.22914 15.68C6.19914 14.55 5.57914 13.05 5.57914 11.4V9.81C5.57914 9.43 5.26914 9.12 4.87914 9.12C4.49914 9.12 4.18914 9.43 4.18914 9.81V11.4C4.18914 13.43 4.96914 15.28 6.23914 16.67L2.21914 20.69C1.91914 20.99 1.91914 21.48 2.21914 21.78C2.37914 21.92 2.56914 22 2.76914 22C2.96914 22 3.15914 21.92 3.30914 21.77L21.7691 3.31C22.0791 3.01 22.0791 2.53 21.7691 2.23Z"
+                                            fill="#6C82A3" />
+                                    </svg>
+                                </button>
+                                <button
+                                    @click="toggleAudioSettings"
+                                    type="button"
+                                    class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
+                                    <svg
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 14 14"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M11.6209 5.22083L7.81753 9.02417C7.36836 9.47333 6.63336 9.47333 6.18419 9.02417L2.38086 5.22083"
+                                            stroke="currentColor"
+                                            class="text-gray-600 dark:text-gray-400"
+                                            stroke-width="1.5"
+                                            stroke-miterlimit="10"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round" />
+                                    </svg>
+                                </button>
+                            </div>
 
                             <!-- Audio Settings Dropdown -->
                             <div
@@ -1542,28 +1557,6 @@
                                         class="px-4 py-2.5 text-sm text-gray-500">
                                         No microphones found
                                     </div>
-
-                                    <!-- Mute Option -->
-                                    <div
-                                        @click="muteAudio"
-                                        class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        :class="{ 'font-medium': !selectedAudioDeviceId }">
-                                        <span>Mute</span>
-                                        <svg
-                                            v-if="!selectedAudioDeviceId"
-                                            width="24"
-                                            height="24"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            xmlns="http://www.w3.org/2000/svg">
-                                            <path
-                                                d="M7.75 12L10.58 14.83L16.25 9.16997"
-                                                stroke="#2178FF"
-                                                stroke-width="2.0625"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round" />
-                                        </svg>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1572,7 +1565,7 @@
                                 :showToolbar="showToolbar"
                                 :displayId="displayId"
                                 :isRecording="isRecording"
-                                text="Audio settings"
+                                :text="selectedAudioDeviceId ? 'Mute microphone' : 'Unmute microphone'"
                                 position="bottom" />
                         </div>
                     </div>
