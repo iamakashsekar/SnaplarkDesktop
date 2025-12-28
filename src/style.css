@@ -47,6 +47,31 @@ body {
     overflow: hidden;
 }
 
+.dashed-border-black {
+    --dash: 5px;
+    --thickness: 1px;
+    --color1: black;
+    --color2: white;
+
+    background:
+        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* top */ linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
+        /* bottom */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y,
+        /* left */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
+
+    background-size:
+        calc(var(--dash) * 2) var(--thickness),
+        calc(var(--dash) * 2) var(--thickness),
+        var(--thickness) calc(var(--dash) * 2),
+        var(--thickness) calc(var(--dash) * 2);
+
+    background-position:
+        0 0,
+        0 100%,
+        0 0,
+        100% 0;
+}
+
 .animated-dashed-border {
     --dash: 5px;
     --thickness: 1px;
@@ -268,29 +293,4 @@ body {
         var(--size) -var(--size),
         -var(--size) 0;
     background-color: var(--color2);
-}
-
-.dashed-border-black {
-    --dash: 5px;
-    --thickness: 2px;
-    --color1: black; /* red-500 */
-    --color2: white;
-
-    background:
-        linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
-        /* top */ linear-gradient(90deg, var(--color1) 50%, var(--color2) 0) repeat-x,
-        /* bottom */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y,
-        /* left */ linear-gradient(0deg, var(--color1) 50%, var(--color2) 0) repeat-y; /* right */
-
-    background-size:
-        calc(var(--dash) * 2) var(--thickness),
-        calc(var(--dash) * 2) var(--thickness),
-        var(--thickness) calc(var(--dash) * 2),
-        var(--thickness) calc(var(--dash) * 2);
-
-    background-position:
-        0 0,
-        0 100%,
-        0 0,
-        100% 0;
 }
