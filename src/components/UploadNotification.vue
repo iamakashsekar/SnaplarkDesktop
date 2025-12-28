@@ -623,7 +623,7 @@
             <div
                 v-if="autoCloseCountdown > 0"
                 class="mt-3 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
-                <span>Auto-closing in {{ autoCloseCountdown }}s</span>
+                <span class="text-gray-600 dark:text-gray-400">Auto-closing in {{ autoCloseCountdown }}s</span>
                 <button
                     @click="cancelAutoClose"
                     class="text-blue-500 underline hover:text-blue-600 dark:text-blue-400">
