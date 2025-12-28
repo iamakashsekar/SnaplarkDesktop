@@ -1075,7 +1075,12 @@
             <!-- Countdown Overlay -->
             <div
                 v-if="mode === 'countdown' && showCountdown"
-                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+                class="fixed inset-0 z-100 flex items-center justify-center bg-black/20 backdrop-blur-[2px]"
+                @mousedown.stop.prevent
+                @mousemove.stop.prevent
+                @mouseup.stop.prevent
+                @click.stop.prevent
+                @contextmenu.prevent>
                 <div class="animate-pulse text-[150px] font-bold text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
                     {{ countdownValue }}
                 </div>
