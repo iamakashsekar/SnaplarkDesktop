@@ -30,6 +30,8 @@
     const dragStartMouseY = ref(0)
     const dragStartSelectionX = ref(0)
     const dragStartSelectionY = ref(0)
+    const dragStartWidth = ref(0)
+    const dragStartHeight = ref(0)
 
     // Magnifier state
     const magnifierActive = ref(false) // Will be activated when window is active
@@ -168,6 +170,8 @@
         dragStartMouseY.value = e.clientY
         dragStartSelectionX.value = Math.min(startX.value, endX.value)
         dragStartSelectionY.value = Math.min(startY.value, endY.value)
+        dragStartWidth.value = Math.abs(endX.value - startX.value)
+        dragStartHeight.value = Math.abs(endY.value - startY.value)
     }
 
     const handleMouseMove = (e) => {
@@ -189,20 +193,66 @@
         } else if (mode.value === 'moving') {
             const deltaX = e.clientX - dragStartMouseX.value
             const deltaY = e.clientY - dragStartMouseY.value
-            const width = Math.abs(endX.value - startX.value)
-            const height = Math.abs(endY.value - startY.value)
 
             const newLeft = dragStartSelectionX.value + deltaX
             const newTop = dragStartSelectionY.value + deltaY
+            const newRight = newLeft + dragStartWidth.value
+            const newBottom = newTop + dragStartHeight.value
 
-            // Keep selection within window bounds
-            const constrainedLeft = Math.max(0, Math.min(newLeft, window.innerWidth - width))
-            const constrainedTop = Math.max(0, Math.min(newTop, window.innerHeight - height))
+            let finalLeft = newLeft
+            let finalTop = newTop
+            let finalRight = newRight
+            let finalBottom = newBottom
 
-            startX.value = constrainedLeft
-            startY.value = constrainedTop
-            endX.value = constrainedLeft + width
-            endY.value = constrainedTop + height
+            // Minimum size to prevent selection from disappearing
+            const minSize = 10
+
+            // Handle horizontal boundaries and retraction
+            if (newLeft < 0) {
+                // Pushing against left edge - retract from left
+                const overpush = Math.abs(newLeft)
+                finalLeft = 0
+                finalRight = Math.max(minSize, dragStartWidth.value - overpush)
+            } else if (newRight > window.innerWidth) {
+                // Pushing against right edge - retract from right
+                const overpush = newRight - window.innerWidth
+                finalRight = window.innerWidth
+                finalLeft = Math.max(0, window.innerWidth - (dragStartWidth.value - overpush))
+                // Ensure minimum size
+                if (finalRight - finalLeft < minSize) {
+                    finalLeft = finalRight - minSize
+                }
+            } else {
+                // Not pushing against horizontal edges - normal movement
+                finalLeft = Math.max(0, Math.min(newLeft, window.innerWidth - dragStartWidth.value))
+                finalRight = finalLeft + dragStartWidth.value
+            }
+
+            // Handle vertical boundaries and retraction
+            if (newTop < 0) {
+                // Pushing against top edge - retract from top
+                const overpush = Math.abs(newTop)
+                finalTop = 0
+                finalBottom = Math.max(minSize, dragStartHeight.value - overpush)
+            } else if (newBottom > window.innerHeight) {
+                // Pushing against bottom edge - retract from bottom
+                const overpush = newBottom - window.innerHeight
+                finalBottom = window.innerHeight
+                finalTop = Math.max(0, window.innerHeight - (dragStartHeight.value - overpush))
+                // Ensure minimum size
+                if (finalBottom - finalTop < minSize) {
+                    finalTop = finalBottom - minSize
+                }
+            } else {
+                // Not pushing against vertical edges - normal movement
+                finalTop = Math.max(0, Math.min(newTop, window.innerHeight - dragStartHeight.value))
+                finalBottom = finalTop + dragStartHeight.value
+            }
+
+            startX.value = finalLeft
+            startY.value = finalTop
+            endX.value = finalRight
+            endY.value = finalBottom
 
             // Reposition webcam during move (throttled)
             repositionWebcam(true)
