@@ -40,6 +40,9 @@
     const ocrText = ref('')
     const ocrCopyTooltip = ref('Copy Text')
 
+    // Arrow key navigation
+    const nudgeAmount = ref(10) // pixels to move/resize per arrow key press
+
     const selectionRect = computed(() => {
         const left = Math.min(startX.value, endX.value)
         const top = Math.min(startY.value, endY.value)
@@ -789,6 +792,65 @@
         }
     }
 
+    const handleArrowKeyNavigation = (event) => {
+        // Only handle arrow keys when selection is confirmed
+        if (mode.value !== 'confirming' && mode.value !== 'edited') return
+
+        // Don't handle arrow keys if OCR modal is open
+        if (showOCRModal.value) return
+
+        // Check if it's an arrow key
+        const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
+        if (!arrowKeys.includes(event.key)) return
+
+        event.preventDefault()
+
+        const amount = nudgeAmount.value
+        const shift = event.shiftKey
+
+        if (!shift) {
+            // Move the entire selection
+            const { left, top, width, height } = selectionRect.value
+
+            if (event.key === 'ArrowLeft') {
+                // Move left - check boundary
+                const delta = Math.min(amount, left)
+                startX.value -= delta
+                endX.value -= delta
+            } else if (event.key === 'ArrowRight') {
+                // Move right - check boundary
+                const delta = Math.min(amount, window.innerWidth - (left + width))
+                startX.value += delta
+                endX.value += delta
+            } else if (event.key === 'ArrowUp') {
+                // Move up - check boundary
+                const delta = Math.min(amount, top)
+                startY.value -= delta
+                endY.value -= delta
+            } else if (event.key === 'ArrowDown') {
+                // Move down - check boundary
+                const delta = Math.min(amount, window.innerHeight - (top + height))
+                startY.value += delta
+                endY.value += delta
+            }
+        } else {
+            // Resize the selection (Shift + Arrow)
+            if (event.key === 'ArrowLeft') {
+                // Expand left - move left edge left
+                startX.value = Math.max(0, startX.value - amount)
+            } else if (event.key === 'ArrowRight') {
+                // Expand right - move right edge right
+                endX.value = Math.min(window.innerWidth, endX.value + amount)
+            } else if (event.key === 'ArrowUp') {
+                // Expand up - move top edge up
+                startY.value = Math.max(0, startY.value - amount)
+            } else if (event.key === 'ArrowDown') {
+                // Expand down - move bottom edge down
+                endY.value = Math.min(window.innerHeight, endY.value + amount)
+            }
+        }
+    }
+
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
@@ -820,6 +882,7 @@
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
         document.addEventListener('keydown', handleToolbarShortcuts)
+        document.addEventListener('keydown', handleArrowKeyNavigation)
 
         // Set up display activation listener first
         window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
@@ -904,6 +967,7 @@
     onUnmounted(() => {
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         document.removeEventListener('keydown', handleToolbarShortcuts)
+        document.removeEventListener('keydown', handleArrowKeyNavigation)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
     })
 

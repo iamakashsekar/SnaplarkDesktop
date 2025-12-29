@@ -20,7 +20,7 @@
             positionClasses
         ]">
         <svg
-            class="size-3 transition-transform duration-300 ease-out group-hover:rotate-90"
+            class="size-4 transition-transform duration-300 ease-out group-hover:rotate-90"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
