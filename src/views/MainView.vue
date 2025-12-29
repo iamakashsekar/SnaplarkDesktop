@@ -39,7 +39,7 @@
     }
 
     const uploadMedia = async () => {
-        // await window.electronWindows.createWindow('welcome')
+        await window.electronWindows.createWindow('welcome')
         // await window.electronWindows.createWindow('permissions')
         store.openExternal(BASE_URL + '/captures?showUploadModal=true')
         hideWindow('main')

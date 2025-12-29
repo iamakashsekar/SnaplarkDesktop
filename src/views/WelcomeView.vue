@@ -228,6 +228,7 @@
                             </button>
                         </div>
                     </div>
+                    <CloseButton @click="finishSetup"/>
                 </GradientFrame>
 
                 <div class="flex items-center justify-center gap-2">

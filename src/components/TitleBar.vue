@@ -14,10 +14,3 @@
         <span class="text-sm font-semibold text-slate-600/90 dark:text-gray-400">{{ title }}</span>
     </div>
 </template>
-
-<style scoped>
-    .drag {
-        -webkit-app-region: drag;
-        /* Ensure specific user interactions are still allowed if we had buttons, but here it's just text */
-    }
-</style>
