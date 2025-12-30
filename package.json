@@ -8,9 +8,7 @@
         "start": "electron-forge start",
         "package": "electron-forge package",
         "make": "electron-forge make",
-        "publish": "bash scripts/publish-with-history.sh",
-        "publish:direct": "electron-forge publish",
-        "prepare-release": "bash scripts/prepare-release.sh",
+        "publish": "electron-forge publish",
         "lint": "echo \"No linting configured\"",
         "rebuild": "electron-rebuild"
     },
