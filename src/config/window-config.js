@@ -7,7 +7,7 @@ export const WINDOW_TITLES = {
 export const WINDOW_DIMENSIONS = {
     login: {
         width: 350,
-        height: 650,
+        height: 540,
     },
     main: {
         width: 232,

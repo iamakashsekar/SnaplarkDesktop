@@ -40,7 +40,7 @@ class WindowManager {
                 ...common,
                 width: WINDOW_DIMENSIONS.main.width,
                 height: WINDOW_DIMENSIONS.main.height,
-                resizable: true,
+                resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: true,
                 roundedCorners: true,
