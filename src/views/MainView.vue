@@ -40,10 +40,11 @@
     }
 
     const uploadMedia = async () => {
-        await window.electronWindows.createWindow('welcome')
+       
+        // await window.electronWindows.createWindow('welcome')
         // await window.electronWindows.createWindow('permissions')
-        store.openExternal(BASE_URL + '/captures?showUploadModal=true')
-        hideWindow('main')
+        // store.openExternal(BASE_URL + '/captures?showUploadModal=true')
+        // hideWindow('main')
     }
 
     const viewUploadedHistory = () => {
@@ -64,12 +65,13 @@
         hideWindow('main')
     }
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         store.logout()
         window.electronWindows?.hideWindow('main')
+        await resizeWindowTo('main', WINDOW_DIMENSIONS.login.width, WINDOW_DIMENSIONS.login.height)
         setTimeout(() => {
             router.push('/login')
-            window.electron.showMainAtTray({ force: true, gap: 0 })
+            window.electron.showMainAtTray({ force: true, gap: 5 })
         }, 100)
     }
 
@@ -91,13 +93,12 @@
     onMounted(async () => {
         if (!store.isLoggedIn) {
             window.electronWindows?.hideWindow('main')
+            await resizeWindowTo('main', WINDOW_DIMENSIONS.login.width, WINDOW_DIMENSIONS.login.height)
             setTimeout(() => {
                 router.push('/login')
-                window.electron.showMainAtTray({ force: true, gap: 0 })
+                window.electron.showMainAtTray({ force: true, gap: 5 })
             }, 100)
         }
-        await resizeWindowTo('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
-        console.log('Main window resized')
         document.addEventListener('click', handleClickOutside)
     })
 

@@ -3,6 +3,7 @@ import { TokenManager, apiClient } from './api/config.js'
 import connectivityService from './services/connectivity.js'
 import router from './router'
 import { defaultState, excludeFromPersist } from './store-defaults.js'
+import { WINDOW_DIMENSIONS } from './config/window-config.js'
 
 export const useStore = defineStore('main', {
     state: () => ({
@@ -106,13 +107,21 @@ export const useStore = defineStore('main', {
                     if (response.data) {
                         this.user = response.data
                         this.isAuthenticated = true
-                        await router.push('/')
+                        window.electronWindows?.hideWindow('main')
                         const welcomeCompleted = window.electronStore.get('welcomeCompleted')
                         if (!welcomeCompleted) {
                             window.electronWindows.createWindow('welcome')
                         } else {
-                            window.electron.showMainAtTray({ force: true, gap: 5 })
+                            // Resize to main dimensions before showing
+                            await window.electronWindows?.resizeWindow('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
+                            // Push to main route
+                            await router.push('/')
+                            // Small delay to ensure component mounted, then show
+                            setTimeout(() => {
+                                window.electron.showMainAtTray({ force: true, gap: 5 })
+                            }, 50)
                         }
+
                     }
                     return true
                 } catch (error) {

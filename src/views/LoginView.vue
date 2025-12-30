@@ -78,8 +78,9 @@
     }
 
     onMounted(async () => {
-        await resizeWindowTo('main', WINDOW_DIMENSIONS.login.width, WINDOW_DIMENSIONS.login.height)
         if (store.isLoggedIn) {
+            window.electronWindows?.hideWindow('main')
+            await resizeWindowTo('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
             await router.push('/')
         }
         // Try to fetch blog post if online

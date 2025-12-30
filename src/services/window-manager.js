@@ -3,10 +3,11 @@ import path from 'node:path'
 import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
 
 class WindowManager {
-    constructor(viteDevServerUrl, viteName) {
+    constructor(viteDevServerUrl, viteName, store = null) {
         this.windows = new Map()
         this.viteDevServerUrl = viteDevServerUrl
         this.viteName = viteName
+        this.store = store
         this.windowConfigs = this.getWindowConfigs()
         this.setupHandlers()
     }
@@ -34,13 +35,19 @@ class WindowManager {
 
     getWindowConfigs() {
         const common = this.getCommonConfig()
+        
+        // Check if user is logged in by checking for auth token
+        const isLoggedIn = this.store ? !!this.store.get('auth_token') : false
+        const mainDimensions = isLoggedIn ? WINDOW_DIMENSIONS.main : WINDOW_DIMENSIONS.login
 
         return {
             main: {
                 ...common,
-                width: WINDOW_DIMENSIONS.main.width,
-                height: WINDOW_DIMENSIONS.main.height,
-                resizable: false,
+                width: mainDimensions.width,
+                height: mainDimensions.height,
+                minWidth: WINDOW_DIMENSIONS.main.width,
+                minHeight: WINDOW_DIMENSIONS.main.height,
+                resizable: true,
                 alwaysOnTop: false,
                 skipTaskbar: true,
                 roundedCorners: true,
@@ -56,7 +63,7 @@ class WindowManager {
                 height: WINDOW_DIMENSIONS.settings.height,
                 resizable: false,
                 alwaysOnTop: false,
-                skipTaskbar: true,
+                skipTaskbar: false,
                 title: WINDOW_TITLES.settings,
                 show: false,
                 modal: false,
@@ -701,7 +708,9 @@ class WindowManager {
         ipcMain.handle('resize-window', (event, type, width, height) => {
             const window = this.getWindow(type)
             if (window) {
-                window.setSize(width, height)
+                // Temporarily set minimum size to allow shrinking
+                window.setMinimumSize(width, height)
+                window.setSize(width, height, true)
                 return { success: true }
             }
             return { success: false, error: `Window ${type} not found` }

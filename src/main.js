@@ -110,7 +110,7 @@ const checkAppPermissions = () => {
 }
 
 const createWindow = () => {
-    windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME)
+    windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME, store)
 
     const mainWindow = windowManager.createWindow('main')
 
@@ -146,11 +146,6 @@ const createWindow = () => {
             tray.showMainAtTray(null, { force: true, gap: 5 })
         }, 200)
     }
-
-    // const welcomeCompleted = store.get('welcomeCompleted')
-    // if (!welcomeCompleted) {
-    //     windowManager.createWindow('welcome')
-    // }
 
     screenshotService = new ScreenshotService(windowManager, store)
     videoRecordingService = new VideoRecordingService(windowManager, store)
