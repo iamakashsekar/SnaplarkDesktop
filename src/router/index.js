@@ -11,7 +11,7 @@ import { useStore } from '../store'
 import VideoRecordingView from '../views/VideoRecordingView.vue'
 import WebcamView from '../views/WebcamView.vue'
 import RecordingOverlayView from '../views/RecordingOverlayView.vue'
-import { WINDOW_TITLES } from '../constants/window-config'
+import { WINDOW_TITLES } from '../config/window-config'
 
 const routes = [
     {

@@ -6,7 +6,7 @@
     import SettingsHotkeyItem from '@/components/SettingsHotkeyItem.vue'
     import Switch from '@/components/Switch.vue'
     import TitleBar from '@/components/TitleBar.vue'
-    import { WINDOW_TITLES } from '@/constants/window-config'
+    import { WINDOW_TITLES } from '@/config/window-config'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()

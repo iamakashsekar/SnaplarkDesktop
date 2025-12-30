@@ -9,6 +9,7 @@
     import { useWindows } from '../composables/useWindows'
     import router from '../router'
     import GradientFrame from '@/components/GradientFrame.vue'
+    import { WINDOW_DIMENSIONS } from '@/config/window-config'
 
     const { hideWindow, resizeWindowTo } = useWindows()
 
@@ -77,7 +78,7 @@
     }
 
     onMounted(async () => {
-        await resizeWindowTo('main', 350, 650)
+        await resizeWindowTo('main', WINDOW_DIMENSIONS.login.width, WINDOW_DIMENSIONS.login.height)
         if (store.isLoggedIn) {
             await router.push('/')
         }

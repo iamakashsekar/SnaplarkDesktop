@@ -1,7 +1,7 @@
 <script setup>
     import { ref, onMounted } from 'vue'
     import TitleBar from '@/components/TitleBar.vue'
-    import { WINDOW_TITLES } from '@/constants/window-config'
+    import { WINDOW_TITLES } from '@/config/window-config'
 
     const permissions = ref([
         {

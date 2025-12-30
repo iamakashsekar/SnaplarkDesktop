@@ -5,6 +5,7 @@
     import { useStore } from '@/store'
     import { BASE_URL } from '@/api/config'
     import GradientFrame from '@/components/GradientFrame.vue'
+    import { WINDOW_DIMENSIONS } from '@/config/window-config'
 
     const { createWindow, hideWindow, resizeWindowTo } = useWindows()
     const store = useStore()
@@ -95,7 +96,7 @@
                 window.electron.showMainAtTray({ force: true, gap: 0 })
             }, 100)
         }
-        await resizeWindowTo('main', 232, 550)
+        await resizeWindowTo('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
         console.log('Main window resized')
         document.addEventListener('click', handleClickOutside)
     })

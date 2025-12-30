@@ -1,6 +1,6 @@
 import { BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'node:path'
-import { WINDOW_TITLES } from '../constants/window-config.js'
+import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
 
 class WindowManager {
     constructor(viteDevServerUrl, viteName) {
@@ -38,9 +38,9 @@ class WindowManager {
         return {
             main: {
                 ...common,
-                width: 232,
-                height: 300,
-                resizable: false,
+                width: WINDOW_DIMENSIONS.main.width,
+                height: WINDOW_DIMENSIONS.main.height,
+                resizable: true,
                 alwaysOnTop: false,
                 skipTaskbar: true,
                 roundedCorners: true,
@@ -52,8 +52,8 @@ class WindowManager {
 
             settings: {
                 ...common,
-                width: 420,
-                height: 650,
+                width: WINDOW_DIMENSIONS.settings.width,
+                height: WINDOW_DIMENSIONS.settings.height,
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: true,
@@ -77,8 +77,8 @@ class WindowManager {
 
             welcome: {
                 ...common,
-                width: 450,
-                height: 455,
+                width: WINDOW_DIMENSIONS.welcome.width,
+                height: WINDOW_DIMENSIONS.welcome.height,
                 resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: false,
@@ -174,8 +174,8 @@ class WindowManager {
                 movable: true,
                 resizable: false,
                 hasShadow: false,
-                width: 208,
-                height: 208,
+                width: WINDOW_DIMENSIONS.webcam.width,
+                height: WINDOW_DIMENSIONS.webcam.height,
                 show: false,
                 focusable: false,
                 acceptFirstMouse: false,
@@ -198,8 +198,8 @@ class WindowManager {
 
             design: {
                 ...common,
-                width: 800,
-                height: 600,
+                width: WINDOW_DIMENSIONS.design.width,
+                height: WINDOW_DIMENSIONS.design.height,
                 resizable: true,
                 alwaysOnTop: false,
                 skipTaskbar: false,
@@ -209,8 +209,8 @@ class WindowManager {
 
             notifications: {
                 ...common,
-                width: 420,
-                height: 10,
+                width: WINDOW_DIMENSIONS.notifications.width,
+                height: WINDOW_DIMENSIONS.notifications.height,
                 resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: true,
@@ -223,8 +223,8 @@ class WindowManager {
 
             permissions: {
                 ...common,
-                width: 400,
-                height: 640,
+                width: WINDOW_DIMENSIONS.permissions.width,
+                height: WINDOW_DIMENSIONS.permissions.height,
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: false,
@@ -318,8 +318,8 @@ class WindowManager {
             const selectionRect = options.selectionRect || null
 
             const display = options.displayInfo.display || options.displayInfo
-            const webcamWidth = config.width || 208
-            const webcamHeight = config.height || 208
+            const webcamWidth = config.width || WINDOW_DIMENSIONS.webcam.width
+            const webcamHeight = config.height || WINDOW_DIMENSIONS.webcam.height
             const margin = 20
 
             let x, y
