@@ -35,8 +35,8 @@ module.exports = {
             name: '@electron-forge/maker-squirrel',
             config: (arch) => ({
                 setupIcon: 'src/assets/icons/icon.ico',
-                iconUrl: `file://${path.resolve(__dirname, 'src/assets/icons/icon.ico')}`,
                 loadingGif: 'src/assets/icons/loading.gif',
+                iconUrl: `file://${path.resolve(__dirname, 'src/assets/icons/icon.ico')}`,
                 remoteReleases: `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/win32/${arch}`
             }),
         },
