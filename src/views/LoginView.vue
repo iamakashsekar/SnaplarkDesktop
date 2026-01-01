@@ -108,7 +108,7 @@
                     <button
                         @click="handleLogin"
                         :disabled="store.isLoading"
-                        class="border-primary-blue text-primary-blue dark:bg-dark-800 dark:hover:bg-dark-700 w-full rounded-full border-2 bg-white px-6 py-3 text-base font-semibold transition-all duration-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
+                        class="border-primary-blue cursor-pointer text-primary-blue dark:bg-dark-800 dark:hover:bg-dark-700 w-full rounded-full border-2 bg-white px-6 py-3 text-base font-semibold transition-all duration-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
                         <span v-if="store.isLoading">Loading...</span>
                         <span v-else>Login</span>
                     </button>
@@ -117,7 +117,7 @@
                     <button
                         @click="handleRegister"
                         :disabled="store.isLoading"
-                        class="bg-primary-blue w-full rounded-full px-6 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
+                        class="bg-primary-blue cursor-pointer w-full rounded-full px-6 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
                         <span v-if="store.isLoading">Loading...</span>
                         <span v-else>Register</span>
                     </button>

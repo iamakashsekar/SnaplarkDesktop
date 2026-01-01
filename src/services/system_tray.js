@@ -74,7 +74,7 @@ class SystemTray {
 
         const contextMenu = Menu.buildFromTemplate([
             {
-                label: 'Open Widget',
+                label: 'Open Snaplark',
                 click: () => {
                     this.showMainAtTray(null, { gap: 5 })
                 }

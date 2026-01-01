@@ -552,7 +552,7 @@ class WindowManager {
                 window.setMovable(true)
 
                 // Enable shadow for the window
-                window.setHasShadow(true)
+                // window.setHasShadow(true)
 
                 const bounds = window.getBounds()
 
