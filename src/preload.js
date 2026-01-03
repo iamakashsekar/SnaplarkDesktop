@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electron', {
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
     checkSystemPermissions: () => ipcRenderer.invoke('check-system-permissions'),
     requestSystemPermission: (id) => ipcRenderer.invoke('request-system-permission', id),
+    focusPermissionsWindow: () => ipcRenderer.invoke('focus-permissions-window'),
     relaunchApp: () => ipcRenderer.invoke('relaunch-app'),
 
     ipcRenderer: {

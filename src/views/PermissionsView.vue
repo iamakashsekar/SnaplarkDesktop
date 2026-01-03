@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, onMounted } from 'vue'
+    import { ref, onMounted, onUnmounted } from 'vue'
     import TitleBar from '@/components/TitleBar.vue'
     import { WINDOW_TITLES } from '@/config/window-config'
 
@@ -36,6 +36,11 @@
 
     const loading = ref(true)
     const checkingPermission = ref(null)
+    let checkPermissionsInterval = null
+    let windowFocusHandler = null
+    
+    // Track which permissions user has confirmed granting (optimistic UI)
+    const recentlyGrantedPermissions = new Set()
 
     const checkPermissions = async () => {
         try {
@@ -44,6 +49,16 @@
             permissions.value.forEach((p) => {
                 if (statuses[p.id] !== undefined) {
                     p.granted = statuses[p.id]
+                    
+                    // If permission is now confirmed granted, remove from optimistic set
+                    if (statuses[p.id]) {
+                        recentlyGrantedPermissions.delete(p.id)
+                    }
+                }
+                
+                // Apply optimistic UI: if user recently granted it, show as granted
+                if (recentlyGrantedPermissions.has(p.id)) {
+                    p.granted = true
                 }
             })
         } catch (e) {
@@ -51,6 +66,11 @@
         } finally {
             loading.value = false
         }
+    }
+    
+    const handleWindowFocus = () => {
+        console.log('Permissions window gained focus, checking permissions...')
+        checkPermissions()
     }
 
     const requestPermission = async (id) => {
@@ -68,39 +88,61 @@
                     
                     stream.getTracks().forEach((track) => track.stop())
 
-                    // Wait longer for macOS to register the permission
-                    await new Promise(resolve => setTimeout(resolve, 1000))
+                    // Mark as granted optimistically for immediate UI feedback
+                    recentlyGrantedPermissions.add(id)
+                    const perm = permissions.value.find(p => p.id === id)
+                    if (perm) {
+                        perm.granted = true
+                    }
+
+                    // Refocus the permissions window after granting permission
+                    setTimeout(async () => {
+                        await window.electron.focusPermissionsWindow()
+                    }, 300)
+                    
+                    // Wait for macOS to register the permission
+                    await new Promise(resolve => setTimeout(resolve, 1200))
                     await checkPermissions()
                     
-                    // Keep checking for a few more seconds to catch delayed updates
-                    for (let i = 0; i < 3; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 500))
+                    // Keep checking for confirmation
+                    for (let i = 0; i < 5; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 600))
                         await checkPermissions()
                         
-                        const perm = permissions.value.find(p => p.id === id)
-                        if (perm && perm.granted) {
-                            console.log(`Permission ${id} confirmed as granted`)
+                        const currentPerm = permissions.value.find(p => p.id === id)
+                        if (currentPerm && currentPerm.granted && !recentlyGrantedPermissions.has(id)) {
+                            console.log(`Permission ${id} confirmed as granted by system`)
                             break
                         }
                     }
                     return
                 } catch (e) {
                     console.warn('getUserMedia failed, trying system permission:', e)
-                    // If getUserMedia fails, use the system API
+                    
                     const granted = await window.electron.requestSystemPermission(id)
                     console.log(`System permission result for ${id}:`, granted)
                     
-                    await new Promise(resolve => setTimeout(resolve, 1000))
+                    if (granted) {
+                        recentlyGrantedPermissions.add(id)
+                        const perm = permissions.value.find(p => p.id === id)
+                        if (perm) {
+                            perm.granted = true
+                        }
+                    }
+                    
+                    // Window refocusing is now handled in main process
+                    
+                    await new Promise(resolve => setTimeout(resolve, 1200))
                     await checkPermissions()
                     
                     // Keep checking
-                    for (let i = 0; i < 3; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 500))
+                    for (let i = 0; i < 5; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 600))
                         await checkPermissions()
                         
-                        const perm = permissions.value.find(p => p.id === id)
-                        if (perm && perm.granted) {
-                            console.log(`Permission ${id} confirmed as granted`)
+                        const currentPerm = permissions.value.find(p => p.id === id)
+                        if (currentPerm && currentPerm.granted && !recentlyGrantedPermissions.has(id)) {
+                            console.log(`Permission ${id} confirmed as granted by system`)
                             break
                         }
                     }
@@ -110,9 +152,11 @@
                 await window.electron.requestSystemPermission(id)
                 console.log(`Requested system permission for ${id}`)
                 
+                // Window refocusing is now handled in main process
+                
                 // For screen recording, keep checking more persistently
                 const checkCount = id === 'screen' ? 10 : 5
-                const checkDelay = id === 'screen' ? 1000 : 500
+                const checkDelay = id === 'screen' ? 1000 : 600
                 
                 for (let i = 0; i < checkCount; i++) {
                     await new Promise(resolve => setTimeout(resolve, checkDelay))
@@ -140,7 +184,20 @@
 
     onMounted(() => {
         checkPermissions()
-        setInterval(checkPermissions, 2000)
+        checkPermissionsInterval = setInterval(checkPermissions, 2000)
+        
+        // Add window focus event listener to check permissions when window regains focus
+        windowFocusHandler = () => handleWindowFocus()
+        window.addEventListener('focus', windowFocusHandler)
+    })
+    
+    onUnmounted(() => {
+        if (checkPermissionsInterval) {
+            clearInterval(checkPermissionsInterval)
+        }
+        if (windowFocusHandler) {
+            window.removeEventListener('focus', windowFocusHandler)
+        }
     })
 </script>
 

@@ -80,6 +80,9 @@ let notificationService
 let storeService
 let shortcutManager
 
+// Cache for tracking when permissions were last granted to force refresh
+const permissionGrantTimestamps = {}
+
 const checkAppPermissions = () => {
     if (process.platform !== 'darwin') {
         return {
@@ -464,13 +467,77 @@ function setupIPCHandlers() {
         await new Promise(resolve => setTimeout(resolve, 100))
         const permissions = checkAppPermissions().statuses
         console.log('[Main] Current permissions status:', permissions)
+        
+        // Check if we recently granted permissions and force an optimistic update
+        const now = Date.now()
+        for (const [permId, timestamp] of Object.entries(permissionGrantTimestamps)) {
+            // If permission was granted in the last 10 seconds, consider it granted even if API says otherwise
+            if (now - timestamp < 10000 && !permissions[permId]) {
+                console.log(`[Main] Permission ${permId} was recently granted (${now - timestamp}ms ago), forcing granted status`)
+                permissions[permId] = true
+            }
+        }
+        
         return permissions
+    })
+
+    ipcMain.handle('focus-permissions-window', async () => {
+        try {
+            const permissionsWindow = windowManager?.getWindow('permissions')
+            if (permissionsWindow) {
+                if (permissionsWindow.isMinimized()) {
+                    permissionsWindow.restore()
+                }
+                permissionsWindow.show()
+                permissionsWindow.focus()
+                
+                // On macOS, ensure the app is brought to front
+                if (process.platform === 'darwin') {
+                    app.focus({ steal: true })
+                }
+                
+                console.log('[Main] Permissions window focused')
+                return true
+            }
+            return false
+        } catch (error) {
+            console.error('[Main] Error focusing permissions window:', error)
+            return false
+        }
     })
 
     ipcMain.handle('request-system-permission', async (event, permissionId) => {
         if (process.platform !== 'darwin') return true
 
         console.log(`[Main] Requesting permission for: ${permissionId}`)
+        
+        // Store reference to permissions window for refocusing
+        const permissionsWindow = windowManager?.getWindow('permissions')
+        
+        const focusPermissionsWindow = async () => {
+            if (permissionsWindow && !permissionsWindow.isDestroyed()) {
+                // Wait a bit for the system dialog to close
+                await new Promise(resolve => setTimeout(resolve, 500))
+                
+                if (permissionsWindow.isMinimized()) {
+                    permissionsWindow.restore()
+                }
+                permissionsWindow.show()
+                permissionsWindow.focus()
+                
+                // On macOS, ensure the app is brought to front
+                if (process.platform === 'darwin') {
+                    app.focus({ steal: true })
+                }
+                
+                console.log('[Main] Refocused permissions window')
+            }
+        }
+        
+        const markPermissionGranted = (permId) => {
+            permissionGrantTimestamps[permId] = Date.now()
+            console.log(`[Main] Marked ${permId} as recently granted`)
+        }
 
         if (permissionId === 'camera' || permissionId === 'microphone') {
             const mediaType = permissionId
@@ -482,8 +549,15 @@ function setupIPCHandlers() {
                     const granted = await systemPreferences.askForMediaAccess(mediaType)
                     console.log(`[Main] ${mediaType} permission granted: ${granted}`)
                     
-                    // Wait a bit for the system to register the permission
-                    await new Promise(resolve => setTimeout(resolve, 500))
+                    if (granted) {
+                        markPermissionGranted(permissionId)
+                    }
+                    
+                    // Refocus the permissions window
+                    await focusPermissionsWindow()
+                    
+                    // Wait for the system to register the permission
+                    await new Promise(resolve => setTimeout(resolve, 800))
                     
                     const newStatus = systemPreferences.getMediaAccessStatus(mediaType)
                     console.log(`[Main] ${mediaType} status after request: ${newStatus}`)
@@ -491,15 +565,18 @@ function setupIPCHandlers() {
                     return granted
                 } catch (error) {
                     console.error(`[Main] Error requesting ${mediaType} permission:`, error)
+                    await focusPermissionsWindow()
                     return false
                 }
             } else if (status === 'granted') {
                 console.log(`[Main] ${mediaType} already granted`)
+                markPermissionGranted(permissionId)
                 return true
             } else if (status === 'denied' || status === 'restricted') {
                 console.log(`[Main] ${mediaType} denied/restricted, opening System Settings`)
                 const privacyType = permissionId === 'camera' ? 'Privacy_Camera' : 'Privacy_Microphone'
                 await shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${privacyType}`)
+                await focusPermissionsWindow()
                 return false
             }
         } else if (permissionId === 'screen') {
@@ -508,6 +585,7 @@ function setupIPCHandlers() {
             
             if (status === 'granted') {
                 console.log('[Main] Screen recording already granted')
+                markPermissionGranted(permissionId)
                 return true
             }
             
@@ -535,6 +613,9 @@ function setupIPCHandlers() {
                 
                 console.log(`[Main] Desktop capturer returned ${sources.length} sources`)
                 
+                // Refocus the permissions window
+                await focusPermissionsWindow()
+                
                 // Wait for the system to register the permission
                 await new Promise(resolve => setTimeout(resolve, 1000))
                 
@@ -542,6 +623,7 @@ function setupIPCHandlers() {
                 console.log(`[Main] Screen recording status after request: ${newStatus}`)
                 
                 if (newStatus === 'granted') {
+                    markPermissionGranted(permissionId)
                     return true
                 }
                 
@@ -553,12 +635,14 @@ function setupIPCHandlers() {
             
             // Open System Settings for manual permission grant
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+            await focusPermissionsWindow()
             return false
         } else if (permissionId === 'accessibility') {
             const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
             console.log(`[Main] Accessibility trusted: ${isTrusted}`)
             
             if (isTrusted) {
+                markPermissionGranted(permissionId)
                 return true
             }
             
@@ -566,6 +650,7 @@ function setupIPCHandlers() {
             systemPreferences.isTrustedAccessibilityClient(true)
             
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+            await focusPermissionsWindow()
             return false
         }
         

@@ -233,13 +233,15 @@ class WindowManager {
                 width: WINDOW_DIMENSIONS.permissions.width,
                 height: WINDOW_DIMENSIONS.permissions.height,
                 resizable: false,
-                alwaysOnTop: false,
+                alwaysOnTop: true,
                 skipTaskbar: false,
                 title: WINDOW_TITLES.permissions,
                 show: false,
                 modal: false,
                 frame: false,
                 titleBarStyle: 'hidden',
+                focusable: true,
+                acceptFirstMouse: true,
                 ...(process.platform === 'darwin' && {
                     trafficLightPosition: { x: 18, y: 18 }
                 }),
