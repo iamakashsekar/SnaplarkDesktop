@@ -108,20 +108,17 @@ export const useStore = defineStore('main', {
                         this.user = response.data
                         this.isAuthenticated = true
                         window.electronWindows?.hideWindow('main')
+                        // Resize to main dimensions before showing
+                        await window.electronWindows?.resizeWindow('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
+                        // Push to main route
+                        await router.push('/')
+
                         const welcomeCompleted = window.electronStore.get('welcomeCompleted')
                         if (!welcomeCompleted) {
                             window.electronWindows.createWindow('welcome')
                         } else {
-                            // Resize to main dimensions before showing
-                            await window.electronWindows?.resizeWindow('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
-                            // Push to main route
-                            await router.push('/')
-                            // Small delay to ensure component mounted, then show
-                            setTimeout(() => {
-                                window.electron.showMainAtTray({ force: true, gap: 5 })
-                            }, 50)
+                            window.electron.showMainAtTray({ force: true, gap: 5 })
                         }
-
                     }
                     return true
                 } catch (error) {
