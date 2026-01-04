@@ -738,6 +738,38 @@
         }
     }
 
+    const handleToggleMicrophoneTrigger = () => {
+        try {
+            console.log('[VideoRecording] Toggle microphone trigger received, mode:', mode.value, 'isRecording:', isRecording.value)
+            
+            // Only allow toggling in selection mode, not during active recording
+            if (mode.value === 'confirming' && !isRecording.value) {
+                console.log('[VideoRecording] Toggling microphone via hotkey')
+                toggleAudioMute()
+            } else {
+                console.log('[VideoRecording] Ignoring microphone toggle - recording already started or not in selection mode')
+            }
+        } catch (error) {
+            console.error('[VideoRecording] Error handling microphone toggle trigger:', error)
+        }
+    }
+
+    const handleToggleWebcamTrigger = async () => {
+        try {
+            console.log('[VideoRecording] Toggle webcam trigger received, mode:', mode.value, 'isRecording:', isRecording.value)
+            
+            // Only allow toggling in selection mode, not during active recording
+            if (mode.value === 'confirming' && !isRecording.value) {
+                console.log('[VideoRecording] Toggling webcam via hotkey')
+                await toggleWebcam()
+            } else {
+                console.log('[VideoRecording] Ignoring webcam toggle - recording already started or not in selection mode')
+            }
+        } catch (error) {
+            console.error('[VideoRecording] Error handling webcam toggle trigger:', error)
+        }
+    }
+
     const handleArrowKeyNavigation = (event) => {
         // Only handle arrow keys when selection is confirmed (not during recording or countdown)
         if (mode.value !== 'confirming') return
@@ -1021,8 +1053,10 @@
         document.addEventListener('keydown', handleEscapeKeyCancel)
         document.addEventListener('keydown', handleArrowKeyNavigation)
 
-        // Listen for global shortcut trigger from main process
+        // Listen for global shortcut triggers from main process
         window.electron?.ipcRenderer?.on('trigger-start-stop-recording', handleStartStopTrigger)
+        window.electron?.ipcRenderer?.on('trigger-toggle-microphone', handleToggleMicrophoneTrigger)
+        window.electron?.ipcRenderer?.on('trigger-toggle-webcam', handleToggleWebcamTrigger)
 
         // Initialize recording
         await initialize()
@@ -1163,9 +1197,11 @@
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         document.removeEventListener('keydown', handleArrowKeyNavigation)
         
-        // Remove IPC listener using the same handler reference
+        // Remove IPC listeners using the same handler references
         if (window.electron?.ipcRenderer?.removeListener) {
             window.electron.ipcRenderer.removeListener('trigger-start-stop-recording', handleStartStopTrigger)
+            window.electron.ipcRenderer.removeListener('trigger-toggle-microphone', handleToggleMicrophoneTrigger)
+            window.electron.ipcRenderer.removeListener('trigger-toggle-webcam', handleToggleWebcamTrigger)
         }
         
         window.electronWindows?.removeDisplayActivationChangedListener?.()

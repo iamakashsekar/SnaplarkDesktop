@@ -31,6 +31,24 @@ export const SHORTCUT_DEFINITIONS = {
         category: 'capture'
     },
 
+    // Toggle microphone shortcut - Global
+    TOGGLE_MICROPHONE: {
+        id: 'toggleMicrophone',
+        storeKey: 'hotkeyToggleMicrophone',
+        type: 'global',
+        description: 'Mute/Unmute microphone',
+        category: 'capture'
+    },
+
+    // Toggle webcam shortcut - Global
+    TOGGLE_WEBCAM: {
+        id: 'toggleWebcam',
+        storeKey: 'hotkeyToggleWebcam',
+        type: 'global',
+        description: 'Enable/Disable webcam',
+        category: 'capture'
+    },
+
     // Quick menu shortcut - Global (currently commented out in UI, but ready to use)
     QUICK_MENU: {
         id: 'quickMenu',

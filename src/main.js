@@ -227,6 +227,52 @@ const registerShortcutFromStore = (shortcutId) => {
                 }
             }
             break
+        case 'toggleMicrophone':
+            action = () => {
+                if (!windowManager) return
+
+                let foundRecordingWindow = false
+                
+                for (const [type, win] of windowManager.windows.entries()) {
+                    if (type.startsWith('recording-') && !win.isDestroyed()) {
+                        foundRecordingWindow = true
+                        try {
+                            win.webContents.send('trigger-toggle-microphone')
+                            console.log(`[Main] Sent toggle microphone trigger to recording window: ${type}`)
+                        } catch (error) {
+                            console.error(`[Main] Error sending toggle microphone trigger to ${type}:`, error)
+                        }
+                    }
+                }
+
+                if (!foundRecordingWindow) {
+                    console.log('[Main] No active recording windows found for microphone toggle shortcut')
+                }
+            }
+            break
+        case 'toggleWebcam':
+            action = () => {
+                if (!windowManager) return
+
+                let foundRecordingWindow = false
+                
+                for (const [type, win] of windowManager.windows.entries()) {
+                    if (type.startsWith('recording-') && !win.isDestroyed()) {
+                        foundRecordingWindow = true
+                        try {
+                            win.webContents.send('trigger-toggle-webcam')
+                            console.log(`[Main] Sent toggle webcam trigger to recording window: ${type}`)
+                        } catch (error) {
+                            console.error(`[Main] Error sending toggle webcam trigger to ${type}:`, error)
+                        }
+                    }
+                }
+
+                if (!foundRecordingWindow) {
+                    console.log('[Main] No active recording windows found for webcam toggle shortcut')
+                }
+            }
+            break
         case 'quickMenu':
             action = () => {
                 if (windowManager) {

@@ -20,7 +20,7 @@
 
     const mainTabs = [
         { id: 'general', label: 'General', width: 420, height: 650 },
-        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 570 },
+        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 670 },
         { id: 'capture', label: 'Capture', width: 420, height: 540 }
     ]
 
@@ -202,6 +202,22 @@
                                 description="Toggle recording on/off"
                                 storeKey="hotkeyStartStopRecording"
                                 v-model="settings.hotkeyStartStopRecording" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Mute/Unmute Microphone"
+                                description="Toggle microphone (before recording)"
+                                storeKey="hotkeyToggleMicrophone"
+                                v-model="settings.hotkeyToggleMicrophone" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Enable/Disable Webcam"
+                                description="Toggle webcam (before recording)"
+                                storeKey="hotkeyToggleWebcam"
+                                v-model="settings.hotkeyToggleWebcam" />
                         </div>
 
                         <!-- CAPTURE TOOLBAR HOTKEYS -->
