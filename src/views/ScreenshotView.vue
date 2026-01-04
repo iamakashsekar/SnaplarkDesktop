@@ -1437,24 +1437,24 @@
                     <div class="mt-4 text-sm text-white/70">Processing with OCR technology</div>
 
                     <!-- Close Button -->
-                <button
-                    @click.stop="cancelOCR"
-                    class="flex z-10 h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:bg-white/20 hover:rotate-90"
-                    title="Cancel OCR"
-                    type="button">
-                    <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+                    <button
+                        @click.stop="cancelOCR"
+                        class="flex z-10 h-10 w-10 mt-2 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:bg-red-500 hover:rotate-90"
+                        title="Cancel OCR"
+                        type="button">
+                        <svg
+                            class="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </transition>
