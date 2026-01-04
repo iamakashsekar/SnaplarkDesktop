@@ -1,6 +1,6 @@
 <script setup>
     import { useWindows } from '@/composables/useWindows'
-    import { onMounted, onUnmounted, ref } from 'vue'
+    import { onMounted, onUnmounted, ref, computed } from 'vue'
     import router from '@/router'
     import { useStore } from '@/store'
     import { BASE_URL } from '@/api/config'
@@ -12,6 +12,20 @@
 
     const isUserMenuOpen = ref(false)
     const userMenuContainer = ref(null)
+    const isMac = window.electron?.platform === 'darwin'
+
+    // Format hotkeys for display based on platform
+    const formatHotkey = (hotkey) => {
+        if (!hotkey) return ''
+        
+        if (isMac) {
+            return hotkey.replace(/Ctrl/g, 'Cmd')
+        }
+        return hotkey.replace(/Cmd/g, 'Ctrl')
+    }
+
+    const displayHotkeyScreenshot = computed(() => formatHotkey(store.settings.hotkeyScreenshot))
+    const displayHotkeyRecording = computed(() => formatHotkey(store.settings.hotkeyRecording))
 
     const openSettings = async () => {
         isUserMenuOpen.value = false
@@ -142,7 +156,7 @@
 
                     <span
                         class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ store.settings.hotkeyScreenshot }}
+                        {{ displayHotkeyScreenshot }}
                     </span>
                 </div>
 
@@ -169,7 +183,7 @@
 
                     <span
                         class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ store.settings.hotkeyRecording }}
+                        {{ displayHotkeyRecording }}
                     </span>
                 </div>
 
@@ -195,7 +209,7 @@
                     </button>
                     <span
                         class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ store.settings.hotkeyRecording }}
+                        {{ displayHotkeyRecording }}
                     </span>
                 </div> -->
             </div>

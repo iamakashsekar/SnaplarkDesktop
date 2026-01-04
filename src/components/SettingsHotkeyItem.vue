@@ -1,5 +1,5 @@
 <script setup>
-    import { ref } from 'vue'
+    import { ref, computed } from 'vue'
 
     const props = defineProps({
         title: {
@@ -24,12 +24,11 @@
 
     const isRecording = ref(false)
     const previousValue = ref('')
+    const isMac = window.electron?.platform === 'darwin'
 
     const startRecording = () => {
         previousValue.value = props.modelValue
         isRecording.value = true
-        // We emit empty string for visual feedback if needed,
-        // or just handle it in the template visually.
     }
 
     const stopRecording = () => {
@@ -49,10 +48,12 @@
 
         const keys = []
 
+        // Record the actual modifiers the user pressed, not platform-specific ones
+        // This allows users to choose Ctrl on Mac or Cmd on Windows if they want
         if (event.ctrlKey) keys.push('Ctrl')
-        if (event.altKey) keys.push('Alt')
-        if (event.shiftKey) keys.push('Shift')
         if (event.metaKey) keys.push('Cmd')
+        if (event.altKey) keys.push(isMac ? 'Option' : 'Alt')
+        if (event.shiftKey) keys.push('Shift')
 
         const key = event.key.length === 1 ? event.key.toUpperCase() : event.key
 

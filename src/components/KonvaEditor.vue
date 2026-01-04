@@ -2,6 +2,7 @@
     import Konva from 'konva'
     import { onMounted, onUnmounted, ref, computed } from 'vue'
     import ColorPalette from './ColorPalette.vue'
+    import Tooltip from './Tooltip.vue'
     import UndoIcon from './icons/UndoIcon.vue'
     import RedoIcon from './icons/RedoIcon.vue'
     import ArrowIcon from './icons/ArrowIcon.vue'
@@ -932,11 +933,10 @@
         class="toolbar-container fixed z-[102] -ml-12 flex justify-center gap-4 transition-shadow"
         :class="{ 'shadow-2xl': isDraggingToolbar }">
         <!-- Drag Handle -->
-        <div class="group relative">
+        <Tooltip text="Move">
             <div
                 class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
-                @mousedown="handleToolbarDragStart"
-                title="Drag to move toolbar">
+                @mousedown="handleToolbarDragStart">
                 <svg
                     class="size-5 text-gray-600 transition-colors dark:text-gray-400"
                     viewBox="0 0 24 24"
@@ -956,15 +956,10 @@
                         r="2" />
                 </svg>
             </div>
-
-            <span
-                class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                Move
-            </span>
-        </div>
+        </Tooltip>
 
         <div class="dark:bg-dark-800 flex items-center gap-3 rounded-full bg-white px-4 py-2">
-            <div class="group relative">
+            <Tooltip text="Undo">
                 <button
                     class="flex transition-colors"
                     :class="{
@@ -975,14 +970,9 @@
                     :disabled="!canUndo">
                     <UndoIcon />
                 </button>
+            </Tooltip>
 
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Undo
-                </span>
-            </div>
-
-            <div class="group relative">
+            <Tooltip text="Redo">
                 <button
                     class="flex transition-colors"
                     :class="{
@@ -993,17 +983,12 @@
                     :disabled="!canRedo">
                     <RedoIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Redo
-                </span>
-            </div>
+            </Tooltip>
         </div>
 
         <div class="dark:bg-dark-800 flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
             <!-- Line -->
-            <div class="group relative">
+            <Tooltip text="Line">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('line')"
@@ -1013,15 +998,10 @@
                     }">
                     <LineIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Line
-                </span>
-            </div>
+            </Tooltip>
 
             <!-- Arrow -->
-            <div class="group relative">
+            <Tooltip text="Arrow">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('arrow')"
@@ -1031,15 +1011,10 @@
                     }">
                     <ArrowIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Arrow
-                </span>
-            </div>
+            </Tooltip>
 
             <!-- Circle -->
-            <div class="group relative">
+            <Tooltip text="Circle">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('ellipse')"
@@ -1049,15 +1024,10 @@
                     }">
                     <EllipseIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Circle
-                </span>
-            </div>
+            </Tooltip>
 
             <!-- Rectangle -->
-            <div class="group relative">
+            <Tooltip text="Rectangle">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('rect')"
@@ -1067,15 +1037,10 @@
                     }">
                     <RectangleIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Rectangle
-                </span>
-            </div>
+            </Tooltip>
 
             <!-- Pencil -->
-            <div class="group relative">
+            <Tooltip text="Pencil">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('pencil')"
@@ -1085,15 +1050,10 @@
                     }">
                     <PencilIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Pencil
-                </span>
-            </div>
+            </Tooltip>
 
             <!-- Highlight -->
-            <div class="group relative">
+            <Tooltip text="Highlight">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('highlighter')"
@@ -1103,14 +1063,9 @@
                     }">
                     <HighlighterIcon />
                 </button>
+            </Tooltip>
 
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Highlight
-                </span>
-            </div>
-
-            <div class="group relative">
+            <Tooltip text="Eraser">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('eraser')"
@@ -1120,14 +1075,9 @@
                     }">
                     <EraserIcon />
                 </button>
+            </Tooltip>
 
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Eraser
-                </span>
-            </div>
-
-            <div class="group relative">
+            <Tooltip text="Blur">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('blur')"
@@ -1137,14 +1087,9 @@
                     }">
                     <BlurIcon />
                 </button>
+            </Tooltip>
 
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Blur
-                </span>
-            </div>
-
-            <div class="group relative">
+            <Tooltip text="Text">
                 <button
                     class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('text')"
@@ -1154,26 +1099,16 @@
                     }">
                     <TextIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Text
-                </span>
-            </div>
+            </Tooltip>
 
             <!-- Color Picker -->
             <div class="relative size-5">
-                <div class="group relative">
+                <Tooltip text="Color">
                     <button
                         @click="showColorPicker = true"
                         class="relative size-5 cursor-pointer rounded-full border transition hover:scale-105"
                         :style="{ background: selectedColor }"></button>
-
-                    <span
-                        class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                        Color
-                    </span>
-                </div>
+                </Tooltip>
                 <ColorPalette
                     v-if="showColorPicker"
                     :selected="selectedColor"
@@ -1182,31 +1117,21 @@
         </div>
 
         <div class="dark:bg-dark-800 flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
-            <div class="group relative">
+            <Tooltip text="Delete">
                 <button
                     @click="$emit('cancel')"
                     class="flex cursor-pointer text-red-500 transition-colors hover:text-red-600">
                     <DeleteIcon />
                 </button>
+            </Tooltip>
 
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Delete
-                </span>
-            </div>
-
-            <div class="group relative">
+            <Tooltip text="Done">
                 <button
                     @click="$emit('save')"
                     class="flex cursor-pointer text-green-500 transition-colors hover:text-green-600">
                     <CheckIcon />
                 </button>
-
-                <span
-                    class="bg-gray-black before:border-b-gray-black pointer-events-none absolute top-full left-1/2 z-10 mt-4 -translate-x-1/2 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100 before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-6 before:border-transparent before:content-['']">
-                    Done
-                </span>
-            </div>
+            </Tooltip>
         </div>
     </div>
 </template>

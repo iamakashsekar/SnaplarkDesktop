@@ -20,7 +20,7 @@
 
     const mainTabs = [
         { id: 'general', label: 'General', width: 420, height: 650 },
-        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 680 },
+        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 500 },
         { id: 'capture', label: 'Capture', width: 420, height: 540 }
     ]
 
@@ -218,30 +218,6 @@
                                 description="Save to file"
                                 storeKey="hotkeySave"
                                 v-model="settings.hotkeySave" />
-
-                            <hr class="dark:border-dark-700/50 border-slate-100" />
-
-                            <SettingsHotkeyItem
-                                title="OCR"
-                                description="Read text from image"
-                                storeKey="hotkeyOCR"
-                                v-model="settings.hotkeyOCR" />
-
-                            <hr class="dark:border-dark-700/50 border-slate-100" />
-
-                            <SettingsHotkeyItem
-                                title="Search"
-                                description="Search with Google Lens"
-                                storeKey="hotkeySearch"
-                                v-model="settings.hotkeySearch" />
-
-                            <hr class="dark:border-dark-700/50 border-slate-100" />
-
-                            <SettingsHotkeyItem
-                                title="Edit"
-                                description="Open in editor"
-                                storeKey="hotkeyEdit"
-                                v-model="settings.hotkeyEdit" />
                         </div>
                     </template>
 
