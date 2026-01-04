@@ -6,7 +6,7 @@
     import SettingsHotkeyItem from '@/components/SettingsHotkeyItem.vue'
     import Switch from '@/components/Switch.vue'
     import TitleBar from '@/components/TitleBar.vue'
-    import { WINDOW_TITLES } from '@/config/window-config'
+    import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '@/config/window-config'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()
@@ -19,9 +19,9 @@
     const appVersion = ref('')
 
     const mainTabs = [
-        { id: 'general', label: 'General', width: 420, height: 650 },
-        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 670 },
-        { id: 'capture', label: 'Capture', width: 420, height: 540 }
+        { id: 'general', label: 'General', width: WINDOW_DIMENSIONS.settings.width, height: WINDOW_DIMENSIONS.settings.height },
+        { id: 'hotkeys', label: 'Hotkeys', width: WINDOW_DIMENSIONS.settings.width, height: 670 },
+        { id: 'capture', label: 'Capture', width: WINDOW_DIMENSIONS.settings.width, height: 540 }
     ]
 
     const browseSaveFolder = async () => {
@@ -112,7 +112,7 @@
                             v-model="settings.openInBrowser" />
 
                         <!-- Language Selection -->
-                        <div
+                        <!-- <div
                             class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
                             <label class="block">
                                 <h3 class="text-sm font-medium dark:text-gray-100">Language</h3>
@@ -126,7 +126,7 @@
                                     <option value="ru">Russian</option>
                                 </select>
                             </label>
-                        </div>
+                        </div> -->
 
                         <!-- Save Location Behavior -->
                         <SettingsSwitchItem
@@ -162,41 +162,82 @@
 
                     <!-- HOTKEYS TAB -->
                     <template v-else-if="activeTab === 'hotkeys'">
+                        <!-- QUICK MENU -->
+                        <div class="mb-3 px-1">
+                            <h3
+                                class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
+                                Quick Access
+                            </h3>
+                        </div>
+
+                        <div
+                            class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
+                            <SettingsHotkeyItem
+                                title="Quick Menu"
+                                description="Open quick menu to access all features"
+                                storeKey="hotkeyQuickMenu"
+                                v-model="settings.hotkeyQuickMenu" />
+                        </div>
+
+                        <!-- SCREENSHOT -->
+                        <div class="mt-5 mb-3 px-1">
+                            <h3
+                                class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
+                                Screenshot
+                            </h3>
+                        </div>
+
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
                             <SettingsHotkeyItem
-                                title="Screenshot"
-                                description="Capture screen area"
+                                title="Capture Screen"
+                                description="Open screenshot selection tool"
                                 storeKey="hotkeyScreenshot"
                                 v-model="settings.hotkeyScreenshot" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Recording"
-                                description="Start screen recording"
-                                storeKey="hotkeyRecording"
-                                v-model="settings.hotkeyRecording" />
+                                title="Upload"
+                                description="Upload screenshot to website"
+                                storeKey="hotkeyUpload"
+                                v-model="settings.hotkeyUpload" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Quick Menu"
-                                description="Open quick menu"
-                                storeKey="hotkeyQuickMenu"
-                                v-model="settings.hotkeyQuickMenu" />
+                                title="Copy"
+                                description="Copy screenshot to clipboard"
+                                storeKey="hotkeyCopy"
+                                v-model="settings.hotkeyCopy" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
+                            <SettingsHotkeyItem
+                                title="Save"
+                                description="Save screenshot to file"
+                                storeKey="hotkeySave"
+                                v-model="settings.hotkeySave" />
                         </div>
 
-                        <!-- VIDEO RECORDING HOTKEYS -->
+                        <!-- VIDEO RECORDING -->
                         <div class="mt-5 mb-3 px-1">
                             <h3
                                 class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
-                                Video Recording (Global)
+                                Video Recording
                             </h3>
                         </div>
 
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
+                            <SettingsHotkeyItem
+                                title="Select Recording Area"
+                                description="Open screen area selection for recording"
+                                storeKey="hotkeyRecording"
+                                v-model="settings.hotkeyRecording" />
+
+                            <hr class="dark:border-dark-700/50 border-slate-100" />
+
                             <SettingsHotkeyItem
                                 title="Start/Stop Recording"
                                 description="Toggle recording on/off"
@@ -206,51 +247,18 @@
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Mute/Unmute Microphone"
-                                description="Toggle microphone (before recording)"
+                                title="Toggle Microphone"
+                                description="Mute or unmute microphone"
                                 storeKey="hotkeyToggleMicrophone"
                                 v-model="settings.hotkeyToggleMicrophone" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Enable/Disable Webcam"
-                                description="Toggle webcam (before recording)"
+                                title="Toggle Webcam"
+                                description="Enable or disable webcam"
                                 storeKey="hotkeyToggleWebcam"
                                 v-model="settings.hotkeyToggleWebcam" />
-                        </div>
-
-                        <!-- CAPTURE TOOLBAR HOTKEYS -->
-                        <div class="mt-5 mb-3 px-1">
-                            <h3
-                                class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
-                                Capture Toolbar (Local)
-                            </h3>
-                        </div>
-
-                        <div
-                            class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
-                            <SettingsHotkeyItem
-                                title="Upload"
-                                description="Upload to website"
-                                storeKey="hotkeyUpload"
-                                v-model="settings.hotkeyUpload" />
-
-                            <hr class="dark:border-dark-700/50 border-slate-100" />
-
-                            <SettingsHotkeyItem
-                                title="Copy"
-                                description="Copy to clipboard"
-                                storeKey="hotkeyCopy"
-                                v-model="settings.hotkeyCopy" />
-
-                            <hr class="dark:border-dark-700/50 border-slate-100" />
-
-                            <SettingsHotkeyItem
-                                title="Save"
-                                description="Save to file"
-                                storeKey="hotkeySave"
-                                v-model="settings.hotkeySave" />
                         </div>
                     </template>
 

@@ -14,8 +14,8 @@ export const WINDOW_DIMENSIONS = {
         height: 440,
     },
     settings: {
-        width: 420,
-        height: 650
+        width: 450,
+        height: 485 // 650 with language selection
     },
     welcome: {
         width: 450,
