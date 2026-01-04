@@ -720,6 +720,24 @@
         }
     }
 
+    const handleStartStopTrigger = async () => {
+        try {
+            console.log('[VideoRecording] Start/Stop trigger received, mode:', mode.value, 'isRecording:', isRecording.value)
+            
+            if (mode.value === 'confirming' && !isRecording.value) {
+                console.log('[VideoRecording] Starting recording via hotkey')
+                await handleStart()
+            } else if (isRecording.value) {
+                console.log('[VideoRecording] Stopping recording via hotkey')
+                await handleStop()
+            } else {
+                console.log('[VideoRecording] Ignoring start/stop trigger - not in correct state')
+            }
+        } catch (error) {
+            console.error('[VideoRecording] Error handling start/stop trigger:', error)
+        }
+    }
+
     const handleArrowKeyNavigation = (event) => {
         // Only handle arrow keys when selection is confirmed (not during recording or countdown)
         if (mode.value !== 'confirming') return
@@ -1003,6 +1021,9 @@
         document.addEventListener('keydown', handleEscapeKeyCancel)
         document.addEventListener('keydown', handleArrowKeyNavigation)
 
+        // Listen for global shortcut trigger from main process
+        window.electron?.ipcRenderer?.on('trigger-start-stop-recording', handleStartStopTrigger)
+
         // Initialize recording
         await initialize()
 
@@ -1141,6 +1162,12 @@
     onUnmounted(() => {
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         document.removeEventListener('keydown', handleArrowKeyNavigation)
+        
+        // Remove IPC listener using the same handler reference
+        if (window.electron?.ipcRenderer?.removeListener) {
+            window.electron.ipcRenderer.removeListener('trigger-start-stop-recording', handleStartStopTrigger)
+        }
+        
         window.electronWindows?.removeDisplayActivationChangedListener?.()
 
         // Cleanup toolbar drag listeners if still active

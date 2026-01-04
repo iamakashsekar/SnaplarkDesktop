@@ -22,6 +22,15 @@ export const SHORTCUT_DEFINITIONS = {
         category: 'capture'
     },
 
+    // Start/Stop recording shortcut - Global
+    START_STOP_RECORDING: {
+        id: 'startStopRecording',
+        storeKey: 'hotkeyStartStopRecording',
+        type: 'global',
+        description: 'Start/Stop recording',
+        category: 'capture'
+    },
+
     // Quick menu shortcut - Global (currently commented out in UI, but ready to use)
     QUICK_MENU: {
         id: 'quickMenu',

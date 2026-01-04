@@ -203,6 +203,30 @@ const registerShortcutFromStore = (shortcutId) => {
                 }
             }
             break
+        case 'startStopRecording':
+            action = () => {
+                if (!windowManager) return
+
+                // Find all recording windows (they have keys like 'recording-1', 'recording-2', etc.)
+                let foundRecordingWindow = false
+                
+                for (const [type, win] of windowManager.windows.entries()) {
+                    if (type.startsWith('recording-') && !win.isDestroyed()) {
+                        foundRecordingWindow = true
+                        try {
+                            win.webContents.send('trigger-start-stop-recording')
+                            console.log(`[Main] Sent start/stop trigger to recording window: ${type}`)
+                        } catch (error) {
+                            console.error(`[Main] Error sending start/stop trigger to ${type}:`, error)
+                        }
+                    }
+                }
+
+                if (!foundRecordingWindow) {
+                    console.log('[Main] No active recording windows found for start/stop shortcut')
+                }
+            }
+            break
         case 'quickMenu':
             action = () => {
                 if (windowManager) {

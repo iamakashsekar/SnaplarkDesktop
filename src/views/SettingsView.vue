@@ -20,7 +20,7 @@
 
     const mainTabs = [
         { id: 'general', label: 'General', width: 420, height: 650 },
-        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 500 },
+        { id: 'hotkeys', label: 'Hotkeys', width: 420, height: 570 },
         { id: 'capture', label: 'Capture', width: 420, height: 540 }
     ]
 
@@ -185,6 +185,23 @@
                                 description="Open quick menu"
                                 storeKey="hotkeyQuickMenu"
                                 v-model="settings.hotkeyQuickMenu" />
+                        </div>
+
+                        <!-- VIDEO RECORDING HOTKEYS -->
+                        <div class="mt-5 mb-3 px-1">
+                            <h3
+                                class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
+                                Video Recording (Global)
+                            </h3>
+                        </div>
+
+                        <div
+                            class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
+                            <SettingsHotkeyItem
+                                title="Start/Stop Recording"
+                                description="Toggle recording on/off"
+                                storeKey="hotkeyStartStopRecording"
+                                v-model="settings.hotkeyStartStopRecording" />
                         </div>
 
                         <!-- CAPTURE TOOLBAR HOTKEYS -->

@@ -38,6 +38,7 @@ export const defaultState = {
         hotkeyScreenshot: isMac ? 'Cmd + Option + S' : 'Ctrl + Alt + S',
         hotkeyRecording: isMac ? 'Cmd + Option + R' : 'Ctrl + Alt + R',
         hotkeyQuickMenu: isMac ? 'Cmd + Option + Q' : 'Ctrl + Alt + Q',
+        hotkeyStartStopRecording: isMac ? 'Cmd + Shift + R' : 'Ctrl + Shift + R',
 
         // Capture Toolbar Shortcuts (Local to Screenshot Window)
         hotkeyUpload: isMac ? 'Cmd + U' : 'Ctrl + U',
