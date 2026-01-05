@@ -113,7 +113,7 @@ const checkAppPermissions = () => {
 }
 
 const createWindow = () => {
-    windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME, store)
+    windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME, store, shortcutManager)
 
     const mainWindow = windowManager.createWindow('main')
 
@@ -283,6 +283,33 @@ const registerShortcutFromStore = (shortcutId) => {
                 }
             }
             break
+        case 'upload':
+            action = () => {
+                const screenshotWindow = windowManager?.getWindow('screenshot')
+                if (screenshotWindow && screenshotWindow.webContents) {
+                    screenshotWindow.webContents.send('trigger-upload')
+                    console.log('[Main] Triggered upload action')
+                }
+            }
+            break
+        case 'copy':
+            action = () => {
+                const screenshotWindow = windowManager?.getWindow('screenshot')
+                if (screenshotWindow && screenshotWindow.webContents) {
+                    screenshotWindow.webContents.send('trigger-copy')
+                    console.log('[Main] Triggered copy action')
+                }
+            }
+            break
+        case 'save':
+            action = () => {
+                const screenshotWindow = windowManager?.getWindow('screenshot')
+                if (screenshotWindow && screenshotWindow.webContents) {
+                    screenshotWindow.webContents.send('trigger-save')
+                    console.log('[Main] Triggered save action')
+                }
+            }
+            break
         default:
             console.error(`[Main] Unknown shortcut action for: ${definition.id}`)
             return { success: false, error: 'Unknown shortcut action' }
@@ -359,10 +386,10 @@ app.whenReady().then(() => {
         app.dock.hide()
     }
 
-    createWindow()
-
-    // Initialize ShortcutManager
+    // Initialize ShortcutManager before creating windows
     shortcutManager = new ShortcutManager(store)
+
+    createWindow()
 
     // Register all global shortcuts after window is created
     registerAllShortcuts()
@@ -478,15 +505,68 @@ function setupIPCHandlers() {
     })
 
     // Shortcut handlers
+    // Validate a shortcut before assignment
+    ipcMain.handle('validate-shortcut', async (event, storeKey, hotkeyValue) => {
+        if (!shortcutManager) {
+            return { valid: false, error: 'Shortcut manager not initialized' }
+        }
+
+        // Find the shortcut definition
+        const shortcutEntry = Object.entries(SHORTCUT_DEFINITIONS).find(([, def]) => def.storeKey === storeKey)
+        if (!shortcutEntry) {
+            return { valid: false, error: 'Shortcut not found' }
+        }
+
+        const [, definition] = shortcutEntry
+        
+        // Validate the hotkey
+        const validation = shortcutManager.validateHotkey(hotkeyValue, definition.type, definition.id)
+        
+        return validation
+    })
+
+    // Check all shortcuts for conflicts
+    ipcMain.handle('check-all-shortcuts', async () => {
+        if (!shortcutManager) {
+            return { success: false, error: 'Shortcut manager not initialized' }
+        }
+
+        const settings = store.get('settings') || {}
+        const shortcuts = {}
+
+        // Check each defined shortcut
+        for (const [key, definition] of Object.entries(SHORTCUT_DEFINITIONS)) {
+            const hotkey = settings[definition.storeKey]
+            if (!hotkey) continue
+
+            const electronKey = shortcutManager.convertHotkeyToElectron(hotkey)
+            shortcuts[definition.storeKey] = {
+                hotkey,
+                electronKey,
+                description: definition.description,
+                isValid: true,
+                error: null
+            }
+
+            // Check if it's registered and working
+            if (definition.type === 'global') {
+                const registered = shortcutManager.isRegistered(definition.id)
+                if (!registered) {
+                    shortcuts[definition.storeKey].isValid = false
+                    shortcuts[definition.storeKey].error = 'Not registered'
+                }
+            }
+        }
+
+        return { success: true, shortcuts }
+    })
+
     // Generic shortcut update handler
     ipcMain.handle('update-shortcut', async (event, storeKey, hotkeyValue) => {
         console.log(`[Main] Updating shortcut: ${storeKey} = ${hotkeyValue}`)
 
-        // Update store
-        if (hotkeyValue !== undefined) {
-            const settings = store.get('settings') || {}
-            settings[storeKey] = hotkeyValue
-            store.set('settings', settings)
+        if (!shortcutManager) {
+            return { success: false, error: 'Shortcut manager not initialized' }
         }
 
         // Find the corresponding shortcut definition
@@ -497,8 +577,38 @@ function setupIPCHandlers() {
             return { success: false, error: 'Shortcut not found' }
         }
 
-        const [shortcutKey] = shortcutEntry
+        const [shortcutKey, definition] = shortcutEntry
+
+        // Validate the hotkey first
+        const validation = shortcutManager.validateHotkey(hotkeyValue, definition.type, definition.id)
+        if (!validation.valid) {
+            return { 
+                success: false, 
+                error: validation.error,
+                duplicate: validation.duplicate 
+            }
+        }
+
+        // Update store
+        if (hotkeyValue !== undefined) {
+            const settings = store.get('settings') || {}
+            settings[storeKey] = hotkeyValue
+            store.set('settings', settings)
+        }
+
+        // Register the shortcut
         const result = registerShortcutFromStore(shortcutKey)
+        
+        if (!result || !result.success) {
+            // Rollback the store change if registration failed
+            const settings = store.get('settings') || {}
+            const previousValue = settings[storeKey]
+            if (previousValue !== hotkeyValue) {
+                settings[storeKey] = previousValue
+                store.set('settings', settings)
+            }
+        }
+        
         return result || { success: true }
     })
 

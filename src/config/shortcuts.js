@@ -49,24 +49,42 @@ export const SHORTCUT_DEFINITIONS = {
         category: 'capture'
     },
 
-    // Quick menu shortcut - Global (currently commented out in UI, but ready to use)
+    // Quick menu shortcut - Global
     QUICK_MENU: {
         id: 'quickMenu',
         storeKey: 'hotkeyQuickMenu',
         type: 'global',
         description: 'Open quick menu',
         category: 'navigation'
-    }
+    },
 
-    // Example of a local shortcut (add more as needed):
-    // SAVE_SCREENSHOT: {
-    //     id: 'saveScreenshot',
-    //     storeKey: 'hotkeySaveScreenshot',
-    //     type: 'local',
-    //     windowId: 'screenshot', // The window where this shortcut is active
-    //     description: 'Save current screenshot',
-    //     category: 'screenshot'
-    // }
+    // Local shortcuts for screenshot toolbar
+    UPLOAD: {
+        id: 'upload',
+        storeKey: 'hotkeyUpload',
+        type: 'local',
+        windowId: 'screenshot',
+        description: 'Upload to website',
+        category: 'screenshot'
+    },
+
+    COPY: {
+        id: 'copy',
+        storeKey: 'hotkeyCopy',
+        type: 'local',
+        windowId: 'screenshot',
+        description: 'Copy to clipboard',
+        category: 'screenshot'
+    },
+
+    SAVE: {
+        id: 'save',
+        storeKey: 'hotkeySave',
+        type: 'local',
+        windowId: 'screenshot',
+        description: 'Save to file',
+        category: 'screenshot'
+    }
 }
 
 /**

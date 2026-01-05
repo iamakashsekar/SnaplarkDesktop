@@ -908,6 +908,23 @@
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
         document.addEventListener('keydown', handleToolbarShortcuts)
+
+        // Listen for IPC events from main process for local shortcuts
+        window.electron?.on('trigger-upload', () => {
+            if (mode.value === 'confirming' || mode.value === 'edited') {
+                handleUpload()
+            }
+        })
+        window.electron?.on('trigger-copy', () => {
+            if (mode.value === 'confirming' || mode.value === 'edited') {
+                handleCopy()
+            }
+        })
+        window.electron?.on('trigger-save', () => {
+            if (mode.value === 'confirming' || mode.value === 'edited') {
+                handleSave()
+            }
+        })
         document.addEventListener('keydown', handleArrowKeyNavigation)
 
         // Set up display activation listener first
@@ -995,6 +1012,11 @@
         document.removeEventListener('keydown', handleToolbarShortcuts)
         document.removeEventListener('keydown', handleArrowKeyNavigation)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
+        
+        // Remove IPC event listeners
+        window.electron?.removeListener('trigger-upload')
+        window.electron?.removeListener('trigger-copy')
+        window.electron?.removeListener('trigger-save')
     })
 
     // Editing

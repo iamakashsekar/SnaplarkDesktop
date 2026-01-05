@@ -184,8 +184,11 @@ class ShortcutManager {
             const targetWindow = windows.find((win) => win.id === windowId || win.title === windowId)
 
             if (!targetWindow) {
-                console.error(`[ShortcutManager] Window not found: ${windowId}`)
-                return { success: false, error: `Window not found: ${windowId}` }
+                // Window doesn't exist yet - that's okay for local shortcuts
+                // They will be registered when the window is created
+                console.log(`[ShortcutManager] Window '${windowId}' not found yet. Local shortcut will be registered when window is ready.`)
+                this.activeShortcuts.set(electronKey, id)
+                return { success: true, accelerator: electronKey, pending: true }
             }
 
             // For local shortcuts, we use webContents.on('before-input-event')
@@ -365,6 +368,135 @@ class ShortcutManager {
             type: config.type,
             windowId: config.windowId,
             description: config.description
+        }
+    }
+
+    /**
+     * Register all pending local shortcuts for a specific window
+     * Call this when a window is created/opened
+     * @param {string} windowId - The window ID (e.g., 'screenshot')
+     * @returns {number} - Number of shortcuts registered
+     */
+    registerLocalShortcutsForWindow(windowId) {
+        let count = 0
+        
+        for (const [id, config] of this.registeredShortcuts.entries()) {
+            // Only process local shortcuts for this window that don't have a listener yet
+            if (config.type === 'local' && config.windowId === windowId && !config.listener) {
+                const result = this._registerLocal(
+                    id,
+                    config.electronKey,
+                    config.action,
+                    windowId,
+                    config.description
+                )
+                
+                if (result.success && !result.pending) {
+                    count++
+                }
+            }
+        }
+        
+        if (count > 0) {
+            console.log(`[ShortcutManager] Registered ${count} local shortcuts for window: ${windowId}`)
+        }
+        
+        return count
+    }
+
+    /**
+     * Check if a hotkey is already in use by another shortcut
+     * @param {string} hotkey - The hotkey string to check
+     * @param {string} excludeId - Optional ID to exclude from the check (for updates)
+     * @returns {Object|null} - Returns the conflicting shortcut config or null if no conflict
+     */
+    findDuplicateHotkey(hotkey, excludeId = null) {
+        const electronKey = this.convertHotkeyToElectron(hotkey)
+        if (!electronKey) return null
+
+        for (const [id, config] of this.registeredShortcuts.entries()) {
+            if (id === excludeId) continue
+            if (config.electronKey === electronKey || config.hotkey === hotkey) {
+                return {
+                    id: config.id,
+                    hotkey: config.hotkey,
+                    description: config.description
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Validate a hotkey before registration
+     * @param {string} hotkey - The hotkey to validate
+     * @param {string} type - 'global' or 'local'
+     * @param {string} excludeId - Optional ID to exclude from duplicate check
+     * @returns {Object} - {valid: boolean, error?: string, duplicate?: Object}
+     */
+    validateHotkey(hotkey, type = 'global', excludeId = null) {
+        if (!hotkey || typeof hotkey !== 'string' || !hotkey.trim()) {
+            return { valid: false, error: 'Hotkey cannot be empty' }
+        }
+
+        const electronKey = this.convertHotkeyToElectron(hotkey)
+        if (!electronKey) {
+            return { valid: false, error: 'Invalid hotkey format' }
+        }
+
+        // Check for duplicates within our app
+        const duplicate = this.findDuplicateHotkey(hotkey, excludeId)
+        if (duplicate) {
+            return {
+                valid: false,
+                error: 'Hotkey already in use',
+                duplicate: duplicate
+            }
+        }
+
+        // For global shortcuts, check if it's already registered by another app
+        if (type === 'global' && globalShortcut.isRegistered(electronKey)) {
+            // Check if it's registered by us
+            const ourShortcut = Array.from(this.registeredShortcuts.values()).find(
+                (config) => config.electronKey === electronKey
+            )
+            if (!ourShortcut || (excludeId && ourShortcut.id === excludeId)) {
+                return {
+                    valid: false,
+                    error: 'Hotkey is in use by another application'
+                }
+            }
+        }
+
+        return { valid: true }
+    }
+
+    /**
+     * Test if a global shortcut can be registered (without actually registering it)
+     * @param {string} hotkey - The hotkey to test
+     * @returns {Object} - {canRegister: boolean, error?: string}
+     */
+    testGlobalShortcut(hotkey) {
+        const electronKey = this.convertHotkeyToElectron(hotkey)
+        if (!electronKey) {
+            return { canRegister: false, error: 'Invalid hotkey format' }
+        }
+
+        if (globalShortcut.isRegistered(electronKey)) {
+            return { canRegister: false, error: 'Already registered by another application' }
+        }
+
+        // Try to register and immediately unregister to test
+        try {
+            const registered = globalShortcut.register(electronKey, () => {})
+            if (registered) {
+                globalShortcut.unregister(electronKey)
+                return { canRegister: true }
+            } else {
+                return { canRegister: false, error: 'System rejected the shortcut' }
+            }
+        } catch (error) {
+            return { canRegister: false, error: error.message }
         }
     }
 }

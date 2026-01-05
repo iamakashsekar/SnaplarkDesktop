@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, watch, onMounted } from 'vue'
+    import { ref, onMounted } from 'vue'
     import { useWindows } from '@/composables/useWindows'
     import { useStore } from '@/store'
     import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
@@ -39,10 +39,6 @@
     }
 
     onMounted(async () => {
-        // Init window to the General tab height
-        // await resizeWindowTo('settings', 600, 700)
-
-        // Get app version
         if (window.electron?.getAppVersion) {
             appVersion.value = await window.electron.getAppVersion()
         }

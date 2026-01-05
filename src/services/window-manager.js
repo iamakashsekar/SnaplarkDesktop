@@ -3,11 +3,12 @@ import path from 'node:path'
 import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
 
 class WindowManager {
-    constructor(viteDevServerUrl, viteName, store = null) {
+    constructor(viteDevServerUrl, viteName, store = null, shortcutManager = null) {
         this.windows = new Map()
         this.viteDevServerUrl = viteDevServerUrl
         this.viteName = viteName
         this.store = store
+        this.shortcutManager = shortcutManager
         this.windowConfigs = this.getWindowConfigs()
         this.setupHandlers()
     }
@@ -320,6 +321,13 @@ class WindowManager {
         })
 
         this.windows.set(type, window)
+
+        // Register local shortcuts for screenshot windows once they're ready
+        if (isScreenshotWindow && this.shortcutManager) {
+            window.webContents.once('did-finish-load', () => {
+                this.shortcutManager.registerLocalShortcutsForWindow('screenshot')
+            })
+        }
 
         // Position webcam window on the specified display if provided
         if (isWebcamWindow && options.displayInfo) {
