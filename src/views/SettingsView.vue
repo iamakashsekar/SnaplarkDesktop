@@ -107,6 +107,12 @@
                             description="Automatically open the uploaded capture link"
                             v-model="settings.openInBrowser" />
 
+                        <!-- Show Tooltips -->
+                        <SettingsSwitchItem
+                            title="Show Tooltips"
+                            description="Display helpful tooltips throughout the application"
+                            v-model="settings.showTooltips" />
+
                         <!-- Language Selection -->
                         <!-- <div
                             class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">

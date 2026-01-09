@@ -1213,7 +1213,7 @@
             :style="toolbarStyle"
             @mousedown.stop>
             <!-- Drag Handle -->
-            <Tooltip text="Move">
+            <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
                 <div
                     class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
                     @mousedown="handleToolbarDragStart">
@@ -1239,7 +1239,7 @@
             </Tooltip>
 
             <div class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
-                <Tooltip :text="`Upload (${store.settings.hotkeyUpload})`">
+                <Tooltip :text="store.settings.showTooltips ? `Upload (${store.settings.hotkeyUpload})` : ''">
                     <button
                         @click="handleUpload"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1256,7 +1256,7 @@
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="`Copy (${store.settings.hotkeyCopy})`">
+                <Tooltip :text="store.settings.showTooltips ? `Copy (${store.settings.hotkeyCopy})` : ''">
                     <button
                         @click="handleCopy"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1279,7 +1279,7 @@
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="`Save (${store.settings.hotkeySave})`">
+                <Tooltip :text="store.settings.showTooltips ? `Save (${store.settings.hotkeySave})` : ''">
                     <button
                         @click="handleSave"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1296,7 +1296,7 @@
                     </button>
                 </Tooltip>
 
-                <Tooltip text="Read text from image">
+                <Tooltip :text="store.settings.showTooltips ? 'Read text from image' : ''">
                     <button
                         @click="handleOCR"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1328,7 +1328,7 @@
                     </button>
                 </Tooltip>
 
-                <Tooltip text="Search with Google Lens">
+                <Tooltip :text="store.settings.showTooltips ? 'Search with Google Lens' : ''">
                     <button
                         @click="handleSearch"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1367,7 +1367,7 @@
                     </button>
                 </Tooltip>
 
-                <Tooltip text="Open in editor">
+                <Tooltip :text="store.settings.showTooltips ? 'Open in editor' : ''">
                     <button
                         @click="handleEdit"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1391,7 +1391,7 @@
                 </Tooltip>
             </div>
 
-            <Tooltip text="Cancel (esc)">
+            <Tooltip :text="store.settings.showTooltips ? 'Cancel (esc)' : ''">
                 <div class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
                     <button
                         @click="handleCancel"

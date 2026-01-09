@@ -33,6 +33,7 @@ export const defaultState = {
         language: 'en',
         defaultSaveFolder: '~/Pictures/Snaplark',
         promptForSaveLocation: true,
+        showTooltips: true,
 
         // Hotkeys (Global)
         hotkeyScreenshot: isMac ? 'Cmd + Option + S' : 'Ctrl + Alt + S',

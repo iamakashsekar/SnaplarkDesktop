@@ -1385,7 +1385,7 @@
             }"
             :style="toolbarStyle">
             <!-- Drag Handle -->
-            <Tooltip text="Move">
+            <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
                 <div
                     @mousedown="handleToolbarDragStart"
                     :class="{ drag: isRecording }"
@@ -1412,7 +1412,7 @@
             </Tooltip>
 
             <div class="relative">
-                <Tooltip :text="isRecording ? `Stop Recording (${store.settings.hotkeyStartStopRecording})` : `Start Recording (${store.settings.hotkeyStartStopRecording})`">
+                <Tooltip :text="store.settings.showTooltips ? (isRecording ? `Stop Recording (${store.settings.hotkeyStartStopRecording})` : `Start Recording (${store.settings.hotkeyStartStopRecording})`) : ''">
                     <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                         <button
                             @click="isRecording ? handleStop() : handleStart()"
@@ -1459,7 +1459,7 @@
                     <div
                         v-if="!showToolbar"
                         class="absolute top-1.5 -right-5">
-                        <Tooltip text="Show Toolbar">
+                        <Tooltip :text="store.settings.showTooltips ? 'Show Toolbar' : ''">
                             <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                                 <button
                                     @click="expandToolbar"
@@ -1503,7 +1503,7 @@
                         <!-- Webcam Controls -->
                         <Tooltip
                             v-if="!showWebcamSettings"
-                            :text="store.settings.webcamEnabled ? `Disable webcam (${store.settings.hotkeyToggleWebcam})` : `Enable webcam (${store.settings.hotkeyToggleWebcam})`">
+                            :text="store.settings.showTooltips ? (store.settings.webcamEnabled ? `Disable webcam (${store.settings.hotkeyToggleWebcam})` : `Enable webcam (${store.settings.hotkeyToggleWebcam})`) : ''">
                             <div class="webcam-settings-container">
                                 <div
                                     ref="webcamSettingsButtonRef"
@@ -1732,7 +1732,7 @@
                         <!-- Audio Controls -->
                         <Tooltip
                             v-if="!showAudioSettings"
-                            :text="selectedAudioDeviceId ? `Mute microphone (${store.settings.hotkeyToggleMicrophone})` : `Unmute microphone (${store.settings.hotkeyToggleMicrophone})`">
+                            :text="store.settings.showTooltips ? (selectedAudioDeviceId ? `Mute microphone (${store.settings.hotkeyToggleMicrophone})` : `Unmute microphone (${store.settings.hotkeyToggleMicrophone})`) : ''">
                             <div class="audio-settings-container">
                                 <div
                                     ref="audioSettingsButtonRef"
@@ -1963,7 +1963,7 @@
                         </div>
                     </div>
 
-                    <Tooltip text="Cancel (esc)">
+                    <Tooltip :text="store.settings.showTooltips ? 'Cancel (esc)' : ''">
                         <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                             <button
                                 @click="handleCancel"
@@ -1984,7 +1984,7 @@
                         </div>
                     </Tooltip>
 
-                    <Tooltip text="Hide Toolbar">
+                    <Tooltip :text="store.settings.showTooltips ? 'Hide Toolbar' : ''">
                         <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                             <button
                                 @click="collapseToolbar"

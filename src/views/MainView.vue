@@ -5,6 +5,7 @@
     import { useStore } from '@/store'
     import { BASE_URL } from '@/api/config'
     import GradientFrame from '@/components/GradientFrame.vue'
+    import Tooltip from '@/components/Tooltip.vue'
     import { WINDOW_DIMENSIONS } from '@/config/window-config'
 
     const { createWindow, hideWindow, resizeWindowTo } = useWindows()
@@ -126,7 +127,7 @@
         <div class="main-container dark:bg-dark-blue flex h-full w-full flex-col rounded-2xl bg-white px-4 py-6">
             <!-- Capture Actions -->
             <div class="space-y-2">
-                <div class="group relative">
+                <Tooltip :text="store.settings.showTooltips ? displayHotkeyScreenshot : ''">
                     <button
                         type="button"
                         @click="takeScreenshot"
@@ -153,14 +154,9 @@
                             Take Screenshot
                         </p>
                     </button>
+                </Tooltip>
 
-                    <span
-                        class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ displayHotkeyScreenshot }}
-                    </span>
-                </div>
-
-                <div class="group relative">
+                <Tooltip :text="store.settings.showTooltips ? displayHotkeyRecording : ''">
                     <button
                         type="button"
                         @click="recordVideo()"
@@ -180,12 +176,7 @@
                             Record Video
                         </p>
                     </button>
-
-                    <span
-                        class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ displayHotkeyRecording }}
-                    </span>
-                </div>
+                </Tooltip>
 
                 <!-- <div class="group relative">
                     <button
@@ -218,7 +209,7 @@
 
             <!-- Media Actions -->
             <div class="space-y-2">
-                <div class="group relative">
+                <Tooltip :text="store.settings.showTooltips ? (store.lastCapture ? 'Open last uploaded capture' : 'No capture uploaded yet') : ''">
                     <button
                         :disabled="!store.lastCapture"
                         type="button"
@@ -259,11 +250,7 @@
                             Last Capture
                         </p>
                     </button>
-                    <span
-                        class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ store.lastCapture ? 'Open last uploaded capture' : 'No capture uploaded yet' }}
-                    </span>
-                </div>
+                </Tooltip>
 
                 <button
                     type="button"
@@ -350,7 +337,7 @@
 
             <!-- App Actions -->
             <div class="space-y-4">
-                <div class="group relative">
+                <Tooltip :text="store.settings.showTooltips ? `${store.getOs() === 'darwin' ? 'Quit' : 'Close'} (${store.getOs() === 'darwin' ? 'Cmd' : 'Ctrl'} + Q)` : ''">
                     <button
                         type="button"
                         @click="quitApplication"
@@ -370,12 +357,7 @@
                             {{ store.getOs() === 'darwin' ? 'Quit' : 'Close' }}
                         </p>
                     </button>
-                    <span
-                        class="pointer-events-none absolute top-full left-1/2 z-10 mt-2 -translate-x-1/2 rounded bg-gray-900 px-2 py-1 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100">
-                        {{ store.getOs() === 'darwin' ? 'Quit' : 'Close' }}
-                        ({{ store.getOs() === 'darwin' ? 'Cmd' : 'Ctrl' }} + Q)
-                    </span>
-                </div>
+                </Tooltip>
                 <!-- User Profile -->
                 <div
                     ref="userMenuContainer"

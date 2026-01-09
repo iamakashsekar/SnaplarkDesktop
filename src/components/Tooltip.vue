@@ -4,7 +4,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 const props = defineProps({
     text: {
         type: String,
-        required: true
+        required: false,
+        default: ''
     }
 })
 
@@ -14,6 +15,7 @@ const isVisible = ref(false)
 const tooltipPosition = ref('bottom')
 
 const handleMouseEnter = () => {
+    if (!props.text) return
     isVisible.value = true
     checkTooltipPosition()
 }
@@ -65,7 +67,7 @@ onUnmounted(() => {
         @mouseenter="handleMouseEnter"
         @mouseleave="handleMouseLeave">
         <slot />
-        <span v-if="isVisible" ref="tooltipRef" :class="tooltipClasses">
+        <span v-if="isVisible && text" ref="tooltipRef" :class="tooltipClasses">
             {{ text }}
         </span>
     </div>

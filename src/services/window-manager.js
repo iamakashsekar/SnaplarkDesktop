@@ -36,7 +36,7 @@ class WindowManager {
 
     getWindowConfigs() {
         const common = this.getCommonConfig()
-        
+
         // Check if user is logged in by checking for auth token
         const isLoggedIn = this.store ? !!this.store.get('auth_token') : false
         const mainDimensions = isLoggedIn ? WINDOW_DIMENSIONS.main : WINDOW_DIMENSIONS.login
@@ -282,10 +282,10 @@ class WindowManager {
         const baseType = isScreenshotWindow
             ? 'screenshot'
             : isVideoRecordingWindow
-              ? 'recording'
-              : isRecordingOverlay
-                ? 'recording-overlay'
-                : type
+                ? 'recording'
+                : isRecordingOverlay
+                    ? 'recording-overlay'
+                    : type
         const config = { ...this.windowConfigs[baseType], ...options }
         const parentWindow = this.windows.get('main') || null
 
@@ -558,7 +558,7 @@ class WindowManager {
                 window.setFullScreen(false)
 
                 // Make window normal (resizable and movable)
-                window.setResizable(false)
+                window.setResizable(true)
                 window.setMovable(true)
 
                 // Enable shadow for the window
