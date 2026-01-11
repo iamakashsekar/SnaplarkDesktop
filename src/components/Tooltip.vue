@@ -6,6 +6,11 @@ const props = defineProps({
         type: String,
         required: false,
         default: ''
+    },
+    spacing: {
+        type: String,
+        required: false,
+        default: 'mt-4'
     }
 })
 
@@ -43,7 +48,7 @@ const tooltipClasses = computed(() => [
     'bg-gray-black pointer-events-none absolute z-10 rounded px-5 py-1.5 text-xs whitespace-nowrap text-white opacity-0 transition-opacity group-hover:opacity-100',
     'before:absolute before:border-6 before:border-transparent before:content-[""]',
     {
-        'top-full mt-4 before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-b-gray-black':
+        [`top-full ${props.spacing} before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-b-gray-black`]:
             tooltipPosition.value === 'bottom',
         'bottom-full mb-4 before:top-full before:left-1/2 before:-translate-x-1/2 before:border-t-gray-black':
             tooltipPosition.value === 'top',
@@ -61,11 +66,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div
-        ref="wrapperRef"
-        class="group relative"
-        @mouseenter="handleMouseEnter"
-        @mouseleave="handleMouseLeave">
+    <div ref="wrapperRef" class="group relative" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
         <slot />
         <span v-if="isVisible && text" ref="tooltipRef" :class="tooltipClasses">
             {{ text }}
