@@ -888,9 +888,57 @@ const handleToolbarDragStart = (e) => {
 
 const showToolbar = ref(true)
 
+// Tooltip expansion sizes (manually configurable)
+const TOOLBAR_SIZES = {
+    collapsed: { width: 215, height: 45 },
+    expanded: { width: 450, height: 45 },
+    // Sizes when showing tooltips during recording
+    collapsedWithTooltip: { width: 260, height: 90 },
+    expandedWithTooltip: { width: 450, height: 90 }
+}
+
+const isHoveringToolbarButton = ref(false)
+
+const handleToolbarButtonHover = async (hovering) => {
+    if (!isRecording.value) return
+
+    if (!store.settings.showTooltips) return
+
+    isHoveringToolbarButton.value = hovering
+
+    if (hovering) {
+        // Expand window to show tooltips
+        const sizes = showToolbar.value
+            ? TOOLBAR_SIZES.expandedWithTooltip
+            : TOOLBAR_SIZES.collapsedWithTooltip
+        await window.electronWindows?.resizeWindow?.(
+            `recording-${displayId.value}`,
+            sizes.width,
+            sizes.height
+        )
+    } else {
+        // Restore to toolbar-only size
+        const sizes = showToolbar.value
+            ? TOOLBAR_SIZES.expanded
+            : TOOLBAR_SIZES.collapsed
+        await window.electronWindows?.resizeWindow?.(
+            `recording-${displayId.value}`,
+            sizes.width,
+            sizes.height
+        )
+    }
+}
+
 const expandToolbar = async () => {
     if (isRecording.value) {
-        await window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 450, 45)
+        const sizes = isHoveringToolbarButton.value
+            ? TOOLBAR_SIZES.expandedWithTooltip
+            : TOOLBAR_SIZES.expanded
+        await window.electronWindows?.resizeWindow?.(
+            `recording-${displayId.value}`,
+            sizes.width,
+            sizes.height
+        )
     }
 
     showToolbar.value = true
@@ -898,7 +946,14 @@ const expandToolbar = async () => {
 
 const collapseToolbar = async () => {
     if (isRecording.value) {
-        await window.electronWindows?.resizeWindow?.(`recording-${displayId.value}`, 215, 45)
+        const sizes = isHoveringToolbarButton.value
+            ? TOOLBAR_SIZES.collapsedWithTooltip
+            : TOOLBAR_SIZES.collapsed
+        await window.electronWindows?.resizeWindow?.(
+            `recording-${displayId.value}`,
+            sizes.width,
+            sizes.height
+        )
     }
     showToolbar.value = false
 }
@@ -1343,7 +1398,8 @@ onUnmounted(() => {
             }" :style="toolbarStyle">
             <!-- Drag Handle -->
             <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
-                <div @mousedown="handleToolbarDragStart" :class="{ drag: isRecording }"
+                <div @mousedown="handleToolbarDragStart" @mouseenter="handleToolbarButtonHover(true)"
+                    @mouseleave="handleToolbarButtonHover(false)" :class="{ drag: isRecording }"
                     class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100">
                     <svg class="size-5 text-gray-600 transition-colors hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                         viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -1359,6 +1415,7 @@ onUnmounted(() => {
                     :text="store.settings.showTooltips ? (isRecording ? `Stop Recording (${store.settings.hotkeyStartStopRecording})` : `Start Recording (${store.settings.hotkeyStartStopRecording})`) : ''">
                     <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                         <button @click="isRecording ? handleStop() : handleStart()"
+                            @mouseenter="handleToolbarButtonHover(true)" @mouseleave="handleToolbarButtonHover(false)"
                             class="flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-transparent px-4 py-2.5 transition-colors dark:text-white">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="#d73a3a" :class="{ 'recording-pulse': isRecording }">
@@ -1389,7 +1446,8 @@ onUnmounted(() => {
                         <Tooltip :spacing="isRecording ? 'mt-3' : 'mt-4'"
                             :text="store.settings.showTooltips ? 'Show Toolbar' : ''">
                             <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
-                                <button @click="expandToolbar"
+                                <button @click="expandToolbar" @mouseenter="handleToolbarButtonHover(true)"
+                                    @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
@@ -1422,6 +1480,8 @@ onUnmounted(() => {
                                         'dark:bg-dark-700 bg-gray-100': showWebcamSettings
                                     }">
                                     <button @click="toggleWebcam" type="button"
+                                        @mouseenter="handleToolbarButtonHover(true)"
+                                        @mouseleave="handleToolbarButtonHover(false)"
                                         class="flex cursor-pointer items-center justify-center border-none bg-transparent py-2.5 pl-3 pr-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                         <svg v-if="store.settings.webcamEnabled" width="24" height="24"
                                             viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1447,6 +1507,8 @@ onUnmounted(() => {
                                         </svg>
                                     </button>
                                     <button @click="toggleWebcamSettings" type="button"
+                                        @mouseenter="handleToolbarButtonHover(true)"
+                                        @mouseleave="handleToolbarButtonHover(false)"
                                         class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
                                             xmlns="http://www.w3.org/2000/svg">
@@ -1496,7 +1558,8 @@ onUnmounted(() => {
                                     'bg-blue-100 dark:bg-blue-900/40': store.settings.webcamEnabled,
                                     'dark:bg-dark-700 bg-gray-100': showWebcamSettings
                                 }">
-                                <button @click="toggleWebcam" type="button"
+                                <button @click="toggleWebcam" type="button" @mouseenter="handleToolbarButtonHover(true)"
+                                    @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center border-none bg-transparent py-2.5 pl-3 pr-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                     <svg v-if="store.settings.webcamEnabled" width="24" height="24" viewBox="0 0 24 24"
                                         fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1522,6 +1585,8 @@ onUnmounted(() => {
                                     </svg>
                                 </button>
                                 <button @click="toggleWebcamSettings" type="button"
+                                    @mouseenter="handleToolbarButtonHover(true)"
+                                    @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
@@ -1536,6 +1601,8 @@ onUnmounted(() => {
 
                             <!-- Webcam Settings Dropdown -->
                             <div v-if="showWebcamSettings" ref="webcamDropdownRef"
+                                @mouseenter="handleToolbarButtonHover(true)"
+                                @mouseleave="handleToolbarButtonHover(false)"
                                 class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                 :class="[webcamDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                 <div class="flex flex-col">
@@ -1572,6 +1639,8 @@ onUnmounted(() => {
                                         'dark:bg-dark-700 bg-gray-100': showAudioSettings
                                     }">
                                     <button @click="toggleAudioMute" type="button"
+                                        @mouseenter="handleToolbarButtonHover(true)"
+                                        @mouseleave="handleToolbarButtonHover(false)"
                                         class="flex cursor-pointer items-center justify-center border-none bg-transparent py-2.5 pl-3 pr-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                         <svg v-if="selectedAudioDeviceId" width="24" height="24" viewBox="0 0 24 24"
                                             fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1600,6 +1669,8 @@ onUnmounted(() => {
                                         </svg>
                                     </button>
                                     <button @click="toggleAudioSettings" type="button"
+                                        @mouseenter="handleToolbarButtonHover(true)"
+                                        @mouseleave="handleToolbarButtonHover(false)"
                                         class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
                                             xmlns="http://www.w3.org/2000/svg">
@@ -1614,6 +1685,8 @@ onUnmounted(() => {
 
                                 <!-- Audio Settings Dropdown -->
                                 <div v-if="showAudioSettings" ref="audioDropdownRef"
+                                    @mouseenter="handleToolbarButtonHover(true)"
+                                    @mouseleave="handleToolbarButtonHover(false)"
                                     class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                     :class="[audioDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                     <div class="flex flex-col">
@@ -1650,6 +1723,8 @@ onUnmounted(() => {
                                     'dark:bg-dark-700 bg-gray-100': showAudioSettings
                                 }">
                                 <button @click="toggleAudioMute" type="button"
+                                    @mouseenter="handleToolbarButtonHover(true)"
+                                    @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center border-none bg-transparent py-2.5 pl-3 pr-1.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                     <svg v-if="selectedAudioDeviceId" width="24" height="24" viewBox="0 0 24 24"
                                         fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1678,6 +1753,8 @@ onUnmounted(() => {
                                     </svg>
                                 </button>
                                 <button @click="toggleAudioSettings" type="button"
+                                    @mouseenter="handleToolbarButtonHover(true)"
+                                    @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
                                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
@@ -1692,6 +1769,8 @@ onUnmounted(() => {
 
                             <!-- Audio Settings Dropdown -->
                             <div v-if="showAudioSettings" ref="audioDropdownRef"
+                                @mouseenter="handleToolbarButtonHover(true)"
+                                @mouseleave="handleToolbarButtonHover(false)"
                                 class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                 :class="[audioDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                 <div class="flex flex-col">
@@ -1723,7 +1802,8 @@ onUnmounted(() => {
                     <Tooltip :spacing="isRecording ? 'mt-3' : 'mt-4'"
                         :text="store.settings.showTooltips ? 'Cancel (esc)' : ''">
                         <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
-                            <button @click="handleCancel"
+                            <button @click="handleCancel" @mouseenter="handleToolbarButtonHover(true)"
+                                @mouseleave="handleToolbarButtonHover(false)"
                                 class="flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 text-red-500 transition-colors hover:bg-red-500 hover:text-white dark:hover:bg-red-600">
                                 <svg class="size-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2"
@@ -1736,7 +1816,8 @@ onUnmounted(() => {
                     <Tooltip :spacing="isRecording ? 'mt-3' : 'mt-4'"
                         :text="store.settings.showTooltips ? 'Hide Toolbar' : ''">
                         <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
-                            <button @click="collapseToolbar"
+                            <button @click="collapseToolbar" @mouseenter="handleToolbarButtonHover(true)"
+                                @mouseleave="handleToolbarButtonHover(false)"
                                 class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-center rounded-full border-none bg-transparent p-2 transition-colors hover:bg-gray-100">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
                                     xmlns="http://www.w3.org/2000/svg">
