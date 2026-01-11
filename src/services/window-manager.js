@@ -558,7 +558,7 @@ class WindowManager {
                 window.setFullScreen(false)
 
                 // Make window normal (resizable and movable)
-                window.setResizable(true)
+                window.setResizable(false)
                 window.setMovable(true)
 
                 // Enable shadow for the window
