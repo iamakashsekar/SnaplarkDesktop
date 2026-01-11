@@ -31,7 +31,8 @@ import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
 // ==================== CONFIGURATION & INITIALIZATION ====================
 
 const store = new Store({
-    defaults: getPersistableDefaults()
+    defaults: getPersistableDefaults(),
+    encryptionKey: "snaplark-encryption-key",
 })
 
 if (started) {
