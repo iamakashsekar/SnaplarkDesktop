@@ -549,7 +549,10 @@ const toggleAudioMute = () => {
 }
 
 const toggleSystemAudio = () => {
-    setSystemAudioEnabled(!systemAudioEnabled.value)
+    const newValue = !systemAudioEnabled.value
+    setSystemAudioEnabled(newValue)
+    // Save to settings
+    store.updateSetting('systemAudioEnabled', newValue)
 }
 
 const repositionWebcam = async (throttle = false) => {
@@ -1148,6 +1151,12 @@ onMounted(async () => {
     } else {
         // No saved setting or explicitly muted - set to null
         selectedAudioDeviceId.value = null
+    }
+
+    // Load saved system audio setting from settings
+    const savedSystemAudioEnabled = store.settings.systemAudioEnabled
+    if (savedSystemAudioEnabled !== undefined) {
+        setSystemAudioEnabled(savedSystemAudioEnabled)
     }
 
     // Load saved webcam device ID from settings

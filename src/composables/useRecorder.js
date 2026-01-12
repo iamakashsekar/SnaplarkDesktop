@@ -401,18 +401,17 @@ export function useRecorder() {
             console.log('📹 Video track settings:', videoTrack.getSettings())
             console.log('🎤 Audio tracks:', canvasStream.getAudioTracks().length)
 
-            // Mix audio tracks using Web Audio API
-            // MediaRecorder only records the first audio track, so we need to mix them
-            let mixedAudioTrack = null
+            // Handle audio tracks - avoid Web Audio API when possible for better compatibility
+            let finalAudioTrack = null
 
-            const audioStreamsToMix = []
+            const availableAudioStreams = []
             if (audioStream && audioStream.getAudioTracks().length > 0) {
                 const micTracks = audioStream.getAudioTracks()
                 console.log('🎤 Microphone audio tracks:', micTracks.length)
                 console.log('🎤 Mic track states:', micTracks.map(t => `${t.label}:${t.readyState}:enabled=${t.enabled}`))
                 // Only add if tracks are live
                 if (micTracks.some(t => t.readyState === 'live')) {
-                    audioStreamsToMix.push(audioStream)
+                    availableAudioStreams.push(audioStream)
                 } else {
                     console.warn('⚠️ Microphone tracks are not live, skipping')
                 }
@@ -423,21 +422,27 @@ export function useRecorder() {
                 console.log('🔊 System track states:', sysTracks.map(t => `${t.label}:${t.readyState}:enabled=${t.enabled}`))
                 // Only add if tracks are live
                 if (sysTracks.some(t => t.readyState === 'live')) {
-                    audioStreamsToMix.push(systemAudioStream)
+                    availableAudioStreams.push(systemAudioStream)
                 } else {
                     console.warn('⚠️ System audio tracks are not live, skipping')
                 }
             }
-            console.log('🎵 Total streams to mix:', audioStreamsToMix.length)
+            console.log('🎵 Total available audio streams:', availableAudioStreams.length)
 
-            if (audioStreamsToMix.length > 0) {
+            if (availableAudioStreams.length === 1) {
+                // Only one audio stream - use it directly without Web Audio API mixing
+                // This avoids potential codec compatibility issues with mixed audio
+                finalAudioTrack = availableAudioStreams[0].getAudioTracks()[0]
+                console.log('✅ Using single audio track directly (no mixing):', finalAudioTrack.label)
+            } else if (availableAudioStreams.length > 1) {
+                // Multiple audio streams - need to mix them
                 try {
                     // Create audio context for mixing
                     recordingAudioContext = new AudioContext({ sampleRate: 48000 })
                     const destination = recordingAudioContext.createMediaStreamDestination()
 
                     // Connect all audio streams to the destination
-                    for (const stream of audioStreamsToMix) {
+                    for (const stream of availableAudioStreams) {
                         const source = recordingAudioContext.createMediaStreamSource(stream)
                         // Add gain control (can adjust volume if needed)
                         const gainNode = recordingAudioContext.createGain()
@@ -448,24 +453,24 @@ export function useRecorder() {
                     }
 
                     // Get the mixed audio track
-                    mixedAudioTrack = destination.stream.getAudioTracks()[0]
-                    console.log('✅ Audio mixed successfully:', mixedAudioTrack.label)
+                    finalAudioTrack = destination.stream.getAudioTracks()[0]
+                    console.log('✅ Audio mixed successfully:', finalAudioTrack.label)
                 } catch (error) {
                     console.error('❌ Error mixing audio:', error)
                     // Fallback to first available audio track
-                    if (audioStreamsToMix[0]) {
-                        mixedAudioTrack = audioStreamsToMix[0].getAudioTracks()[0]
-                        console.log('⚠️ Fallback to first audio track')
+                    if (availableAudioStreams[0]) {
+                        finalAudioTrack = availableAudioStreams[0].getAudioTracks()[0]
+                        console.log('⚠️ Fallback to first audio track after mixing failure')
                     }
                 }
             }
 
             let finalStream
-            if (mixedAudioTrack) {
-                finalStream = new MediaStream([...canvasStream.getVideoTracks(), mixedAudioTrack])
-                console.log('🎬 Final stream (with mixed audio):', finalStream)
+            if (finalAudioTrack) {
+                finalStream = new MediaStream([...canvasStream.getVideoTracks(), finalAudioTrack])
+                console.log('🎬 Final stream (with audio):', finalStream)
                 console.log('📹 Final video tracks:', finalStream.getVideoTracks().length)
-                console.log('🎤 Mixed audio track:', finalStream.getAudioTracks().length)
+                console.log('🎤 Final audio track:', finalStream.getAudioTracks().length)
             } else {
                 finalStream = canvasStream
                 console.log('🎬 Final stream (no audio):', finalStream)
@@ -605,7 +610,7 @@ export function useRecorder() {
                     // Calculate actual duration
                     recordingDuration = Date.now() - recordingStartTime
                     console.log(`📊 Duration: ${(recordingDuration / 1000).toFixed(1)}s`)
-                    console.log(`📦 Total chunks recorded: ${totalChunks}`)
+                    console.log(`📦 Total chunks recorded so far: ${totalChunks}`)
 
                     // Wait for all pending writes to complete
                     console.log('⏳ Waiting for disk writes to complete...')
@@ -619,12 +624,34 @@ export function useRecorder() {
                         console.warn('⚠️ Warning: Some writes still pending')
                     }
 
-                    // Mark recording as finished - no more chunks will be added
-                    // Notification system handles the rest
-                    console.log('✅ Recording finished locally')
+                    // CRITICAL: Wait for any final ondataavailable events that might fire after stop()
+                    // MediaRecorder can fire ondataavailable after stop() is called
+                    console.log('⏳ Waiting for final chunks (MediaRecorder may fire ondataavailable after stop)...')
+                    const finalChunkWaitStart = Date.now()
+                    const initialTotalChunks = totalChunks
+                    let noNewChunksCount = 0
 
-                    // Wait a moment for any final chunks to be queued (ondataavailable might fire after onstop)
-                    await new Promise((resolve) => setTimeout(resolve, 1000))
+                    while (Date.now() - finalChunkWaitStart < 3000) { // Wait up to 3 seconds for final chunks
+                        await new Promise((resolve) => setTimeout(resolve, 100))
+
+                        if (totalChunks > initialTotalChunks) {
+                            // New chunk arrived, reset counter
+                            console.log(`📦 New chunk received: ${totalChunks} total`)
+                            noNewChunksCount = 0
+                        } else {
+                            noNewChunksCount++
+                        }
+
+                        // If no new chunks for 500ms (5 iterations), assume we're done
+                        if (noNewChunksCount >= 5) {
+                            break
+                        }
+                    }
+
+                    console.log(`📦 Final chunk count: ${totalChunks}`)
+
+                    // Wait a bit more for any pending upload queue operations
+                    await new Promise((resolve) => setTimeout(resolve, 500))
 
                     // Close the disk write stream
                     if (window.electron && recordingTempPath) {
@@ -718,12 +745,16 @@ export function useRecorder() {
                     console.log('☁️ Sending finalize signal to notification...')
                     if (uploadId && window.electronNotifications) {
                         try {
+                            // Send the final chunk count we determined after waiting for all chunks
+                            const finalMetadata = {
+                                totalChunks: totalChunks,
+                                duration: recordingDuration
+                            }
+                            console.log('📊 Finalizing with metadata:', finalMetadata)
+
                             window.electronNotifications.sendVideoFinalize({
                                 id: uploadId,
-                                metadata: {
-                                    totalChunks: totalChunks,
-                                    duration: recordingDuration
-                                }
+                                metadata: finalMetadata
                             })
 
                             // Close window immediately if it's a dedicated recording window

@@ -404,6 +404,30 @@ class ChunkUploadManager {
             this.markRecordingFinished(expectedChunks)
         }
 
+        // CRITICAL: Wait for ALL chunks to be queued before proceeding
+        // This ensures we don't start uploading before all local chunks are collected
+        console.log(`⏳ Waiting for all ${expectedChunks} chunks to be queued for upload...`)
+        const queueWaitStart = Date.now()
+        const maxQueueWait = 10000 // 10 seconds max wait for queue to fill
+
+        while (Date.now() - queueWaitStart < maxQueueWait) {
+            // Count how many chunks should be queued (init + all data chunks)
+            const expectedQueuedItems = 1 + expectedChunks // 1 for init, plus all chunks
+            const currentlyQueued = this.uploadQueue.length + this.uploadedChunks.size
+
+            if (currentlyQueued >= expectedQueuedItems) {
+                console.log(`✅ All chunks queued (${currentlyQueued}/${expectedQueuedItems} items)`)
+                break
+            }
+
+            console.log(`⏳ Queue status: ${currentlyQueued}/${expectedQueuedItems} items queued, waiting...`)
+            await new Promise((resolve) => setTimeout(resolve, 200))
+        }
+
+        if (Date.now() - queueWaitStart >= maxQueueWait) {
+            console.warn(`⚠️ Timeout waiting for chunks to be queued. Expected: ${expectedChunks}, queued so far: ${this.uploadQueue.length + this.uploadedChunks.size - 1}`)
+        }
+
         if (!this.sessionId) {
             // Try to initialize session if we have metadata
             if (this.metadata && connectivityService.isOnline) {
