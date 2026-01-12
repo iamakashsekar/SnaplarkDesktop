@@ -15,6 +15,15 @@ import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
+import { initMain as initAudioLoopback } from 'electron-audio-loopback'
+
+// Initialize audio loopback before app is ready (required by the package)
+// Use forceCoreAudioTap for better compatibility on some macOS versions
+initAudioLoopback({
+    forceCoreAudioTap: true,
+    loopbackWithMute: false,
+    sourcesOptions: { types: ['screen', 'window'] }
+})
 import Store from 'electron-store'
 import SystemTray from './services/system_tray.js'
 import WindowManager from './services/window-manager.js'

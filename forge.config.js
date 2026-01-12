@@ -14,7 +14,8 @@ module.exports = {
             NSCameraUsageDescription: 'Snaplark needs camera access to record videos with webcam.',
             NSMicrophoneUsageDescription: 'Snaplark needs microphone access to record audio in your videos.',
             NSScreenCaptureUsageDescription: 'Snaplark needs screen recording permission to capture your screen.',
-            NSAccessibilityUsageDescription: 'Snaplark needs accessibility access to record specific windows.'
+            NSAccessibilityUsageDescription: 'Snaplark needs accessibility access to record specific windows.',
+            NSAudioCaptureUsageDescription: 'Snaplark needs audio capture access to record system audio in your videos.'
         },
         osxSign: {
             identity: process.env.APP_IDENTITY,

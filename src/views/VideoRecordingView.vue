@@ -548,6 +548,10 @@ const toggleAudioMute = () => {
     }
 }
 
+const toggleSystemAudio = () => {
+    setSystemAudioEnabled(!systemAudioEnabled.value)
+}
+
 const repositionWebcam = async (throttle = false) => {
     if (!store.settings.webcamEnabled) return
 
@@ -1068,8 +1072,10 @@ const {
     isRecording,
     recordingTime,
     filename,
+    systemAudioEnabled,
     setCropRegion,
     setEnableCrop,
+    setSystemAudioEnabled,
     startRecording,
     stopRecording,
     initialize,
@@ -1506,7 +1512,7 @@ onUnmounted(() => {
                                                 fill="#6C82A3" />
                                         </svg>
                                     </button>
-                                    <button @click="toggleWebcamSettings" type="button"
+                                    <button @click.stop="toggleWebcamSettings" type="button"
                                         @mouseenter="handleToolbarButtonHover(true)"
                                         @mouseleave="handleToolbarButtonHover(false)"
                                         class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
@@ -1584,7 +1590,7 @@ onUnmounted(() => {
                                             fill="#6C82A3" />
                                     </svg>
                                 </button>
-                                <button @click="toggleWebcamSettings" type="button"
+                                <button @click.stop="toggleWebcamSettings" type="button"
                                     @mouseenter="handleToolbarButtonHover(true)"
                                     @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
@@ -1668,7 +1674,7 @@ onUnmounted(() => {
                                                 fill="#6C82A3" />
                                         </svg>
                                     </button>
-                                    <button @click="toggleAudioSettings" type="button"
+                                    <button @click.stop="toggleAudioSettings" type="button"
                                         @mouseenter="handleToolbarButtonHover(true)"
                                         @mouseleave="handleToolbarButtonHover(false)"
                                         class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
@@ -1690,6 +1696,38 @@ onUnmounted(() => {
                                     class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                     :class="[audioDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                     <div class="flex flex-col">
+                                        <!-- System Audio Toggle -->
+                                        <div @click="toggleSystemAudio"
+                                            class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                            :class="[
+                                                systemAudioEnabled
+                                                    ? 'font-medium text-blue-600 dark:text-blue-400'
+                                                    : 'text-gray-700 dark:text-gray-300'
+                                            ]">
+                                            <div class="flex items-center gap-2">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                                    xmlns="http://www.w3.org/2000/svg">
+                                                    <path
+                                                        d="M14.02 3.78C12.9 3.16 11.47 3.32 10.01 4.23L7.09 6.06C6.89 6.18 6.66 6.25 6.43 6.25H5.5H5C2.58 6.25 1.25 7.58 1.25 10V14C1.25 16.42 2.58 17.75 5 17.75H5.5H6.43C6.66 17.75 6.89 17.82 7.09 17.94L10.01 19.77C10.89 20.32 11.75 20.59 12.55 20.59C13.07 20.59 13.57 20.47 14.02 20.22C15.13 19.6 15.75 18.31 15.75 16.59V7.41C15.75 5.69 15.13 4.4 14.02 3.78Z"
+                                                        :fill="systemAudioEnabled ? '#2178FF' : '#6C82A3'" />
+                                                    <path v-if="systemAudioEnabled"
+                                                        d="M18.0001 16.75C17.8401 16.75 17.6901 16.7 17.5501 16.6C17.2201 16.35 17.1501 15.88 17.4001 15.55C18.2201 14.46 18.6701 13.15 18.6701 11.77C18.6701 10.43 18.2501 9.16002 17.4801 8.09002C17.2401 7.76002 17.3201 7.29002 17.6501 7.05002C17.9801 6.81002 18.4501 6.89002 18.6901 7.22002C19.6601 8.56002 20.1801 10.13 20.1801 11.78C20.1801 13.48 19.6201 15.1 18.5901 16.46C18.4501 16.65 18.2201 16.75 18.0001 16.75Z"
+                                                        fill="#2178FF" />
+                                                </svg>
+                                                <span>System Audio</span>
+                                            </div>
+                                            <svg v-if="systemAudioEnabled" width="24" height="24" viewBox="0 0 24 24"
+                                                fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M7.75 12L10.58 14.83L16.25 9.16997" stroke="#2178FF"
+                                                    stroke-width="2.0625" stroke-linecap="round"
+                                                    stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+
+                                        <!-- Divider -->
+                                        <div class="dark:border-dark-600 my-1 border-t border-gray-100"></div>
+
+                                        <!-- Microphone devices -->
                                         <div v-for="audioDevice in audioDevices" :key="audioDevice.deviceId"
                                             @click="selectAudioDevice(audioDevice)"
                                             class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
@@ -1752,7 +1790,7 @@ onUnmounted(() => {
                                             fill="#6C82A3" />
                                     </svg>
                                 </button>
-                                <button @click="toggleAudioSettings" type="button"
+                                <button @click.stop="toggleAudioSettings" type="button"
                                     @mouseenter="handleToolbarButtonHover(true)"
                                     @mouseleave="handleToolbarButtonHover(false)"
                                     class="flex cursor-pointer items-center justify-center border-none bg-transparent py-3.5 pl-1.5 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5">
@@ -1774,6 +1812,28 @@ onUnmounted(() => {
                                 class="dark:border-dark-700 dark:bg-dark-800 absolute left-1/2 z-20 w-64 -translate-x-1/2 rounded-2xl border border-gray-100 bg-white py-2 shadow-xl"
                                 :class="[audioDropdownPosition === 'top' ? 'bottom-full mb-2' : 'top-full mt-2']">
                                 <div class="flex flex-col">
+                                    <!-- System Audio Toggle -->
+                                    <div @click="toggleSystemAudio"
+                                        class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                                        :class="[
+                                            systemAudioEnabled
+                                                ? 'font-medium text-blue-600 dark:text-blue-400'
+                                                : 'text-gray-700 dark:text-gray-300'
+                                        ]">
+                                        <div class="flex items-center gap-2">
+                                            <span>System Audio</span>
+                                        </div>
+                                        <svg v-if="systemAudioEnabled" width="24" height="24" viewBox="0 0 24 24"
+                                            fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M7.75 12L10.58 14.83L16.25 9.16997" stroke="#2178FF"
+                                                stroke-width="2.0625" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </div>
+
+                                    <!-- Divider -->
+                                    <div class="dark:border-dark-600 my-1 border-t border-gray-100"></div>
+
+                                    <!-- Microphone devices -->
                                     <div v-for="audioDevice in audioDevices" :key="audioDevice.deviceId"
                                         @click="selectAudioDevice(audioDevice)"
                                         class="dark:hover:bg-dark-700 flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"

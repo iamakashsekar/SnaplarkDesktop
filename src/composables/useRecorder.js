@@ -31,6 +31,7 @@ export function useRecorder() {
     const uploadProgress = ref({ uploaded: 0, total: 0, percentage: 0, isOnline: true })
     const isUploading = ref(false)
     const windowType = ref(null)
+    const systemAudioEnabled = ref(false)
 
     // Crop region - set externally via setCropRegion()
     const cropRegion = ref({
@@ -43,6 +44,7 @@ export function useRecorder() {
     // Streams and recording
     let screenStream = null
     let audioStream = null
+    let systemAudioStream = null
     let mediaRecorder = null
     let recordedChunks = [] // For fallback only
     let animationFrameId = null
@@ -53,6 +55,7 @@ export function useRecorder() {
     let recordingTempPath = null // Real-time disk write path
     let totalChunks = 0 // Track total chunks for upload
     let uploadId = null // Unique ID for upload session
+    let recordingAudioContext = null // Audio context for mixing audio tracks
 
     // Function to set crop region externally
     const setCropRegion = (x, y, width, height) => {
@@ -61,6 +64,10 @@ export function useRecorder() {
 
     const setEnableCrop = (value) => {
         enableCrop.value = value
+    }
+
+    const setSystemAudioEnabled = (value) => {
+        systemAudioEnabled.value = value
     }
 
     // Methods
@@ -150,6 +157,11 @@ export function useRecorder() {
         if (audioStream) {
             audioStream.getTracks().forEach((track) => track.stop())
             audioStream = null
+        }
+
+        if (systemAudioStream) {
+            systemAudioStream.getTracks().forEach((track) => track.stop())
+            systemAudioStream = null
         }
     }
 
@@ -278,6 +290,7 @@ export function useRecorder() {
             }
             console.log(`✅ Canvas stabilized with ${frameCount} frames rendered`)
 
+            // Capture microphone audio if selected
             if (selectedAudioDeviceId.value) {
                 try {
                     const audioConstraints = { deviceId: selectedAudioDeviceId.value }
@@ -288,7 +301,83 @@ export function useRecorder() {
 
                     audioStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false })
                 } catch (error) {
-                    console.error('Error getting audio:', error)
+                    console.error('Error getting microphone audio:', error)
+                }
+            }
+
+            // Capture system audio if enabled (using electron-audio-loopback)
+            if (systemAudioEnabled.value && window.electron) {
+                try {
+                    console.log('🔊 Enabling system audio loopback...')
+                    await window.electron.enableLoopbackAudio()
+
+                    // Small delay to ensure loopback is fully active
+                    await new Promise(resolve => setTimeout(resolve, 200))
+                    console.log('🔊 Loopback enabled, calling getDisplayMedia...')
+
+                    // getDisplayMedia with audio: true will now capture system audio
+                    // due to the loopback being enabled
+                    // Note: video: true is required for the loopback to work
+                    const displayStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: true,
+                        audio: true
+                    })
+
+                    console.log('🔊 getDisplayMedia returned stream:', displayStream)
+                    console.log('🔊 Stream active:', displayStream.active)
+                    console.log('🔊 All tracks:', displayStream.getTracks().map(t => `${t.kind}:${t.label}:${t.readyState}`))
+
+                    // Extract the audio tracks (we already have video from canvas)
+                    const systemAudioTracks = displayStream.getAudioTracks()
+                    console.log('🔊 System audio tracks found:', systemAudioTracks.length)
+
+                    if (systemAudioTracks.length > 0) {
+                        // Log detailed track info for debugging
+                        systemAudioTracks.forEach((track, i) => {
+                            console.log(`🔊 Audio track ${i}:`, {
+                                label: track.label,
+                                readyState: track.readyState,
+                                enabled: track.enabled,
+                                muted: track.muted,
+                                settings: track.getSettings()
+                            })
+                        })
+
+                        // Create a new stream with only the audio tracks
+                        systemAudioStream = new MediaStream(systemAudioTracks)
+                        console.log('🔊 System audio stream created, active:', systemAudioStream.active)
+                    } else {
+                        console.warn('⚠️ No system audio tracks found in displayStream')
+                        console.warn('⚠️ This might mean electron-audio-loopback is not capturing audio')
+                    }
+
+                    // Stop AND remove video tracks from displayStream (required by electron-audio-loopback)
+                    const videoTracks = displayStream.getVideoTracks()
+                    videoTracks.forEach(track => {
+                        track.stop()
+                        displayStream.removeTrack(track)
+                    })
+                    console.log('🔊 Video tracks stopped and removed')
+
+                    // Disable loopback after we're done with getDisplayMedia
+                    // Note: This only affects future getDisplayMedia calls, not our existing stream
+                    await window.electron.disableLoopbackAudio()
+                    console.log('🔊 Loopback handler disabled')
+
+                    // Verify audio tracks are still live after disabling loopback
+                    if (systemAudioStream) {
+                        const tracks = systemAudioStream.getAudioTracks()
+                        console.log('🔊 Audio tracks after loopback disabled:', tracks.map(t => `${t.readyState}:${t.enabled}`))
+                    }
+                } catch (error) {
+                    console.error('Error getting system audio:', error)
+                    console.error('Error details:', error.message, error.name)
+                    // Disable loopback if capture failed
+                    try {
+                        await window.electron.disableLoopbackAudio()
+                    } catch (e) {
+                        console.error('Error disabling loopback:', e)
+                    }
                 }
             }
 
@@ -312,12 +401,71 @@ export function useRecorder() {
             console.log('📹 Video track settings:', videoTrack.getSettings())
             console.log('🎤 Audio tracks:', canvasStream.getAudioTracks().length)
 
+            // Mix audio tracks using Web Audio API
+            // MediaRecorder only records the first audio track, so we need to mix them
+            let mixedAudioTrack = null
+
+            const audioStreamsToMix = []
+            if (audioStream && audioStream.getAudioTracks().length > 0) {
+                const micTracks = audioStream.getAudioTracks()
+                console.log('🎤 Microphone audio tracks:', micTracks.length)
+                console.log('🎤 Mic track states:', micTracks.map(t => `${t.label}:${t.readyState}:enabled=${t.enabled}`))
+                // Only add if tracks are live
+                if (micTracks.some(t => t.readyState === 'live')) {
+                    audioStreamsToMix.push(audioStream)
+                } else {
+                    console.warn('⚠️ Microphone tracks are not live, skipping')
+                }
+            }
+            if (systemAudioStream && systemAudioStream.getAudioTracks().length > 0) {
+                const sysTracks = systemAudioStream.getAudioTracks()
+                console.log('🔊 System audio tracks:', sysTracks.length)
+                console.log('🔊 System track states:', sysTracks.map(t => `${t.label}:${t.readyState}:enabled=${t.enabled}`))
+                // Only add if tracks are live
+                if (sysTracks.some(t => t.readyState === 'live')) {
+                    audioStreamsToMix.push(systemAudioStream)
+                } else {
+                    console.warn('⚠️ System audio tracks are not live, skipping')
+                }
+            }
+            console.log('🎵 Total streams to mix:', audioStreamsToMix.length)
+
+            if (audioStreamsToMix.length > 0) {
+                try {
+                    // Create audio context for mixing
+                    recordingAudioContext = new AudioContext({ sampleRate: 48000 })
+                    const destination = recordingAudioContext.createMediaStreamDestination()
+
+                    // Connect all audio streams to the destination
+                    for (const stream of audioStreamsToMix) {
+                        const source = recordingAudioContext.createMediaStreamSource(stream)
+                        // Add gain control (can adjust volume if needed)
+                        const gainNode = recordingAudioContext.createGain()
+                        gainNode.gain.value = 1.0
+                        source.connect(gainNode)
+                        gainNode.connect(destination)
+                        console.log('🔗 Connected audio stream to mixer')
+                    }
+
+                    // Get the mixed audio track
+                    mixedAudioTrack = destination.stream.getAudioTracks()[0]
+                    console.log('✅ Audio mixed successfully:', mixedAudioTrack.label)
+                } catch (error) {
+                    console.error('❌ Error mixing audio:', error)
+                    // Fallback to first available audio track
+                    if (audioStreamsToMix[0]) {
+                        mixedAudioTrack = audioStreamsToMix[0].getAudioTracks()[0]
+                        console.log('⚠️ Fallback to first audio track')
+                    }
+                }
+            }
+
             let finalStream
-            if (audioStream) {
-                finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()])
-                console.log('🎬 Final stream (with audio):', finalStream)
+            if (mixedAudioTrack) {
+                finalStream = new MediaStream([...canvasStream.getVideoTracks(), mixedAudioTrack])
+                console.log('🎬 Final stream (with mixed audio):', finalStream)
                 console.log('📹 Final video tracks:', finalStream.getVideoTracks().length)
-                console.log('🎤 Final audio tracks:', finalStream.getAudioTracks().length)
+                console.log('🎤 Mixed audio track:', finalStream.getAudioTracks().length)
             } else {
                 finalStream = canvasStream
                 console.log('🎬 Final stream (no audio):', finalStream)
@@ -437,6 +585,17 @@ export function useRecorder() {
 
                 try {
                     stopPreview()
+
+                    // Close audio context used for mixing
+                    if (recordingAudioContext) {
+                        try {
+                            await recordingAudioContext.close()
+                            console.log('🔊 Audio context closed')
+                        } catch (e) {
+                            console.warn('⚠️ Error closing audio context:', e)
+                        }
+                        recordingAudioContext = null
+                    }
 
                     if (recordingInterval) {
                         clearInterval(recordingInterval)
@@ -712,6 +871,16 @@ export function useRecorder() {
         // Reset upload manager
         uploadId = null
 
+        // Close audio context if still open
+        if (recordingAudioContext) {
+            try {
+                recordingAudioContext.close()
+            } catch (e) {
+                // Ignore errors
+            }
+            recordingAudioContext = null
+        }
+
         startPreview()
     }
 
@@ -778,8 +947,10 @@ export function useRecorder() {
         isUploading,
         cropRegion,
         windowType,
+        systemAudioEnabled,
         setCropRegion,
         setEnableCrop,
+        setSystemAudioEnabled,
         refreshSources,
         startRecording,
         stopRecording,

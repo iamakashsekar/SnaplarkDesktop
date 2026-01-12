@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('electron', {
     appendRecordingChunk: (chunk) => ipcRenderer.invoke('append-recording-chunk', chunk),
     stopRecordingStream: () => ipcRenderer.invoke('stop-recording-stream'),
 
+    // System audio loopback (captures computer audio output)
+    enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
+    disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
+
     // Generic IPC
     send: (channel, data) => ipcRenderer.send(channel, data),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
