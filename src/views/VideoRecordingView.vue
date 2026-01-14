@@ -18,6 +18,7 @@ const mouseX = ref(0)
 const mouseY = ref(0)
 const displayId = ref(null)
 const displayScaleFactor = ref(window.devicePixelRatio || 1)
+const transparentMode = ref(false) // When true, use transparent background instead of captured screenshot
 const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving', 'countdown'
 const resizingHandle = ref(null)
 
@@ -1091,6 +1092,7 @@ onMounted(async () => {
     const initialMouseX = parseInt(params.get('initialMouseX') || '0', 10)
     const initialMouseY = parseInt(params.get('initialMouseY') || '0', 10)
     const activeDisplayId = params.get('activeDisplayId')
+    transparentMode.value = params.get('transparentMode') === 'true'
 
     // Set initial mouse position immediately
     mouseX.value = Math.max(0, Math.min(initialMouseX, window.innerWidth))
@@ -1100,8 +1102,10 @@ onMounted(async () => {
     const isThisDisplayActive = activeDisplayId && displayId.value === activeDisplayId
 
     // Helper function to update magnifier when both conditions are met
+    // In transparent mode, magnifier is disabled (user can see actual screen)
     const tryUpdateMagnifier = () => {
         if (
+            !transparentMode.value &&
             magnifierCanvas.value &&
             isWindowActive.value &&
             magnifierActive.value &&
@@ -1233,12 +1237,15 @@ onMounted(async () => {
     }
 
     // Fetch the initial screenshot data for this specific display
-    try {
-        const handlerKey = `get-initial-magnifier-data-${displayId.value}`
-        const initialDataURL = await window.electron?.invoke(handlerKey)
-        processMagnifierData(initialDataURL)
-    } catch (error) {
-        console.error('Failed to get initial magnifier data:', error)
+    // Skip in transparent mode - user sees actual screen, no magnifier needed
+    if (!transparentMode.value) {
+        try {
+            const handlerKey = `get-initial-magnifier-data-${displayId.value}`
+            const initialDataURL = await window.electron?.invoke(handlerKey)
+            processMagnifierData(initialDataURL)
+        } catch (error) {
+            console.error('Failed to get initial magnifier data:', error)
+        }
     }
 
     // Fallback: If activation event hasn't arrived after a short delay,
@@ -1298,10 +1305,11 @@ onUnmounted(() => {
     <div>
         <div v-if="uiMode === 'select'" class="fixed top-0 left-0 h-screen w-screen cursor-crosshair select-none"
             :class="{ 'pointer-events-none': loading }" :style="{
-                backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
+                backgroundImage: transparentMode ? 'none' : (fullScreenImage ? `url(${fullScreenImage.src})` : 'none'),
                 backgroundSize: 'cover',
                 backgroundPosition: 'top left',
-                backgroundRepeat: 'no-repeat'
+                backgroundRepeat: 'no-repeat',
+                backgroundColor: transparentMode ? 'transparent' : undefined
             }" @mousedown="handleMouseDown" @mousemove="handleMouseMove" @mouseup="handleMouseUp">
             <!-- Dark overlay for everything outside the selection -->
             <div v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"
@@ -1395,8 +1403,8 @@ onUnmounted(() => {
             " class="animated-dashed-line-v pointer-events-none fixed top-0 bottom-0 z-40 w-px transition-none"
                 :style="{ left: mouseX + 'px' }" />
 
-            <!-- Magnifier -->
-            <div v-if="shouldShowMagnifier && magnifierActive && !isRecording"
+            <!-- Magnifier (hidden in transparent mode - user sees actual screen) -->
+            <div v-if="!transparentMode && shouldShowMagnifier && magnifierActive && !isRecording"
                 class="pointer-events-none fixed z-50 flex h-[200px] w-[200px] items-center justify-center overflow-hidden rounded-full border-2 border-white shadow-[0_5px_15px_rgba(0,0,0,0.3)]"
                 :style="magnifierStyle">
                 <canvas ref="magnifierCanvas" class="h-full w-full" :width="magnifierSize"

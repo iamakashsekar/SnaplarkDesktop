@@ -11,6 +11,51 @@ class ScreenshotService {
         this.setupHandlers()
     }
 
+    /**
+     * Get full resolution thumbnail size for screen capture
+     * Uses native resolution for crisp preview quality
+     */
+    getFullResolutionThumbnailSize(displays) {
+        // Find the largest display dimensions at native resolution
+        let maxWidth = 0
+        let maxHeight = 0
+        for (const display of displays) {
+            const scaleFactor = display.scaleFactor || 1
+            maxWidth = Math.max(maxWidth, Math.round(display.size.width * scaleFactor))
+            maxHeight = Math.max(maxHeight, Math.round(display.size.height * scaleFactor))
+        }
+
+        return { width: maxWidth, height: maxHeight }
+    }
+
+    /**
+     * Fetch all screen sources in a single call (much faster than per-display calls)
+     * Uses full resolution for crisp screenshot preview
+     */
+    async getAllScreenSources(displays) {
+        const thumbnailSize = this.getFullResolutionThumbnailSize(displays)
+
+        const sources = await desktopCapturer.getSources({
+            types: ['screen'],
+            thumbnailSize,
+            fetchWindowIcons: false
+        })
+
+        return sources
+    }
+
+    /**
+     * Find the source matching a specific display from pre-fetched sources
+     */
+    findSourceForDisplayFromSources(sources, display) {
+        if (!display || !sources || sources.length === 0) return null
+        const displayIdStr = display.id.toString()
+        return sources.find((s) => s.display_id === displayIdStr) || sources[0] || null
+    }
+
+    /**
+     * Legacy method for backward compatibility with other handlers
+     */
     async findSourceForDisplay(display) {
         if (!display) return null
 
@@ -82,27 +127,40 @@ class ScreenshotService {
                     mainWindow.hide()
                 }
 
-                if (process.platform === 'darwin') {
-                    // Reduced delay - 200ms should be enough for window to hide
-                    await new Promise((resolve) => setTimeout(resolve, 200))
-                }
-
+                // Close any existing screenshot windows first (non-blocking)
                 this.windowManager.closeWindowsByType('screenshot')
+
+                // Small delay on macOS to ensure window is hidden before capture
+                if (process.platform === 'darwin') {
+                    await new Promise((resolve) => setTimeout(resolve, 150))
+                }
 
                 const allDisplays = screen.getAllDisplays()
 
-                const screenshotPromises = allDisplays.map(async (display) => {
+                // OPTIMIZATION: Single desktopCapturer.getSources() call for all displays
+                // This is much faster than calling it per-display
+                const allSources = await this.getAllScreenSources(allDisplays)
+
+                if (!allSources || allSources.length === 0) {
+                    console.error('No screen sources found')
+                    return { success: false, error: 'No screen sources available' }
+                }
+
+                // Get cursor position once before processing
+                const cursorPos = screen.getCursorScreenPoint()
+
+                // Process all displays using the pre-fetched sources
+                const screenshotResults = allDisplays.map((display) => {
                     try {
-                        const source = await this.findSourceForDisplay(display)
+                        const source = this.findSourceForDisplayFromSources(allSources, display)
                         if (!source) {
                             console.error(`Could not find screen source for displayId: ${display.id}`)
                             return null
                         }
 
-                        const image = await this.takeScreenshotForDisplay(source, 'fullscreen', null, display)
+                        const image = source.thumbnail
                         const dataURL = image.toDataURL()
 
-                        const cursorPos = screen.getCursorScreenPoint()
                         const mouseX = cursorPos.x - display.bounds.x
                         const mouseY = cursorPos.y - display.bounds.y
 
@@ -118,7 +176,6 @@ class ScreenshotService {
                     }
                 })
 
-                const screenshotResults = await Promise.all(screenshotPromises)
                 const validResults = screenshotResults.filter((result) => result !== null)
 
                 if (validResults.length === 0) {
@@ -220,12 +277,13 @@ class ScreenshotService {
                         win.moveTop()
                         win.setAlwaysOnTop(true, 'screen-saver')
 
-                        setTimeout(() => {
-                            if (!win.isDestroyed()) {
+                        // Reduced delay - use setImmediate for first retry, then short timeout if needed
+                        setImmediate(() => {
+                            if (!win.isDestroyed() && !win.isFocused()) {
                                 win.focus()
                                 win.moveTop()
                             }
-                        }, 200)
+                        })
                     }
 
                     win.on('closed', () => {
