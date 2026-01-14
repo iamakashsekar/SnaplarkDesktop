@@ -3,6 +3,7 @@
     import { apiClient, BASE_URL } from '../api/config'
     import { ChunkUploadManager } from '../services/chunk-upload-manager'
     import { useStore } from '../store'
+    import Tooltip from './Tooltip.vue'
 
     const props = defineProps({
         type: {
@@ -405,43 +406,45 @@
 
             <!-- Actions -->
             <div class="ml-auto flex items-center gap-1">
-                <button
-                    @click="$emit('hide')"
-                    class="dark:hover:bg-dark-700 rounded-full p-1 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    title="Hide notification (upload continues in background)">
-                    <svg
-                        class="size-6"
-                        viewBox="0 0 26 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            opacity="0.4"
-                            d="M13.1373 22C18.8439 22 23.47 17.5228 23.47 12C23.47 6.47715 18.8439 2 13.1373 2C7.43077 2 2.80469 6.47715 2.80469 12C2.80469 17.5228 7.43077 22 13.1373 22Z"
-                            fill="currentColor" />
-                        <path
-                            d="M17.1895 12.75H8.92339C8.49975 12.75 8.14844 12.41 8.14844 12C8.14844 11.59 8.49975 11.25 8.92339 11.25H17.1895C17.6131 11.25 17.9644 11.59 17.9644 12C17.9644 12.41 17.6235 12.75 17.1895 12.75Z"
-                            fill="currentColor" />
-                    </svg>
-                </button>
+                <Tooltip :text="store.settings.showTooltips ? 'Hide notification (upload continues in background)' : ''">
+                    <button
+                        @click="$emit('hide')"
+                        class="dark:hover:bg-dark-700 rounded-full p-1 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                        <svg
+                            class="size-6"
+                            viewBox="0 0 26 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                opacity="0.4"
+                                d="M13.1373 22C18.8439 22 23.47 17.5228 23.47 12C23.47 6.47715 18.8439 2 13.1373 2C7.43077 2 2.80469 6.47715 2.80469 12C2.80469 17.5228 7.43077 22 13.1373 22Z"
+                                fill="currentColor" />
+                            <path
+                                d="M17.1895 12.75H8.92339C8.49975 12.75 8.14844 12.41 8.14844 12C8.14844 11.59 8.49975 11.25 8.92339 11.25H17.1895C17.6131 11.25 17.9644 11.59 17.9644 12C17.9644 12.41 17.6235 12.75 17.1895 12.75Z"
+                                fill="currentColor" />
+                        </svg>
+                    </button>
+                </Tooltip>
 
-                <button
-                    @click="$emit('close')"
-                    class="dark:hover:bg-dark-700 rounded-full p-1 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    title="Close">
-                    <svg
-                        class="size-6"
-                        viewBox="0 0 26 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            opacity="0.4"
-                            d="M13.1022 22C18.8087 22 23.4348 17.5228 23.4348 12C23.4348 6.47715 18.8087 2 13.1022 2C7.39561 2 2.76953 6.47715 2.76953 12C2.76953 17.5228 7.39561 22 13.1022 22Z"
-                            fill="currentColor" />
-                        <path
-                            d="M14.198 12L16.5745 9.69998C16.8742 9.40998 16.8742 8.92999 16.5745 8.63999C16.2749 8.34999 15.7789 8.34999 15.4793 8.63999L13.1028 10.94L10.7262 8.63999C10.4266 8.34999 9.93063 8.34999 9.63098 8.63999C9.33134 8.92999 9.33134 9.40998 9.63098 9.69998L12.0075 12L9.63098 14.3C9.33134 14.59 9.33134 15.07 9.63098 15.36C9.78597 15.51 9.98229 15.58 10.1786 15.58C10.3749 15.58 10.5713 15.51 10.7262 15.36L13.1028 13.06L15.4793 15.36C15.6342 15.51 15.8306 15.58 16.0269 15.58C16.2232 15.58 16.4195 15.51 16.5745 15.36C16.8742 15.07 16.8742 14.59 16.5745 14.3L14.198 12Z"
-                            fill="currentColor" />
-                    </svg>
-                </button>
+                <Tooltip :text="store.settings.showTooltips ? 'Close' : ''">
+                    <button
+                        @click="$emit('close')"
+                        class="dark:hover:bg-dark-700 rounded-full p-1 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                        <svg
+                            class="size-6"
+                            viewBox="0 0 26 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                opacity="0.4"
+                                d="M13.1022 22C18.8087 22 23.4348 17.5228 23.4348 12C23.4348 6.47715 18.8087 2 13.1022 2C7.39561 2 2.76953 6.47715 2.76953 12C2.76953 17.5228 7.39561 22 13.1022 22Z"
+                                fill="currentColor" />
+                            <path
+                                d="M14.198 12L16.5745 9.69998C16.8742 9.40998 16.8742 8.92999 16.5745 8.63999C16.2749 8.34999 15.7789 8.34999 15.4793 8.63999L13.1028 10.94L10.7262 8.63999C10.4266 8.34999 9.93063 8.34999 9.63098 8.63999C9.33134 8.92999 9.33134 9.40998 9.63098 9.69998L12.0075 12L9.63098 14.3C9.33134 14.59 9.33134 15.07 9.63098 15.36C9.78597 15.51 9.98229 15.58 10.1786 15.58C10.3749 15.58 10.5713 15.51 10.7262 15.36L13.1028 13.06L15.4793 15.36C15.6342 15.51 15.8306 15.58 16.0269 15.58C16.2232 15.58 16.4195 15.51 16.5745 15.36C16.8742 15.07 16.8742 14.59 16.5745 14.3L14.198 12Z"
+                                fill="currentColor" />
+                        </svg>
+                    </button>
+                </Tooltip>
             </div>
         </div>
 
@@ -453,32 +456,27 @@
                 v-if="type === 'image'"
                 class="flex items-end justify-between">
                 <p class="text-xs text-slate-500 dark:text-slate-400">{{ fileInfo.fileSize }}</p>
-                <button
-                    @click="startImageUpload"
-                    v-if="status === 'error'"
-                    class="group relative">
-                    <!-- Retry Icon -->
-                    <svg
-                        class="size-8"
-                        viewBox="0 0 47 45"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            opacity="0.4"
-                            d="M31.3658 3.75H15.15C8.07862 3.75 3.87451 7.81875 3.87451 14.6438V30.3375C3.87451 37.1625 8.0786 41.2313 15.1306 41.2313H31.3464C38.3984 41.2313 42.6026 37.1625 42.6026 30.3375V14.6438C42.6219 7.81875 38.4178 3.75 31.3658 3.75Z"
+                <Tooltip :text="store.settings.showTooltips ? 'Retry' : ''">
+                    <button
+                        @click="startImageUpload"
+                        v-if="status === 'error'"
+                        class="group relative">
+                        <!-- Retry Icon -->
+                        <svg
+                            class="size-8"
+                            viewBox="0 0 47 45"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                opacity="0.4"
+                                d="M31.3658 3.75H15.15C8.07862 3.75 3.87451 7.81875 3.87451 14.6438V30.3375C3.87451 37.1625 8.0786 41.2313 15.1306 41.2313H31.3464C38.3984 41.2313 42.6026 37.1625 42.6026 30.3375V14.6438C42.6219 7.81875 38.4178 3.75 31.3658 3.75Z"
+                                fill="currentColor" />
+                            <path
+                                d="M32.5089 17.0062C32.0633 16.3499 31.1528 16.1812 30.4941 16.6124C29.8353 17.0437 29.6416 17.9249 30.0872 18.5624C30.9978 19.8749 31.4627 21.4124 31.4627 22.9874C31.4627 27.3749 27.7624 30.9562 23.2289 30.9562C18.6955 30.9562 14.9951 27.3749 14.9951 22.9874C14.9951 18.5999 18.6955 15.0187 23.2289 15.0187C23.597 15.0187 23.9457 15.0562 24.3138 15.0937L23.2483 15.8624C22.6089 16.3124 22.4539 17.1937 22.9383 17.8312C23.2289 18.2062 23.6745 18.4124 24.1201 18.4124C24.4107 18.4124 24.7207 18.3187 24.9725 18.1499L28.731 15.4874C28.7504 15.4687 28.7504 15.4499 28.7698 15.4499C28.7892 15.4312 28.8085 15.4312 28.8279 15.4124C28.886 15.3562 28.9248 15.2999 28.9635 15.2437C29.0216 15.1687 29.0991 15.1124 29.1379 15.0187C29.1766 14.9437 29.196 14.8499 29.2347 14.7749C29.2541 14.6812 29.2929 14.6062 29.3123 14.5124C29.3316 14.4187 29.3122 14.3437 29.2929 14.2499C29.2929 14.1562 29.2929 14.0812 29.2541 13.9874C29.2348 13.8937 29.1766 13.8187 29.1379 13.7249C29.0991 13.6687 29.0991 13.5937 29.041 13.5187C29.0217 13.4999 29.0023 13.4999 29.0023 13.4812C28.9829 13.4624 28.9829 13.4437 28.9635 13.4249L25.7281 9.84368C25.205 9.26243 24.2751 9.18743 23.6745 9.71243C23.0739 10.2187 23.0158 11.1187 23.5389 11.6999L24.0813 12.2999C23.8101 12.2812 23.5389 12.2437 23.2483 12.2437C17.1068 12.2437 12.1084 17.0812 12.1084 23.0249C12.1084 28.9687 17.1068 33.8062 23.2483 33.8062C29.3897 33.8062 34.3882 28.9687 34.3882 23.0249C34.3882 20.8499 33.7488 18.7874 32.5089 17.0062Z"
                             fill="currentColor" />
-                        <path
-                            d="M32.5089 17.0062C32.0633 16.3499 31.1528 16.1812 30.4941 16.6124C29.8353 17.0437 29.6416 17.9249 30.0872 18.5624C30.9978 19.8749 31.4627 21.4124 31.4627 22.9874C31.4627 27.3749 27.7624 30.9562 23.2289 30.9562C18.6955 30.9562 14.9951 27.3749 14.9951 22.9874C14.9951 18.5999 18.6955 15.0187 23.2289 15.0187C23.597 15.0187 23.9457 15.0562 24.3138 15.0937L23.2483 15.8624C22.6089 16.3124 22.4539 17.1937 22.9383 17.8312C23.2289 18.2062 23.6745 18.4124 24.1201 18.4124C24.4107 18.4124 24.7207 18.3187 24.9725 18.1499L28.731 15.4874C28.7504 15.4687 28.7504 15.4499 28.7698 15.4499C28.7892 15.4312 28.8085 15.4312 28.8279 15.4124C28.886 15.3562 28.9248 15.2999 28.9635 15.2437C29.0216 15.1687 29.0991 15.1124 29.1379 15.0187C29.1766 14.9437 29.196 14.8499 29.2347 14.7749C29.2541 14.6812 29.2929 14.6062 29.3123 14.5124C29.3316 14.4187 29.3122 14.3437 29.2929 14.2499C29.2929 14.1562 29.2929 14.0812 29.2541 13.9874C29.2348 13.8937 29.1766 13.8187 29.1379 13.7249C29.0991 13.6687 29.0991 13.5937 29.041 13.5187C29.0217 13.4999 29.0023 13.4999 29.0023 13.4812C28.9829 13.4624 28.9829 13.4437 28.9635 13.4249L25.7281 9.84368C25.205 9.26243 24.2751 9.18743 23.6745 9.71243C23.0739 10.2187 23.0158 11.1187 23.5389 11.6999L24.0813 12.2999C23.8101 12.2812 23.5389 12.2437 23.2483 12.2437C17.1068 12.2437 12.1084 17.0812 12.1084 23.0249C12.1084 28.9687 17.1068 33.8062 23.2483 33.8062C29.3897 33.8062 34.3882 28.9687 34.3882 23.0249C34.3882 20.8499 33.7488 18.7874 32.5089 17.0062Z"
-                            fill="currentColor" />
-                    </svg>
-                    <div class="absolute top-full -left-2 z-10 mt-1.5 hidden w-max group-hover:block">
-                        <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            Retry
-                            <div
-                                class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                        </div>
-                    </div>
-                </button>
+                        </svg>
+                    </button>
+                </Tooltip>
             </div>
 
             <!-- Progress Bar -->
@@ -509,114 +507,96 @@
                     {{ link }}
                 </div>
                 <!-- Open in file manager -->
-                <button
-                    v-if="fileInfo.path"
-                    @click="openInFileManager"
-                    class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="size-5"
-                        viewBox="0 0 24 24"
-                        fill="none">
-                        <g clip-path="url(#clip0_4418_9182)">
+                <Tooltip :text="store.settings.showTooltips ? 'Show in folder' : ''">
+                    <button
+                        v-if="fileInfo.path"
+                        @click="openInFileManager"
+                        class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none">
+                            <g clip-path="url(#clip0_4418_9182)">
+                                <path
+                                    d="M22 11V17C22 21 21 22 17 22H7C3 22 2 21 2 17V7C2 3 3 2 7 2H8.5C10 2 10.33 2.44 10.9 3.2L12.4 5.2C12.78 5.7 13 6 14 6H17C21 6 22 7 22 11Z"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-miterlimit="10" />
+                                <path
+                                    d="M8 2H17C19 2 20 3 20 5V6.38"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-miterlimit="10"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_4418_9182">
+                                    <rect
+                                        width="24"
+                                        height="24"
+                                        fill="white" />
+                                </clipPath>
+                            </defs>
+                        </svg>
+                    </button>
+                </Tooltip>
+                <!-- Copy Button -->
+                <Tooltip :text="store.settings.showTooltips ? tooltipText : ''">
+                    <button
+                        @click="copyToClipboard"
+                        class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                        <svg
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <rect
+                                x="9"
+                                y="9"
+                                width="13"
+                                height="13"
+                                rx="2"
+                                ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                </Tooltip>
+                <!-- Open Button -->
+                <Tooltip :text="store.settings.showTooltips ? 'Open' : ''">
+                    <button
+                        @click="openLink"
+                        class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none">
                             <path
-                                d="M22 11V17C22 21 21 22 17 22H7C3 22 2 21 2 17V7C2 3 3 2 7 2H8.5C10 2 10.33 2.44 10.9 3.2L12.4 5.2C12.78 5.7 13 6 14 6H17C21 6 22 7 22 11Z"
+                                d="M13 10.9998L21.2 2.7998"
                                 stroke="currentColor"
                                 stroke-width="1.5"
-                                stroke-miterlimit="10" />
-                            <path
-                                d="M8 2H17C19 2 20 3 20 5V6.38"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                                stroke-miterlimit="10"
                                 stroke-linecap="round"
                                 stroke-linejoin="round" />
-                        </g>
-                        <defs>
-                            <clipPath id="clip0_4418_9182">
-                                <rect
-                                    width="24"
-                                    height="24"
-                                    fill="white" />
-                            </clipPath>
-                        </defs>
-                    </svg>
-
-                    <!-- Tooltip -->
-                    <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
-                        <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            Show in folder
-                            <div
-                                class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                        </div>
-                    </div>
-                </button>
-                <!-- Copy Button -->
-                <button
-                    @click="copyToClipboard"
-                    class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
-                    <svg
-                        class="size-5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <rect
-                            x="9"
-                            y="9"
-                            width="13"
-                            height="13"
-                            rx="2"
-                            ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                    <!-- Tooltip -->
-                    <div class="absolute top-full mt-1.5 hidden w-max group-hover:block">
-                        <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            {{ tooltipText }}
-                            <div
-                                class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                        </div>
-                    </div>
-                </button>
-                <!-- Open Button -->
-                <button
-                    @click="openLink"
-                    class="group relative flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="size-5"
-                        viewBox="0 0 24 24"
-                        fill="none">
-                        <path
-                            d="M13 10.9998L21.2 2.7998"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round" />
-                        <path
-                            d="M22 6.8V2H17.2"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round" />
-                        <path
-                            d="M11 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22H15C20 22 22 20 22 15V13"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round" />
-                    </svg>
-                    <div class="absolute top-full mt-1.5 hidden group-hover:block">
-                        <div class="relative rounded-md bg-[#1e2530] px-3 py-1.5 text-xs text-white">
-                            Open
-                            <div
-                                class="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-r-8 border-b-8 border-l-8 border-r-transparent border-b-[#1e2530] border-l-transparent"></div>
-                        </div>
-                    </div>
-                </button>
+                            <path
+                                d="M22 6.8V2H17.2"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path
+                                d="M11 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22H15C20 22 22 20 22 15V13"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </Tooltip>
             </div>
 
             <!-- Auto-close countdown -->
