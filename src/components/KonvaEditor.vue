@@ -175,86 +175,59 @@ const computedToolbarStyle = computed(() => {
 })
 
 // Toolbar dragging handlers
-let dragMoveHandler = null
-let dragEndHandler = null
+let dragOffsetX = 0
+let dragOffsetY = 0
 
-const cleanupDragHandlers = () => {
-    if (dragMoveHandler) {
-        document.removeEventListener('mousemove', dragMoveHandler, { capture: true })
-        dragMoveHandler = null
-    }
-    if (dragEndHandler) {
-        document.removeEventListener('mouseup', dragEndHandler, { capture: true })
-        dragEndHandler = null
-    }
+const handleToolbarDragMove = (e) => {
+    if (!isDraggingToolbar.value) return
+
+    e.preventDefault()
+
+    // Calculate new position
+    let newX = e.clientX - dragOffsetX
+    let newY = e.clientY - dragOffsetY
+
+    // Keep toolbar within viewport bounds (with some padding)
+    const margin = 10
+    const toolbarWidth = 520
+    const toolbarHeight = 50
+
+    newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
+    newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
+
+    customToolbarPosition.value = { x: newX, y: newY }
+}
+
+const handleToolbarDragEnd = () => {
+    if (!isDraggingToolbar.value) return
     isDraggingToolbar.value = false
+    document.removeEventListener('mousemove', handleToolbarDragMove)
+    document.removeEventListener('mouseup', handleToolbarDragEnd)
 }
 
 const handleToolbarDragStart = (e) => {
-    // Prevent multiple drag starts
-    if (isDraggingToolbar.value) {
-        return
-    }
+    e.stopPropagation()
+    e.preventDefault()
 
-    // Clean up any existing handlers first
-    cleanupDragHandlers()
+    // Clean up any stale listeners first (safety measure)
+    document.removeEventListener('mousemove', handleToolbarDragMove)
+    document.removeEventListener('mouseup', handleToolbarDragEnd)
 
-    // Get the toolbar container - use currentTarget since we stopped propagation
+    // Get the toolbar container
     const toolbar = e.currentTarget.closest('.toolbar-container')
     if (!toolbar) return
 
     const rect = toolbar.getBoundingClientRect()
 
-    // Store the offset from mouse to toolbar's actual top-left position
-    const offsetX = e.clientX - rect.left
-    const offsetY = e.clientY - rect.top
+    // Store the offset from mouse to toolbar top-left
+    dragOffsetX = e.clientX - rect.left
+    dragOffsetY = e.clientY - rect.top
 
-    // Set dragging state FIRST
     isDraggingToolbar.value = true
 
-    // Use requestAnimationFrame to ensure state is updated
-    requestAnimationFrame(() => {
-        // Create bound handlers for proper cleanup
-        dragMoveHandler = (moveEvent) => {
-            if (!isDraggingToolbar.value) {
-                cleanupDragHandlers()
-                return
-            }
-
-            moveEvent.preventDefault()
-            moveEvent.stopPropagation()
-
-            // Calculate new position using captured offset
-            let newX = moveEvent.clientX - offsetX
-            let newY = moveEvent.clientY - offsetY
-
-            // Keep toolbar within viewport bounds
-            const margin = 10
-            const toolbarWidth = 520
-            const toolbarHeight = 50
-
-            newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
-            newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
-
-            customToolbarPosition.value = { x: newX, y: newY }
-        }
-
-        dragEndHandler = (upEvent) => {
-            if (upEvent) {
-                upEvent.preventDefault()
-                upEvent.stopPropagation()
-            }
-
-            // Use setTimeout to ensure the cleanup happens after any pending events
-            setTimeout(() => {
-                cleanupDragHandlers()
-            }, 0)
-        }
-
-        // Add document-level listeners
-        document.addEventListener('mousemove', dragMoveHandler, { passive: false, capture: true })
-        document.addEventListener('mouseup', dragEndHandler, { passive: false, capture: true })
-    })
+    // Add document-level listeners for drag
+    document.addEventListener('mousemove', handleToolbarDragMove)
+    document.addEventListener('mouseup', handleToolbarDragEnd)
 }
 
 // Expose methods for parent component
@@ -883,7 +856,10 @@ onMounted(() => {
 
 onUnmounted(() => {
     // Clean up document-level event listeners if component unmounts during drag
-    cleanupDragHandlers()
+    if (isDraggingToolbar.value) {
+        document.removeEventListener('mousemove', handleToolbarDragMove)
+        document.removeEventListener('mouseup', handleToolbarDragEnd)
+    }
 })
 </script>
 
@@ -922,7 +898,7 @@ onUnmounted(() => {
 
     <!-- Toolbar -->
     <div v-if="props.editable" :style="computedToolbarStyle"
-        class="toolbar-container fixed z-102 -ml-12 flex justify-center gap-4 transition-shadow"
+        class="toolbar-container fixed z-102 flex justify-center gap-4 transition-shadow"
         :class="{ 'shadow-2xl': isDraggingToolbar }">
         <!-- Drag Handle -->
         <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
