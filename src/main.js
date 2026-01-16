@@ -163,6 +163,19 @@ const createWindow = () => {
     screenshotService = new ScreenshotService(windowManager, store)
     videoRecordingService = new VideoRecordingService(windowManager, store)
     notificationService = new NotificationService(windowManager)
+
+    // OPTIMIZATION: Pre-capture screens when main window is shown
+    // This makes screenshot/recording activation nearly instant
+    const triggerPreCapture = () => {
+        // Small delay to ensure window is fully visible, then start background capture
+        setTimeout(() => {
+            screenshotService?.preCaptureScreens()
+            videoRecordingService?.preCaptureScreens()
+        }, 100)
+    }
+
+    mainWindow.on('show', triggerPreCapture)
+    mainWindow.on('focus', triggerPreCapture)
 }
 
 // ==================== GLOBAL SHORTCUTS ====================

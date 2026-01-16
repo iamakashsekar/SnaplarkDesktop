@@ -8,7 +8,88 @@ class ScreenshotService {
         this.windowManager = windowManager
         this.store = store
         this.mouseTrackingInterval = null
+
+        // Cache for pre-captured screen sources (optimization)
+        this.cachedSources = null
+        this.cachedSourcesTimestamp = 0
+        this.cacheValidityMs = 2000 // Cache valid for 2 seconds
+        this.isPreCapturing = false
+
         this.setupHandlers()
+
+        // Pre-warm the capture pipeline on initialization
+        this.preWarmCapture()
+    }
+
+    /**
+     * Pre-warm the desktopCapturer pipeline
+     * First call to getSources is often slower, so we warm it up at startup
+     */
+    async preWarmCapture() {
+        try {
+            // Use small thumbnails for warm-up (just to initialize the pipeline)
+            await desktopCapturer.getSources({
+                types: ['screen'],
+                thumbnailSize: { width: 1, height: 1 },
+                fetchWindowIcons: false
+            })
+        } catch (error) {
+            // Ignore errors during warm-up
+        }
+    }
+
+    /**
+     * Pre-capture screens in background for faster screenshot mode activation
+     * Call this when main window is shown/focused
+     */
+    async preCaptureScreens() {
+        if (this.isPreCapturing) return // Avoid concurrent pre-captures
+
+        this.isPreCapturing = true
+        try {
+            const allDisplays = screen.getAllDisplays()
+            const sources = await this.getAllScreenSources(allDisplays)
+
+            if (sources && sources.length > 0) {
+                this.cachedSources = sources
+                this.cachedSourcesTimestamp = Date.now()
+            }
+        } catch (error) {
+            // Ignore errors during pre-capture
+        } finally {
+            this.isPreCapturing = false
+        }
+    }
+
+    /**
+     * Get cached sources if still valid, otherwise fetch fresh
+     */
+    async getScreenSourcesWithCache(displays) {
+        const now = Date.now()
+
+        // Check if cache is valid
+        if (this.cachedSources &&
+            this.cachedSources.length > 0 &&
+            (now - this.cachedSourcesTimestamp) < this.cacheValidityMs) {
+            return this.cachedSources
+        }
+
+        // Cache expired or doesn't exist, fetch fresh
+        const sources = await this.getAllScreenSources(displays)
+
+        // Update cache
+        this.cachedSources = sources
+        this.cachedSourcesTimestamp = now
+
+        return sources
+    }
+
+    /**
+     * Clear the cached sources (call when screenshot mode is cancelled/completed)
+     */
+    clearCache() {
+        this.cachedSources = null
+        this.cachedSourcesTimestamp = 0
     }
 
     /**
@@ -123,23 +204,32 @@ class ScreenshotService {
         ipcMain.handle('start-screenshot-mode', async () => {
             try {
                 const mainWindow = this.windowManager.getWindow('main')
+                const wasMainWindowVisible = mainWindow && mainWindow.isVisible()
+
                 if (mainWindow) {
                     mainWindow.hide()
+                }
+
+                // If main window was visible, clear the cache to avoid capturing it in the screenshot
+                // The cached screenshot would include the main window if it was visible during pre-capture
+                if (wasMainWindowVisible) {
+                    this.clearCache()
                 }
 
                 // Close any existing screenshot windows first (non-blocking)
                 this.windowManager.closeWindowsByType('screenshot')
 
-                // Small delay on macOS to ensure window is hidden before capture
-                if (process.platform === 'darwin') {
+                // Delay to ensure window is hidden before capture
+                // Needed when main window was visible (menu-initiated)
+                if (wasMainWindowVisible || process.platform === 'darwin') {
                     await new Promise((resolve) => setTimeout(resolve, 150))
                 }
 
                 const allDisplays = screen.getAllDisplays()
 
-                // OPTIMIZATION: Single desktopCapturer.getSources() call for all displays
-                // This is much faster than calling it per-display
-                const allSources = await this.getAllScreenSources(allDisplays)
+                // OPTIMIZATION: Use cached sources if available (from pre-capture)
+                // Falls back to fresh capture if cache is expired or was cleared
+                const allSources = await this.getScreenSourcesWithCache(allDisplays)
 
                 if (!allSources || allSources.length === 0) {
                     console.error('No screen sources found')
