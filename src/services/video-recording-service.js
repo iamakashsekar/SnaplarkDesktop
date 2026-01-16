@@ -12,35 +12,28 @@ class VideoRecordingService {
     }
 
     /**
-     * Get optimal thumbnail size for screen capture preview
-     * Caps at 1080p equivalent to reduce capture time while maintaining quality
+     * Get full resolution thumbnail size for screen capture
+     * Uses native resolution for crisp preview quality
      */
-    getOptimalThumbnailSize(displays) {
-        // Find the largest display dimensions
+    getFullResolutionThumbnailSize(displays) {
+        // Find the largest display dimensions at native resolution
         let maxWidth = 0
         let maxHeight = 0
         for (const display of displays) {
             const scaleFactor = display.scaleFactor || 1
-            maxWidth = Math.max(maxWidth, display.size.width * scaleFactor)
-            maxHeight = Math.max(maxHeight, display.size.height * scaleFactor)
+            maxWidth = Math.max(maxWidth, Math.round(display.size.width * scaleFactor))
+            maxHeight = Math.max(maxHeight, Math.round(display.size.height * scaleFactor))
         }
 
-        // Cap at 1080p equivalent for preview - still looks good but much faster
-        const maxPreviewWidth = 1920
-        const maxPreviewHeight = 1080
-        const scale = Math.min(maxPreviewWidth / maxWidth, maxPreviewHeight / maxHeight, 1)
-
-        return {
-            width: Math.round(maxWidth * scale),
-            height: Math.round(maxHeight * scale)
-        }
+        return { width: maxWidth, height: maxHeight }
     }
 
     /**
      * Fetch all screen sources in a single call (much faster than per-display calls)
+     * Uses full resolution for crisp preview
      */
     async getAllScreenSources(displays) {
-        const thumbnailSize = this.getOptimalThumbnailSize(displays)
+        const thumbnailSize = this.getFullResolutionThumbnailSize(displays)
 
         const sources = await desktopCapturer.getSources({
             types: ['screen'],
@@ -133,34 +126,63 @@ class VideoRecordingService {
                 // Close any existing recording windows first (non-blocking)
                 this.windowManager.closeWindowsByType('recording')
 
-                // Small delay on macOS to ensure window is hidden
+                // Small delay on macOS to ensure window is hidden before capture
                 if (process.platform === 'darwin') {
-                    await new Promise((resolve) => setTimeout(resolve, 100))
+                    await new Promise((resolve) => setTimeout(resolve, 150))
                 }
 
                 const allDisplays = screen.getAllDisplays()
 
-                // OPTIMIZATION: Skip thumbnail capture entirely for video recording!
-                // The selection window will be transparent, showing the live screen behind it.
-                // This eliminates the slowest operation (desktopCapturer.getSources)
+                // OPTIMIZATION: Single desktopCapturer.getSources() call for all displays
+                // This is much faster than calling it per-display
+                const allSources = await this.getAllScreenSources(allDisplays)
+
+                if (!allSources || allSources.length === 0) {
+                    console.error('No screen sources found')
+                    return { success: false, error: 'No screen sources available' }
+                }
 
                 // Get cursor position once before processing
                 const cursorPos = screen.getCursorScreenPoint()
-                const initialActiveDisplay = screen.getDisplayNearestPoint(cursorPos)
 
-                // Process all displays - no thumbnail needed
-                const displayResults = allDisplays.map((display) => {
-                    const mouseX = cursorPos.x - display.bounds.x
-                    const mouseY = cursorPos.y - display.bounds.y
+                // Process all displays using the pre-fetched sources
+                const screenshotResults = allDisplays.map((display) => {
+                    try {
+                        const source = this.findSourceForDisplayFromSources(allSources, display)
+                        if (!source) {
+                            console.error(`Could not find screen source for displayId: ${display.id}`)
+                            return null
+                        }
 
-                    return {
-                        display,
-                        mouseX: Math.max(0, Math.min(mouseX, display.bounds.width)),
-                        mouseY: Math.max(0, Math.min(mouseY, display.bounds.height))
+                        const image = source.thumbnail
+                        const dataURL = image.toDataURL()
+
+                        const mouseX = cursorPos.x - display.bounds.x
+                        const mouseY = cursorPos.y - display.bounds.y
+
+                        return {
+                            display,
+                            dataURL,
+                            mouseX: Math.max(0, Math.min(mouseX, display.bounds.width)),
+                            mouseY: Math.max(0, Math.min(mouseY, display.bounds.height))
+                        }
+                    } catch (error) {
+                        console.error(`Error processing display ${display.id}:`, error)
+                        return null
                     }
                 })
 
-                const windows = displayResults.map(({ display, mouseX, mouseY }) => {
+                const validResults = screenshotResults.filter((result) => result !== null)
+
+                if (validResults.length === 0) {
+                    console.error('No valid displays found for recording')
+                    return { success: false, error: 'No displays available' }
+                }
+
+                const initialCursorPos = screen.getCursorScreenPoint()
+                const initialActiveDisplay = screen.getDisplayNearestPoint(initialCursorPos)
+
+                const windows = validResults.map(({ display, dataURL, mouseX, mouseY }) => {
                     const windowType = `recording-${display.id}`
 
                     const win = this.windowManager.createWindow(windowType, {
@@ -173,11 +195,11 @@ class VideoRecordingService {
                             displayId: display.id,
                             initialMouseX: mouseX,
                             initialMouseY: mouseY,
-                            activeDisplayId: initialActiveDisplay.id,
-                            transparentMode: true // Tell the view to use transparent background
+                            activeDisplayId: initialActiveDisplay.id
                         }
                     })
 
+                    win.screenshotData = dataURL
                     win.displayInfo = display
 
                     win.setBounds({
@@ -185,6 +207,14 @@ class VideoRecordingService {
                         y: display.bounds.y,
                         width: display.bounds.width,
                         height: display.bounds.height
+                    })
+
+                    const handlerKey = `get-initial-magnifier-data-${display.id}`
+                    ipcMain.handleOnce(handlerKey, (event) => {
+                        if (event.sender === win.webContents) {
+                            return dataURL
+                        }
+                        return null
                     })
 
                     if (process.platform === 'darwin') {
@@ -216,8 +246,8 @@ class VideoRecordingService {
                         const activationData = {
                             isActive: isInitiallyActive,
                             activeDisplayId: initialActiveDisplay.id,
-                            mouseX: cursorPos.x - display.bounds.x,
-                            mouseY: cursorPos.y - display.bounds.y
+                            mouseX: initialCursorPos.x - display.bounds.x,
+                            mouseY: initialCursorPos.y - display.bounds.y
                         }
                         win.webContents.send('display-activation-changed', activationData)
                     }
@@ -251,6 +281,10 @@ class VideoRecordingService {
                             }
                         })
                     }
+
+                    win.on('closed', () => {
+                        ipcMain.removeHandler(handlerKey)
+                    })
 
                     return win
                 })
