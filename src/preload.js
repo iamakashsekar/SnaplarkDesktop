@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electron', {
     takeScreenshot: (type, bounds, displayId, closeWindow) =>
         ipcRenderer.invoke('take-screenshot', type, bounds, displayId, closeWindow),
     copyScreenshot: (type, bounds, displayId) => ipcRenderer.invoke('copy-screenshot', type, bounds, displayId),
+    copyDataUrlToClipboard: (dataUrl) => ipcRenderer.invoke('copy-dataurl-to-clipboard', dataUrl),
 
     // Video recording functionality
     startVideoRecordingMode: () => ipcRenderer.invoke('start-video-recording-mode'),

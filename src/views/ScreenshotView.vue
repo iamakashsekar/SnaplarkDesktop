@@ -667,10 +667,13 @@ const copyToClipboard = async () => {
         if (mode.value === 'edited') {
             const dataUrl = getEditedDataUrl()
             if (dataUrl) {
-                const res = await fetch(dataUrl)
-                const blob = await res.blob()
-                await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })])
-                handleCancel()
+                // Use Electron's clipboard API to avoid user gesture restrictions
+                const result = await window.electron?.copyDataUrlToClipboard(dataUrl)
+                if (result?.success) {
+                    handleCancel()
+                } else {
+                    console.error('Copy failed:', result?.error)
+                }
                 return
             }
         }
@@ -1172,7 +1175,7 @@ const handleToolbarDragEnd = () => {
 
         <!-- Action Toolbar -->
         <div v-if="mode === 'confirming' || mode === 'edited'"
-            class="toolbar-container absolute z-50 flex items-center gap-4 transition-shadow"
+            class="toolbar-container absolute z-[101] flex items-center gap-4 transition-shadow"
             :class="{ 'shadow-2xl': isDraggingToolbar }" :style="toolbarStyle" @mousedown.stop>
             <!-- Drag Handle -->
             <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">

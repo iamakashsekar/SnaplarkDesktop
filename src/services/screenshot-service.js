@@ -476,6 +476,23 @@ class ScreenshotService {
             }
         })
 
+        ipcMain.handle('copy-dataurl-to-clipboard', async (event, dataUrl) => {
+            try {
+                const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
+                const rawBuffer = Buffer.from(base64Data, 'base64')
+                const image = nativeImage.createFromBuffer(rawBuffer)
+
+                clipboard.writeImage(image)
+
+                this.windowManager.closeWindowsByType('screenshot')
+
+                return { success: true, message: 'Image copied to clipboard' }
+            } catch (error) {
+                console.error('Copy dataUrl to clipboard error:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
         ipcMain.on('cancel-screenshot-mode', () => {
             this.windowManager.closeWindowsByType('screenshot')
         })
