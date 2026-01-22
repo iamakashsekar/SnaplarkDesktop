@@ -1074,9 +1074,10 @@ const handleToolbarDragEnd = () => {
     <div :class="{ 'cursor-crosshair select-none': mode !== 'editing', 'pointer-events-none': loading }"
         class="fixed top-0 left-0 h-screen w-screen" :style="{
             backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
-            backgroundSize: 'cover',
+            backgroundSize: '100% 100%',
             backgroundPosition: 'top left',
-            backgroundRepeat: 'no-repeat'
+            backgroundRepeat: 'no-repeat',
+            imageRendering: 'auto'
         }" @mousedown="handleMouseDown" @mousemove="
             (e) => {
                 handleMouseMove(e)
@@ -1453,3 +1454,4 @@ const handleToolbarDragEnd = () => {
     animation-delay: 300ms;
 }
 </style>
+

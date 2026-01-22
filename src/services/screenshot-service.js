@@ -95,18 +95,36 @@ class ScreenshotService {
     /**
      * Get full resolution thumbnail size for screen capture
      * Uses native resolution for crisp preview quality
+     * Ensures all displays are captured at their full native resolution
      */
     getFullResolutionThumbnailSize(displays) {
         // Find the largest display dimensions at native resolution
+        // We calculate from multiple sources to handle edge cases where
+        // different macOS scaling settings report differently
         let maxWidth = 0
         let maxHeight = 0
         for (const display of displays) {
             const scaleFactor = display.scaleFactor || 1
-            maxWidth = Math.max(maxWidth, Math.round(display.size.width * scaleFactor))
-            maxHeight = Math.max(maxHeight, Math.round(display.size.height * scaleFactor))
+            // Use the larger of size or bounds to ensure we don't miss any pixels
+            const sizeWidth = Math.round(display.size.width * scaleFactor)
+            const sizeHeight = Math.round(display.size.height * scaleFactor)
+            const boundsWidth = Math.round(display.bounds.width * scaleFactor)
+            const boundsHeight = Math.round(display.bounds.height * scaleFactor)
+
+            // Also try with scaleFactor 2 for retina displays that might report incorrectly
+            // This ensures we capture at full resolution even if scaleFactor is reported as 1
+            const retinaSizeWidth = Math.round(display.size.width * 2)
+            const retinaSizeHeight = Math.round(display.size.height * 2)
+
+            maxWidth = Math.max(maxWidth, sizeWidth, boundsWidth, retinaSizeWidth)
+            maxHeight = Math.max(maxHeight, sizeHeight, boundsHeight, retinaSizeHeight)
         }
 
-        return { width: maxWidth, height: maxHeight }
+        // Cap at reasonable maximum to avoid memory issues (8K resolution)
+        const cappedWidth = Math.min(maxWidth, 7680)
+        const cappedHeight = Math.min(maxHeight, 4320)
+
+        return { width: cappedWidth, height: cappedHeight }
     }
 
     /**

@@ -707,6 +707,8 @@ onMounted(() => {
                 // Calculate the scale factor between the background image and the stage
                 const scaleX = bgImageObj.naturalWidth / stage.width()
                 const scaleY = bgImageObj.naturalHeight / stage.height()
+                // Use the larger scale factor to ensure blur is effective on HiDPI displays
+                const blurScale = Math.max(scaleX, scaleY, 1)
 
                 const blurred = new Konva.Image({
                     image: bgImageObj,
@@ -723,7 +725,9 @@ onMounted(() => {
                 })
                 blurred.cache()
                 blurred.filters([Konva.Filters.Blur])
-                blurred.blurRadius(10)
+                // Scale blur radius by the image scale factor to ensure consistent blur across displays
+                // Base radius of 15 ensures text is unreadable even at lower DPR
+                blurred.blurRadius(15 * blurScale)
                 layer.add(blurred)
                 pushHistory({ type: 'node_add', node: blurred, parent: layer, zIndex: blurred.zIndex() })
                 layer.batchDraw()
