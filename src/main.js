@@ -155,9 +155,11 @@ const createWindow = () => {
 
     if (!wasOpenedAtLogin) {
         // Automatically show main window near tray icon on app startup (manual launches only)
+        // Use a longer delay on first launch to allow tray icon to be properly positioned by the OS
+        // 500ms provides better reliability across different system loads and configurations
         setTimeout(() => {
             tray.showMainAtTray(null, { force: true, gap: 5 })
-        }, 200)
+        }, 500)
     }
 
     screenshotService = new ScreenshotService(windowManager, store)
