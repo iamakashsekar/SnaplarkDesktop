@@ -36,17 +36,17 @@ export const defaultState = {
         showTooltips: true,
 
         // Hotkeys (Global)
-        hotkeyScreenshot: isMac ? 'Cmd + Option + S' : 'Ctrl + Alt + S',
-        hotkeyRecording: isMac ? 'Cmd + Option + R' : 'Ctrl + Alt + R',
-        hotkeyQuickMenu: isMac ? 'Cmd + Option + Q' : 'Ctrl + Alt + Q',
-        hotkeyStartStopRecording: isMac ? 'Cmd + Shift + R' : 'Ctrl + Shift + R',
-        hotkeyToggleMicrophone: isMac ? 'Cmd + Shift + M' : 'Ctrl + Shift + M',
-        hotkeyToggleWebcam: isMac ? 'Cmd + Shift + W' : 'Ctrl + Shift + W',
+        hotkeyScreenshot: isMac ? 'Option + S' : 'Alt + S',
+        hotkeyRecording: isMac ? 'Option + A' : 'Alt + A',
+        hotkeyQuickMenu: isMac ? 'Option + Q' : 'Alt + Q',
+        hotkeyStartStopRecording: isMac ? 'Option + R' : 'Alt + R',
+        hotkeyToggleMicrophone: isMac ? 'Option + M' : 'Alt + M',
+        hotkeyToggleWebcam: isMac ? 'Option + W' : 'Alt + W',
 
         // Capture Toolbar Shortcuts (Local to Screenshot Window)
-        hotkeyUpload: isMac ? 'Cmd + U' : 'Ctrl + U',
-        hotkeyCopy: isMac ? 'Cmd + C' : 'Ctrl + C',
-        hotkeySave: isMac ? 'Cmd + S' : 'Ctrl + S',
+        hotkeyUpload: isMac ? 'Option + U' : 'Alt + U',
+        hotkeyCopy: isMac ? 'Option + C' : 'Alt + C',
+        hotkeySave: isMac ? 'Option + D' : 'Alt + D',
 
         // Capture
         showMagnifier: true,

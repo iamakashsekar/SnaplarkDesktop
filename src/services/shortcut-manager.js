@@ -26,6 +26,9 @@ class ShortcutManager {
         // Convert from our format (Shift + Cmd + S) to Electron format (Shift+Command+S)
         let electronKey = hotkey.replace(/\s*\+\s*/g, '+') // Remove spaces around +
 
+        // Normalize 'Option' to 'Alt' (Option is Mac display name, Alt is Electron standard)
+        electronKey = electronKey.replace(/Option/gi, 'Alt')
+
         // Cross-platform key conversions
         const platform = process.platform
 
@@ -235,7 +238,7 @@ class ShortcutManager {
         const key = parts[parts.length - 1].toLowerCase()
         const hasCtrl = parts.some((p) => p.toLowerCase() === 'control' || p.toLowerCase() === 'ctrl')
         const hasShift = parts.some((p) => p.toLowerCase() === 'shift')
-        const hasAlt = parts.some((p) => p.toLowerCase() === 'alt')
+        const hasAlt = parts.some((p) => p.toLowerCase() === 'alt' || p.toLowerCase() === 'option')
         const hasMeta = parts.some(
             (p) => p.toLowerCase() === 'command' || p.toLowerCase() === 'cmd' || p.toLowerCase() === 'super'
         )

@@ -362,9 +362,19 @@ const registerAllShortcuts = () => {
         return
     }
 
-    // Register all defined shortcuts
+    // Register all defined shortcuts, checking availability for global ones
     Object.keys(SHORTCUT_DEFINITIONS).forEach((key) => {
-        registerShortcutFromStore(key)
+        const definition = SHORTCUT_DEFINITIONS[key]
+        const result = registerShortcutFromStore(key)
+
+        // If a global shortcut failed to register (taken by another app),
+        // clear it from the store so the UI shows it as unset
+        if (definition.type === 'global' && result && !result.success && result.error) {
+            console.warn(`[Main] Global shortcut "${definition.id}" unavailable: ${result.error}. Clearing from store.`)
+            const settings = store.get('settings') || {}
+            settings[definition.storeKey] = ''
+            store.set('settings', settings)
+        }
     })
 }
 

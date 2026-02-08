@@ -94,3 +94,5 @@ out/
 # Editors
 .idea
 .vscode
+
+/docs
