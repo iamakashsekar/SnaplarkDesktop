@@ -16,6 +16,7 @@ import os from 'node:os'
 import fs from 'node:fs'
 import started from 'electron-squirrel-startup'
 import { initMain as initAudioLoopback } from 'electron-audio-loopback'
+import { updatesUrl } from './api/config.js'
 
 // Initialize audio loopback before app is ready (required by the package)
 // Use forceCoreAudioTap for better compatibility on some macOS versions
@@ -394,7 +395,7 @@ const setupAutoUpdater = () => {
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
-            baseUrl: `https://snaplark.com/api/v1/updates/${process.platform}/${process.arch}`
+            baseUrl: updatesUrl(process.platform, process.arch)
         }
     })
 }

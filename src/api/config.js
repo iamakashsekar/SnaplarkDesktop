@@ -1,9 +1,13 @@
 import axios from 'axios'
 
-// Single API Configuration - everything in one place
+// Centralized URL Configuration
 export const BASE_URL = 'https://snaplark.com'
+export const API_PREFIX = 'api'
 export const API_VERSION = 'v1'
+export const API_BASE_URL = `${BASE_URL}/${API_PREFIX}/${API_VERSION}`
 export const PROTOCOL = 'snaplark'
+
+export const updatesUrl = (platform, arch) => `${API_BASE_URL}/updates/${platform}/${arch}`
 
 // Token management utilities
 export class TokenManager {
@@ -40,7 +44,7 @@ export class TokenManager {
 
 // Create the main API client
 export const apiClient = axios.create({
-    baseURL: `${BASE_URL}/api/${API_VERSION}`,
+    baseURL: API_BASE_URL,
     timeout: 0, // No timeout - unlimited
     maxContentLength: Infinity, // No content length limit
     maxBodyLength: Infinity, // No body length limit

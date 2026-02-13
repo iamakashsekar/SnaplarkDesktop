@@ -2,6 +2,9 @@ require('dotenv').config() // Load environment variables from .env
 const { FusesPlugin } = require('@electron-forge/plugin-fuses')
 const { FuseV1Options, FuseVersion } = require('@electron/fuses')
 const path = require('path')
+// Keep in sync with src/api/config.js (source of truth)
+const API_BASE_URL = 'https://snaplark.com/api/v1'
+const updatesUrl = (platform, arch) => `${API_BASE_URL}/updates/${platform}/${arch}`
 
 module.exports = {
     packagerConfig: {
@@ -38,7 +41,7 @@ module.exports = {
                 setupIcon: 'src/assets/icons/icon.ico',
                 loadingGif: 'src/assets/icons/loading.gif',
                 iconUrl: `file://${path.resolve(__dirname, 'src/assets/icons/icon.ico')}`,
-                remoteReleases: `https://snaplark.com/api/updates/win32/${arch}`
+                remoteReleases: updatesUrl('win32', arch)
             }),
         },
         {
@@ -75,7 +78,7 @@ module.exports = {
             platforms: ['darwin'],
             config: (arch) => {
                 return {
-                    macUpdateManifestBaseUrl: `https://snaplark.com/api/v1/updates/darwin/${arch}`
+                    macUpdateManifestBaseUrl: updatesUrl('darwin', arch)
                 }
             }
         },
