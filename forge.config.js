@@ -75,7 +75,7 @@ module.exports = {
             platforms: ['darwin'],
             config: (arch) => {
                 return {
-                    macUpdateManifestBaseUrl: `https://snaplark.com/api/updates/darwin/${arch}`
+                    macUpdateManifestBaseUrl: `https://snaplark.com/api/v1/updates/darwin/${arch}`
                 }
             }
         },

@@ -234,7 +234,7 @@ const registerShortcutFromStore = (shortcutId) => {
 
                 // Find all recording windows (they have keys like 'recording-1', 'recording-2', etc.)
                 let foundRecordingWindow = false
-                
+
                 for (const [type, win] of windowManager.windows.entries()) {
                     if (type.startsWith('recording-') && !win.isDestroyed()) {
                         foundRecordingWindow = true
@@ -257,7 +257,7 @@ const registerShortcutFromStore = (shortcutId) => {
                 if (!windowManager) return
 
                 let foundRecordingWindow = false
-                
+
                 for (const [type, win] of windowManager.windows.entries()) {
                     if (type.startsWith('recording-') && !win.isDestroyed()) {
                         foundRecordingWindow = true
@@ -280,7 +280,7 @@ const registerShortcutFromStore = (shortcutId) => {
                 if (!windowManager) return
 
                 let foundRecordingWindow = false
-                
+
                 for (const [type, win] of windowManager.windows.entries()) {
                     if (type.startsWith('recording-') && !win.isDestroyed()) {
                         foundRecordingWindow = true
@@ -394,7 +394,7 @@ const setupAutoUpdater = () => {
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
-            baseUrl: `https://snaplark.com/api/updates/${process.platform}/${process.arch}`
+            baseUrl: `https://snaplark.com/api/v1/updates/${process.platform}/${process.arch}`
         }
     })
 }
@@ -553,10 +553,10 @@ function setupIPCHandlers() {
         }
 
         const [, definition] = shortcutEntry
-        
+
         // Validate the hotkey
         const validation = shortcutManager.validateHotkey(hotkeyValue, definition.type, definition.id)
-        
+
         return validation
     })
 
@@ -617,10 +617,10 @@ function setupIPCHandlers() {
         // Validate the hotkey first
         const validation = shortcutManager.validateHotkey(hotkeyValue, definition.type, definition.id)
         if (!validation.valid) {
-            return { 
-                success: false, 
+            return {
+                success: false,
                 error: validation.error,
-                duplicate: validation.duplicate 
+                duplicate: validation.duplicate
             }
         }
 
@@ -633,7 +633,7 @@ function setupIPCHandlers() {
 
         // Register the shortcut
         const result = registerShortcutFromStore(shortcutKey)
-        
+
         if (!result || !result.success) {
             // Rollback the store change if registration failed
             const settings = store.get('settings') || {}
@@ -643,7 +643,7 @@ function setupIPCHandlers() {
                 store.set('settings', settings)
             }
         }
-        
+
         return result || { success: true }
     })
 
@@ -682,7 +682,7 @@ function setupIPCHandlers() {
         await new Promise(resolve => setTimeout(resolve, 100))
         const permissions = checkAppPermissions().statuses
         console.log('[Main] Current permissions status:', permissions)
-        
+
         // Check if we recently granted permissions and force an optimistic update
         const now = Date.now()
         for (const [permId, timestamp] of Object.entries(permissionGrantTimestamps)) {
@@ -692,7 +692,7 @@ function setupIPCHandlers() {
                 permissions[permId] = true
             }
         }
-        
+
         return permissions
     })
 
@@ -705,12 +705,12 @@ function setupIPCHandlers() {
                 }
                 permissionsWindow.show()
                 permissionsWindow.focus()
-                
+
                 // On macOS, ensure the app is brought to front
                 if (process.platform === 'darwin') {
                     app.focus({ steal: true })
                 }
-                
+
                 console.log('[Main] Permissions window focused')
                 return true
             }
@@ -725,30 +725,30 @@ function setupIPCHandlers() {
         if (process.platform !== 'darwin') return true
 
         console.log(`[Main] Requesting permission for: ${permissionId}`)
-        
+
         // Store reference to permissions window for refocusing
         const permissionsWindow = windowManager?.getWindow('permissions')
-        
+
         const focusPermissionsWindow = async () => {
             if (permissionsWindow && !permissionsWindow.isDestroyed()) {
                 // Wait a bit for the system dialog to close
                 await new Promise(resolve => setTimeout(resolve, 500))
-                
+
                 if (permissionsWindow.isMinimized()) {
                     permissionsWindow.restore()
                 }
                 permissionsWindow.show()
                 permissionsWindow.focus()
-                
+
                 // On macOS, ensure the app is brought to front
                 if (process.platform === 'darwin') {
                     app.focus({ steal: true })
                 }
-                
+
                 console.log('[Main] Refocused permissions window')
             }
         }
-        
+
         const markPermissionGranted = (permId) => {
             permissionGrantTimestamps[permId] = Date.now()
             console.log(`[Main] Marked ${permId} as recently granted`)
@@ -758,25 +758,25 @@ function setupIPCHandlers() {
             const mediaType = permissionId
             const status = systemPreferences.getMediaAccessStatus(mediaType)
             console.log(`[Main] ${mediaType} status before request: ${status}`)
-            
+
             if (status === 'not-determined') {
                 try {
                     const granted = await systemPreferences.askForMediaAccess(mediaType)
                     console.log(`[Main] ${mediaType} permission granted: ${granted}`)
-                    
+
                     if (granted) {
                         markPermissionGranted(permissionId)
                     }
-                    
+
                     // Refocus the permissions window
                     await focusPermissionsWindow()
-                    
+
                     // Wait for the system to register the permission
                     await new Promise(resolve => setTimeout(resolve, 800))
-                    
+
                     const newStatus = systemPreferences.getMediaAccessStatus(mediaType)
                     console.log(`[Main] ${mediaType} status after request: ${newStatus}`)
-                    
+
                     return granted
                 } catch (error) {
                     console.error(`[Main] Error requesting ${mediaType} permission:`, error)
@@ -797,18 +797,18 @@ function setupIPCHandlers() {
         } else if (permissionId === 'screen') {
             const status = systemPreferences.getMediaAccessStatus('screen')
             console.log(`[Main] Screen recording status before request: ${status}`)
-            
+
             if (status === 'granted') {
                 console.log('[Main] Screen recording already granted')
                 markPermissionGranted(permissionId)
                 return true
             }
-            
+
             // Always try to trigger the permission dialog first
             try {
                 console.log('[Main] Attempting to trigger screen recording permission dialog...')
                 const { desktopCapturer } = require('electron')
-                
+
                 // Create a hidden browser window to trigger the permission
                 const permissionWindow = new BrowserWindow({
                     show: false,
@@ -817,37 +817,37 @@ function setupIPCHandlers() {
                         contextIsolation: true
                     }
                 })
-                
+
                 // This will trigger the screen recording permission dialog
-                const sources = await desktopCapturer.getSources({ 
+                const sources = await desktopCapturer.getSources({
                     types: ['screen', 'window'],
                     thumbnailSize: { width: 150, height: 150 }
                 })
-                
+
                 permissionWindow.destroy()
-                
+
                 console.log(`[Main] Desktop capturer returned ${sources.length} sources`)
-                
+
                 // Refocus the permissions window
                 await focusPermissionsWindow()
-                
+
                 // Wait for the system to register the permission
                 await new Promise(resolve => setTimeout(resolve, 1000))
-                
+
                 const newStatus = systemPreferences.getMediaAccessStatus('screen')
                 console.log(`[Main] Screen recording status after request: ${newStatus}`)
-                
+
                 if (newStatus === 'granted') {
                     markPermissionGranted(permissionId)
                     return true
                 }
-                
+
                 // If still not granted, open System Settings
                 console.log('[Main] Screen recording not granted, opening System Settings')
             } catch (error) {
                 console.error('[Main] Error triggering screen capture permission:', error)
             }
-            
+
             // Open System Settings for manual permission grant
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
             await focusPermissionsWindow()
@@ -855,20 +855,20 @@ function setupIPCHandlers() {
         } else if (permissionId === 'accessibility') {
             const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
             console.log(`[Main] Accessibility trusted: ${isTrusted}`)
-            
+
             if (isTrusted) {
                 markPermissionGranted(permissionId)
                 return true
             }
-            
+
             // Prompt for accessibility access
             systemPreferences.isTrustedAccessibilityClient(true)
-            
+
             await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
             await focusPermissionsWindow()
             return false
         }
-        
+
         return false
     })
 
