@@ -38,7 +38,7 @@ module.exports = {
                 setupIcon: 'src/assets/icons/icon.ico',
                 loadingGif: 'src/assets/icons/loading.gif',
                 iconUrl: `file://${path.resolve(__dirname, 'src/assets/icons/icon.ico')}`,
-                remoteReleases: `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/win32/${arch}`
+                remoteReleases: `https://snaplark.com/api/updates/win32/${arch}`
             }),
         },
         {
@@ -75,7 +75,7 @@ module.exports = {
             platforms: ['darwin'],
             config: (arch) => {
                 return {
-                    macUpdateManifestBaseUrl: `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/darwin/${arch}`
+                    macUpdateManifestBaseUrl: `https://snaplark.com/api/updates/darwin/${arch}`
                 }
             }
         },
@@ -96,8 +96,8 @@ module.exports = {
                 region: process.env.AWS_DEFAULT_REGION,
                 accessKeyId: process.env.AWS_ACCESS_KEY_ID,
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-                endpoint: `https://${process.env.AWS_DEFAULT_REGION}.contabostorage.com`,
-                s3ForcePathStyle: true,
+                endpoint: process.env.AWS_ENDPOINT,
+                s3ForcePathStyle: process.env.AWS_USE_PATH_STYLE_ENDPOINT,
                 public: true,
                 acl: 'public-read',
                 folder: 'releases'

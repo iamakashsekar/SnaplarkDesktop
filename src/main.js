@@ -394,7 +394,7 @@ const setupAutoUpdater = () => {
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
-            baseUrl: `https://usc1.contabostorage.com/72e7132000f0495a956688c26ebee898:main-storage/releases/${process.platform}/${process.arch}`
+            baseUrl: `https://snaplark.com/api/updates/${process.platform}/${process.arch}`
         }
     })
 }
