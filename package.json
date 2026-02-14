@@ -10,7 +10,8 @@
         "make": "electron-forge make",
         "publish": "electron-forge publish",
         "lint": "echo \"No linting configured\"",
-        "rebuild": "electron-rebuild"
+        "rebuild": "electron-rebuild",
+        "sync-releases": "node scripts/sync-releases.js"
     },
     "keywords": [],
     "author": {
