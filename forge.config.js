@@ -101,8 +101,6 @@ module.exports = {
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
                 endpoint: process.env.AWS_ENDPOINT,
                 s3ForcePathStyle: process.env.AWS_USE_PATH_STYLE_ENDPOINT,
-                public: true,
-                acl: 'public-read',
                 folder: 'releases'
             }
         }
