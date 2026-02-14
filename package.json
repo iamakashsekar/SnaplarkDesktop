@@ -2,7 +2,7 @@
     "name": "snaplark",
     "productName": "Snaplark",
     "version": "1.1.5",
-    "description": "Screenshots & GIFs. Moments, captured instantly. Easily collaborate with teams and manage your media files seamlessly.",
+    "description": "Capture, collaborate, and manage your media assets in one high-velocity workspace.",
     "main": ".vite/build/main.js",
     "scripts": {
         "start": "electron-forge start",
@@ -15,8 +15,8 @@
     },
     "keywords": [],
     "author": {
-        "name": "Md.Aminul Islam Fahim",
-        "email": "cipfahim1999@gmail.com"
+        "name": "Snaplark PTE Limited",
+        "email": "support@snaplark.com"
     },
     "license": "MIT",
     "devDependencies": {
