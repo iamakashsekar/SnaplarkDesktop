@@ -33,12 +33,19 @@ module.exports = {
             teamId: process.env.APPLE_TEAM_ID
         },
         // Windows OV Code Signing (Certum)
-        // Signs ALL executables before they are packaged into .nupkg/.exe installer
+        // Uses custom sign function to avoid @electron/windows-sign adding conflicting flags
         ...(process.platform === 'win32' && process.env.WINDOWS_SIGN_CERT_THUMBPRINT
             ? {
                   windowsSign: {
-                      signWithParams: `/tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`,
-                      ...(process.env.WINDOWS_SIGNTOOL_PATH ? { signToolPath: process.env.WINDOWS_SIGNTOOL_PATH } : {})
+                      hookFunction: (forgeConfig) => {
+                          return async (filePath) => {
+                              const { execSync } = require('child_process')
+                              const signToolPath = process.env.WINDOWS_SIGNTOOL_PATH || 'signtool'
+                              const thumbprint = process.env.WINDOWS_SIGN_CERT_THUMBPRINT
+                              const cmd = `"${signToolPath}" sign /fd sha256 /tr http://time.certum.pl /td sha256 /sha1 ${thumbprint} "${filePath}"`
+                              execSync(cmd, { stdio: 'inherit' })
+                          }
+                      }
                   }
               }
             : {})
