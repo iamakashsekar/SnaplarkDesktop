@@ -37,7 +37,8 @@ module.exports = {
         ...(process.platform === 'win32' && process.env.WINDOWS_SIGN_CERT_THUMBPRINT
             ? {
                   windowsSign: {
-                      signWithParams: `/fd sha256 /tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`,
+                      certificateThumbprint: process.env.WINDOWS_SIGN_CERT_THUMBPRINT,
+                      timestampServer: 'http://time.certum.pl',
                       ...(process.env.WINDOWS_SIGNTOOL_PATH ? { signToolPath: process.env.WINDOWS_SIGNTOOL_PATH } : {})
                   }
               }
@@ -55,7 +56,7 @@ module.exports = {
                 // Sign the Squirrel installer and Update.exe
                 ...(process.env.WINDOWS_SIGN_CERT_THUMBPRINT
                     ? {
-                          signWithParams: `/fd sha256 /tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`
+                          signWithParams: `/tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`
                       }
                     : {})
             }),
