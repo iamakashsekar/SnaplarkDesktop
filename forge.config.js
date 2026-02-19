@@ -31,7 +31,17 @@ module.exports = {
             appleId: process.env.APPLE_ID,
             appleIdPassword: process.env.APPLE_PASSWORD,
             teamId: process.env.APPLE_TEAM_ID
-        }
+        },
+        // Windows OV Code Signing (Certum)
+        // Signs ALL executables before they are packaged into .nupkg/.exe installer
+        ...(process.platform === 'win32' && process.env.WINDOWS_SIGN_CERT_THUMBPRINT
+            ? {
+                  windowsSign: {
+                      signWithParams: `/fd sha256 /tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`,
+                      ...(process.env.WINDOWS_SIGNTOOL_PATH ? { signToolPath: process.env.WINDOWS_SIGNTOOL_PATH } : {})
+                  }
+              }
+            : {})
     },
     rebuildConfig: {},
     makers: [
@@ -41,7 +51,13 @@ module.exports = {
                 setupIcon: 'src/assets/icons/icon.ico',
                 loadingGif: 'src/assets/icons/loading.gif',
                 iconUrl: `file://${path.resolve(__dirname, 'src/assets/icons/icon.ico')}`,
-                remoteReleases: updatesUrl('win32', arch)
+                remoteReleases: updatesUrl('win32', arch),
+                // Sign the Squirrel installer and Update.exe
+                ...(process.env.WINDOWS_SIGN_CERT_THUMBPRINT
+                    ? {
+                          signWithParams: `/fd sha256 /tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`
+                      }
+                    : {})
             }),
         },
         {
