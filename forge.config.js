@@ -37,8 +37,7 @@ module.exports = {
         ...(process.platform === 'win32' && process.env.WINDOWS_SIGN_CERT_THUMBPRINT
             ? {
                   windowsSign: {
-                      certificateThumbprint: process.env.WINDOWS_SIGN_CERT_THUMBPRINT,
-                      timestampServer: 'http://time.certum.pl',
+                      signWithParams: `/tr http://time.certum.pl /td sha256 /sha1 ${process.env.WINDOWS_SIGN_CERT_THUMBPRINT}`,
                       ...(process.env.WINDOWS_SIGNTOOL_PATH ? { signToolPath: process.env.WINDOWS_SIGNTOOL_PATH } : {})
                   }
               }
