@@ -144,6 +144,14 @@ contextBridge.exposeInMainWorld('electronAuth', {
     }
 })
 
+// ==================== UPDATE APIs ====================
+
+contextBridge.exposeInMainWorld('electronUpdate', {
+    getUpdateInfo: () => ipcRenderer.invoke('get-update-info'),
+    installUpdate: () => ipcRenderer.invoke('install-update'),
+    dismissUpdate: () => ipcRenderer.invoke('dismiss-update')
+})
+
 // ==================== CONNECTIVITY APIs ====================
 
 contextBridge.exposeInMainWorld('electronConnectivity', {

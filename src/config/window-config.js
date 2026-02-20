@@ -1,7 +1,8 @@
 export const WINDOW_TITLES = {
     settings: 'Snaplark - Settings',
     permissions: 'Snaplark - Permissions',
-    welcome: 'Welcome to Snaplark'
+    welcome: 'Welcome to Snaplark',
+    update: 'Snaplark - Update Available'
 }
 
 export const WINDOW_DIMENSIONS = {
@@ -48,6 +49,10 @@ export const WINDOW_DIMENSIONS = {
     permissions: {
         width: 400,
         height: 640
+    },
+    update: {
+        width: 400,
+        height: 280
     }
 }
 

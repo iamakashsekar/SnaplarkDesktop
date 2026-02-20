@@ -11,6 +11,7 @@ import { useStore } from '../store'
 import VideoRecordingView from '../views/VideoRecordingView.vue'
 import WebcamView from '../views/WebcamView.vue'
 import RecordingOverlayView from '../views/RecordingOverlayView.vue'
+import UpdateView from '../views/UpdateView.vue'
 import { WINDOW_TITLES } from '../config/window-config'
 
 const routes = [
@@ -79,6 +80,12 @@ const routes = [
         name: 'permissions',
         component: () => import('../views/PermissionsView.vue'),
         meta: { windowType: 'permissions', title: WINDOW_TITLES.permissions }
+    },
+    {
+        path: '/update',
+        name: 'update',
+        component: UpdateView,
+        meta: { windowType: 'update', title: WINDOW_TITLES.update }
     }
 ]
 

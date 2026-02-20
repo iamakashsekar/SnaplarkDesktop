@@ -254,6 +254,20 @@ class WindowManager {
                     }
                 }),
                 transparent: false
+            },
+
+            update: {
+                ...common,
+                width: WINDOW_DIMENSIONS.update.width,
+                height: WINDOW_DIMENSIONS.update.height,
+                resizable: false,
+                alwaysOnTop: true,
+                skipTaskbar: false,
+                title: WINDOW_TITLES.update,
+                show: false,
+                modal: false,
+                focusable: true,
+                acceptFirstMouse: true
             }
         }
     }

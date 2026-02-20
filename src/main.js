@@ -35,6 +35,7 @@ import StoreService from './services/store-service.js'
 import ShortcutManager from './services/shortcut-manager.js'
 import { getPersistableDefaults } from './store-defaults.js'
 import { SHORTCUT_DEFINITIONS } from './config/shortcuts.js'
+import { autoUpdater } from 'electron'
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
 
 
@@ -390,12 +391,20 @@ const unregisterAllShortcuts = () => {
 }
 
 // ==================== AUTO UPDATER ====================
-// Setup auto-updater using native autoUpdater module
+
+let pendingUpdateInfo = null
+
 const setupAutoUpdater = () => {
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
             baseUrl: updatesUrl(process.platform, process.arch)
+        },
+        onNotifyUser: ({ releaseName, releaseNotes, releaseDate }) => {
+            pendingUpdateInfo = { releaseName, releaseNotes, releaseDate }
+            if (windowManager) {
+                windowManager.createWindow('update')
+            }
         }
     })
 }
@@ -876,6 +885,21 @@ function setupIPCHandlers() {
     ipcMain.handle('relaunch-app', () => {
         app.relaunch()
         app.quit()
+    })
+
+    // Update handlers
+    ipcMain.handle('get-update-info', () => {
+        return pendingUpdateInfo
+    })
+
+    ipcMain.handle('install-update', () => {
+        autoUpdater.quitAndInstall()
+    })
+
+    ipcMain.handle('dismiss-update', () => {
+        if (windowManager) {
+            windowManager.closeWindow('update')
+        }
     })
 }
 
