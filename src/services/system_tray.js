@@ -101,9 +101,9 @@ class SystemTray {
         }
 
         // Ensure window stays within screen bounds
-        const primaryDisplay = screen.getPrimaryDisplay()
-        const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
-        const { x: workAreaX, y: workAreaY } = primaryDisplay.workArea
+        const nearestDisplay = screen.getDisplayNearestPoint(trayCenter)
+        const { width: screenWidth, height: screenHeight } = nearestDisplay.workAreaSize
+        const { x: workAreaX, y: workAreaY } = nearestDisplay.workArea
 
         // Clamp horizontal position
         if (windowX < workAreaX) {
