@@ -50,14 +50,9 @@ const formatDate = (dateStr) => {
                 </p>
 
                 <div v-if="updateInfo" class="mt-3 w-full rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                            {{ updateInfo.releaseName || 'New Version' }}
-                        </span>
-                        <span v-if="updateInfo.releaseDate" class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ formatDate(updateInfo.releaseDate) }}
-                        </span>
-                    </div>
+                    <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {{ updateInfo.releaseName || 'New Version' }}
+                    </span>
                 </div>
 
                 <div class="no-drag mt-3 flex w-full gap-2">
