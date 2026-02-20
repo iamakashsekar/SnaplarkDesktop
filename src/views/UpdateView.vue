@@ -1,7 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import GradientFrame from '../components/GradientFrame.vue'
-import CloseButton from '../components/CloseButton.vue'
 
 const updateInfo = ref(null)
 
@@ -25,8 +24,6 @@ const dismiss = () => {
 <template>
     <GradientFrame>
         <div class="drag relative rounded-xl bg-white p-4 dark:bg-gray-900">
-            <CloseButton position-classes="no-drag absolute top-2.5 right-2.5" @click="dismiss" />
-
             <div class="flex flex-col items-center text-center">
                 <img src="@/assets/icons/icon.png" alt="Snaplark" class="mb-2 size-10" />
 
