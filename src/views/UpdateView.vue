@@ -20,18 +20,6 @@ const dismiss = () => {
     window.electronUpdate?.dismissUpdate()
 }
 
-const formatDate = (dateStr) => {
-    if (!dateStr) return ''
-    try {
-        return new Date(dateStr).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        })
-    } catch {
-        return dateStr
-    }
-}
 </script>
 
 <template>
