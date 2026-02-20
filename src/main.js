@@ -893,7 +893,10 @@ function setupIPCHandlers() {
     })
 
     ipcMain.handle('install-update', () => {
-        autoUpdater.quitAndInstall()
+        if (windowManager) {
+            windowManager.closeWindow('update')
+        }
+        setImmediate(() => autoUpdater.quitAndInstall())
     })
 
     ipcMain.handle('dismiss-update', () => {

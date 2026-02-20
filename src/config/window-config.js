@@ -51,8 +51,8 @@ export const WINDOW_DIMENSIONS = {
         height: 640
     },
     update: {
-        width: 400,
-        height: 280
+        width: 360,
+        height: 230
     }
 }
 
