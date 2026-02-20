@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, ipcMain } from 'electron'
+import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'node:path'
 import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
 
@@ -310,6 +310,7 @@ class WindowManager {
                 preload: path.join(__dirname, 'preload.js'),
                 contextIsolation: true,
                 nodeIntegration: false,
+                devTools: !app.isPackaged,
                 ...config.webPreferences
             }
         })
