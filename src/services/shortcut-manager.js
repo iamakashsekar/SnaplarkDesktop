@@ -184,9 +184,15 @@ class ShortcutManager {
     _registerLocal(id, electronKey, action, windowId, description) {
         try {
             const windows = BrowserWindow.getAllWindows()
-            const targetWindow = windows.find((win) => win.id === windowId || win.title === windowId)
+            const targetWindows = windows.filter(
+                (win) =>
+                    win.id === windowId ||
+                    win.title === windowId ||
+                    win.windowType === windowId ||
+                    win.baseWindowType === windowId
+            )
 
-            if (!targetWindow) {
+            if (targetWindows.length === 0) {
                 // Window doesn't exist yet - that's okay for local shortcuts
                 // They will be registered when the window is created
                 console.log(`[ShortcutManager] Window '${windowId}' not found yet. Local shortcut will be registered when window is ready.`)
@@ -194,31 +200,35 @@ class ShortcutManager {
                 return { success: true, accelerator: electronKey, pending: true }
             }
 
-            // For local shortcuts, we use webContents.on('before-input-event')
-            // This allows us to capture keyboard events only when the window is focused
-            const listener = (event, input) => {
-                // Check if this input matches our shortcut
-                if (this._matchesShortcut(input, electronKey)) {
-                    console.log(
-                        `[ShortcutManager] Local shortcut triggered: ${electronKey}${description ? ` (${description})` : ''}`
-                    )
-                    event.preventDefault()
-                    action()
-                }
-            }
+            const listeners = []
 
-            targetWindow.webContents.on('before-input-event', listener)
+            // For local shortcuts, we use webContents.on('before-input-event')
+            // This allows us to capture keyboard events only when each target window is focused
+            targetWindows.forEach((targetWindow) => {
+                const listener = (event, input) => {
+                    // Check if this input matches our shortcut
+                    if (this._matchesShortcut(input, electronKey)) {
+                        console.log(
+                            `[ShortcutManager] Local shortcut triggered: ${electronKey}${description ? ` (${description})` : ''}`
+                        )
+                        event.preventDefault()
+                        action(targetWindow)
+                    }
+                }
+
+                targetWindow.webContents.on('before-input-event', listener)
+                listeners.push({ targetWindow, listener })
+            })
 
             // Store the listener so we can remove it later
             const config = this.registeredShortcuts.get(id)
             if (config) {
-                config.listener = listener
-                config.targetWindow = targetWindow
+                config.listeners = listeners
             }
 
             this.activeShortcuts.set(electronKey, id)
             console.log(
-                `[ShortcutManager] Successfully registered local shortcut for window ${windowId}: ${electronKey}${description ? ` - ${description}` : ''}`
+                `[ShortcutManager] Successfully registered local shortcut for window ${windowId}: ${electronKey}${description ? ` - ${description}` : ''} (${listeners.length} window${listeners.length === 1 ? '' : 's'})`
             )
             return { success: true, accelerator: electronKey }
         } catch (error) {
@@ -270,8 +280,16 @@ class ShortcutManager {
                     console.log(`[ShortcutManager] Unregistered global shortcut: ${config.electronKey}`)
                 }
             } else if (config.type === 'local') {
-                // Remove the listener
-                if (config.targetWindow && config.listener && !config.targetWindow.isDestroyed()) {
+                // Remove listeners from all bound windows
+                if (Array.isArray(config.listeners)) {
+                    config.listeners.forEach(({ targetWindow, listener }) => {
+                        if (targetWindow && listener && !targetWindow.isDestroyed()) {
+                            targetWindow.webContents.removeListener('before-input-event', listener)
+                        }
+                    })
+                    console.log(`[ShortcutManager] Unregistered local shortcut: ${config.electronKey}`)
+                } else if (config.targetWindow && config.listener && !config.targetWindow.isDestroyed()) {
+                    // Backward compatibility for older in-memory config shape
                     config.targetWindow.webContents.removeListener('before-input-event', config.listener)
                     console.log(`[ShortcutManager] Unregistered local shortcut: ${config.electronKey}`)
                 }
@@ -316,12 +334,16 @@ class ShortcutManager {
 
         // Unregister all local shortcuts
         this.registeredShortcuts.forEach((config, id) => {
-            if (
-                config.type === 'local' &&
-                config.targetWindow &&
-                config.listener &&
-                !config.targetWindow.isDestroyed()
-            ) {
+            if (config.type !== 'local') return
+
+            if (Array.isArray(config.listeners)) {
+                config.listeners.forEach(({ targetWindow, listener }) => {
+                    if (targetWindow && listener && !targetWindow.isDestroyed()) {
+                        targetWindow.webContents.removeListener('before-input-event', listener)
+                    }
+                })
+            } else if (config.targetWindow && config.listener && !config.targetWindow.isDestroyed()) {
+                // Backward compatibility for older in-memory config shape
                 config.targetWindow.webContents.removeListener('before-input-event', config.listener)
             }
         })
@@ -385,7 +407,7 @@ class ShortcutManager {
         
         for (const [id, config] of this.registeredShortcuts.entries()) {
             // Only process local shortcuts for this window that don't have a listener yet
-            if (config.type === 'local' && config.windowId === windowId && !config.listener) {
+            if (config.type === 'local' && config.windowId === windowId && !config.listeners?.length) {
                 const result = this._registerLocal(
                     id,
                     config.electronKey,
@@ -463,7 +485,7 @@ class ShortcutManager {
             const ourShortcut = Array.from(this.registeredShortcuts.values()).find(
                 (config) => config.electronKey === electronKey
             )
-            if (!ourShortcut || (excludeId && ourShortcut.id === excludeId)) {
+            if (!ourShortcut || (excludeId && ourShortcut.id !== excludeId)) {
                 return {
                     valid: false,
                     error: 'Hotkey is in use by another application'

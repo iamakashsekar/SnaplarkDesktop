@@ -789,7 +789,8 @@ const matchesHotkey = (event, hotkeyStr) => {
     if (!hotkey) return false
 
     const eventKey = event.key.toLowerCase()
-    const keyMatches = eventKey === hotkey.key || event.code.toLowerCase() === hotkey.key
+    const eventCodeKey = event.code.toLowerCase().replace(/^key/, '').replace(/^digit/, '')
+    const keyMatches = eventKey === hotkey.key || eventCodeKey === hotkey.key
 
     // Match exactly what's stored - no cross-platform magic
     return (
@@ -1454,4 +1455,3 @@ const handleToolbarDragEnd = () => {
     animation-delay: 300ms;
 }
 </style>
-

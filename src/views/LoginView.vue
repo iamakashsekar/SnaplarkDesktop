@@ -1,131 +1,138 @@
 <script setup>
-    import whatsNewBg from '../assets/backgrounds/whats-new-bg.png'
-    import { useStore } from '../store'
-    import { useConnectivity } from '../services/connectivity.js'
-    import { onMounted, ref } from 'vue'
-    import 'vue3-carousel/carousel.css'
-    import { Carousel, Slide } from 'vue3-carousel'
-    import { apiClient, BASE_URL, PROTOCOL } from '../api/config.js'
-    import { useWindows } from '../composables/useWindows'
-    import router from '../router'
-    import GradientFrame from '@/components/GradientFrame.vue'
-    import { WINDOW_DIMENSIONS } from '@/config/window-config'
+import whatsNewBg from '../assets/backgrounds/whats-new-bg.png'
+import { useStore } from '../store'
+import { useConnectivity } from '../services/connectivity.js'
+import { onMounted, ref } from 'vue'
+import 'vue3-carousel/carousel.css'
+import { Carousel, Slide } from 'vue3-carousel'
+import { apiClient, BASE_URL, PROTOCOL } from '../api/config.js'
+import { useWindows } from '../composables/useWindows'
+import router from '../router'
+import GradientFrame from '@/components/GradientFrame.vue'
+import { WINDOW_DIMENSIONS } from '@/config/window-config'
 
-    const { hideWindow, resizeWindowTo } = useWindows()
+const { hideWindow, resizeWindowTo } = useWindows()
 
-    const carouselConfig = {
-        autoplay: 5000,
-        itemsToShow: 1,
-        wrapAround: true,
-        pauseAutoplayOnHover: true
-    }
+const carouselConfig = {
+    autoplay: 5000,
+    itemsToShow: 1,
+    wrapAround: true,
+    pauseAutoplayOnHover: true
+}
 
-    const store = useStore()
+const store = useStore()
 
-    // Handle login button click
-    const handleLogin = async () => {
-        const deviceName = await window.electron.getDeviceName()
-        const loginUrl = `${BASE_URL}/auth/client?callback_protocol=${
-            PROTOCOL
+// Handle login button click
+const handleLogin = async () => {
+    const deviceName = await window.electron.getDeviceName()
+    const loginUrl = `${BASE_URL}/auth/client?callback_protocol=${PROTOCOL
         }&action=login&device_name=${encodeURIComponent(deviceName)}`
-        store.openExternal(loginUrl)
-        await hideWindow('main')
-    }
+    store.openExternal(loginUrl)
+    await hideWindow('main')
+}
 
-    // Handle register button click
-    const handleRegister = async () => {
-        const deviceName = await window.electron.getDeviceName()
-        const registerUrl = `${BASE_URL}/auth/client?callback_protocol=${
-            PROTOCOL
+// Handle register button click
+const handleRegister = async () => {
+    const deviceName = await window.electron.getDeviceName()
+    const registerUrl = `${BASE_URL}/auth/client?callback_protocol=${PROTOCOL
         }&action=register&device_name=${encodeURIComponent(deviceName)}`
-        store.openExternal(registerUrl)
-        await hideWindow('main')
+    store.openExternal(registerUrl)
+    await hideWindow('main')
+}
+
+// Blog post state
+const latestPost = ref(null)
+
+// Fetch latest blog post directly
+const fetchLatestPost = async () => {
+    try {
+        const response = await apiClient.get('/blogs/latest')
+        const posts = response.data.data || response.data.posts || response.data || []
+        if (posts.length > 0) {
+            latestPost.value = posts[0] // Get the first (latest) post
+        }
+    } catch (error) {
+        console.warn('Failed to fetch blog post:', error)
+    }
+}
+
+// Use global connectivity system
+const { isOnline, onRestored } = useConnectivity()
+
+// Handle fetching blog post with connectivity check
+const handleBlogPostFetch = async () => {
+    if (!isOnline.value) {
+        console.log('Offline - skipping blog post fetch')
+        return
     }
 
-    // Blog post state
-    const latestPost = ref(null)
-
-    // Fetch latest blog post directly
-    const fetchLatestPost = async () => {
-        try {
-            const response = await apiClient.get('/blogs/latest')
-            const posts = response.data.data || response.data.posts || response.data || []
-            if (posts.length > 0) {
-                latestPost.value = posts[0] // Get the first (latest) post
-            }
-        } catch (error) {
-            console.warn('Failed to fetch blog post:', error)
-        }
+    console.log('Online - fetching blog post')
+    try {
+        await fetchLatestPost()
+        console.log('Blog post fetched successfully')
+    } catch (error) {
+        console.warn('Failed to fetch blog post:', error)
     }
+}
 
-    // Use global connectivity system
-    const { isOnline, onRestored } = useConnectivity()
-
-    // Handle fetching blog post with connectivity check
-    const handleBlogPostFetch = async () => {
-        if (!isOnline.value) {
-            console.log('Offline - skipping blog post fetch')
-            return
-        }
-
-        console.log('Online - fetching blog post')
-        try {
-            await fetchLatestPost()
-            console.log('Blog post fetched successfully')
-        } catch (error) {
-            console.warn('Failed to fetch blog post:', error)
-        }
+onMounted(async () => {
+    if (store.isLoggedIn) {
+        window.electronWindows?.hideWindow('main')
+        await resizeWindowTo('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
+        await router.push('/')
     }
+    // Try to fetch blog post if online
+    await handleBlogPostFetch()
 
-    onMounted(async () => {
-        if (store.isLoggedIn) {
-            window.electronWindows?.hideWindow('main')
-            await resizeWindowTo('main', WINDOW_DIMENSIONS.main.width, WINDOW_DIMENSIONS.main.height)
-            await router.push('/')
-        }
-        // Try to fetch blog post if online
-        await handleBlogPostFetch()
-
-        // Setup listener for when connection is restored
-        onRestored(() => {
-            handleBlogPostFetch()
-        })
+    // Setup listener for when connection is restored
+    onRestored(() => {
+        handleBlogPostFetch()
     })
+})
 </script>
 
 <template>
     <GradientFrame>
-        <div class="dark:bg-dark-blue space-y-6 rounded-2xl bg-white px-2 py-3">
-            <div class="mx-auto w-3/4 space-y-6">
-                <div class="pt-7 text-center">
+        <div class="dark:bg-dark-blue space-y-4 rounded-2xl bg-white p-2">
+            <div class="mx-auto w-3/4 space-y-3.5 pt-6">
+                <div class="text-center">
                     <h1 class="text-gray-black mb-2 text-2xl font-bold dark:text-white">
                         Sign in to <span class="text-primary-blue">Snaplark</span>
                     </h1>
                 </div>
                 <!-- Sign In Buttons -->
-                <div class="space-y-3">
+                <div class="space-y-2.5">
                     <!-- Login Button -->
-                    <button
-                        @click="handleLogin"
-                        :disabled="store.isLoading"
+                    <button @click="handleLogin" :disabled="store.isLoading"
                         class="border-primary-blue cursor-pointer text-primary-blue dark:bg-dark-800 dark:hover:bg-dark-700 w-full rounded-full border-2 bg-white px-6 py-3 text-base font-semibold transition-all duration-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
                         <span v-if="store.isLoading">Loading...</span>
                         <span v-else>Login</span>
                     </button>
 
                     <!-- Register Button -->
-                    <button
-                        @click="handleRegister"
-                        :disabled="store.isLoading"
+                    <button @click="handleRegister" :disabled="store.isLoading"
                         class="bg-primary-blue cursor-pointer w-full rounded-full px-6 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
                         <span v-if="store.isLoading">Loading...</span>
                         <span v-else>Register</span>
                     </button>
                 </div>
+
+                <p class="text-center text-xs leading-5 text-slate-500 dark:text-gray-400">
+                    By logging in or registering, you agree to our
+                    <a href="https://snaplark.com/terms-and-conditions" target="_blank" rel="noopener noreferrer"
+                        class="text-primary-blue font-medium hover:underline">
+                        Terms and Conditions
+                    </a>
+                    and
+                    <a href="https://snaplark.com/privacy-policy" target="_blank" rel="noopener noreferrer"
+                        class="text-primary-blue font-medium hover:underline">
+                        Privacy Policy
+                    </a>
+                    .
+                </p>
             </div>
 
-            <div
-                :style="{ backgroundImage: `url(${whatsNewBg})` }"
+            <div :style="{ backgroundImage: `url(${whatsNewBg})` }"
                 class="shadow-cyan/50 relative min-h-56 rounded-2xl bg-cover bg-center shadow-lg">
                 <Carousel v-bind="carouselConfig">
                     <!-- Blog Slider -->
@@ -140,18 +147,13 @@
                             <!-- Latest Blog Post -->
                             <div class="space-y-2.5">
                                 <!-- Latest Blog Post from API -->
-                                <div
-                                    v-if="latestPost"
+                                <div v-if="latestPost"
                                     class="dark:bg-dark-900 dark:hover:bg-dark-800 flex cursor-pointer items-center gap-3 rounded-xl bg-white p-2 transition-colors hover:bg-gray-50"
                                     @click="store.openExternal(`https://snaplark.com/blog/${latestPost.slug}`)">
-                                    <img
-                                        v-if="latestPost.thumb_url"
-                                        class="h-[93px] w-1/2 rounded-lg object-cover"
-                                        :src="latestPost.thumb_url"
-                                        :alt="latestPost.title"
+                                    <img v-if="latestPost.thumb_url" class="h-[93px] w-1/2 rounded-lg object-cover"
+                                        :src="latestPost.thumb_url" :alt="latestPost.title"
                                         @error="(e) => (e.target.style.display = 'none')" />
-                                    <div
-                                        v-else
+                                    <div v-else
                                         class="flex h-[93px] w-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-cyan-400">
                                         <span class="text-xs font-semibold text-white">Snaplark</span>
                                     </div>
@@ -159,8 +161,7 @@
                                         <p class="text-gray-black line-clamp-3 text-sm font-bold dark:text-white">
                                             {{ latestPost.title || 'Latest Update' }}
                                         </p>
-                                        <p
-                                            v-if="latestPost.excerpt"
+                                        <p v-if="latestPost.excerpt"
                                             class="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
                                             {{ latestPost.excerpt }}
                                         </p>
@@ -168,9 +169,7 @@
                                 </div>
 
                                 <!-- Fallback content if no post is available -->
-                                <div
-                                    v-else
-                                    @click="store.openExternal('https://snaplark.com/blog')"
+                                <div v-else @click="store.openExternal('https://snaplark.com/blog')"
                                     class="dark:bg-dark-900 flex cursor-pointer items-center gap-3 rounded-xl bg-white p-2">
                                     <div
                                         class="flex h-[93px] w-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-cyan-400">
@@ -196,9 +195,7 @@
                                 </p>
                             </div>
 
-                            <img
-                                class="mx-auto h-auto w-3/5"
-                                src="@/assets/images/lightweight-mode.png"
+                            <img class="mx-auto h-auto w-3/5" src="@/assets/images/lightweight-mode.png"
                                 alt="lightweight mode" />
                         </div>
                     </Slide>
@@ -211,10 +208,7 @@
                                 <h2 class="text-[28px] font-bold">Did you know?</h2>
                                 <p class="text-xs">Having multi monitors? Snaplark covers them all!</p>
                             </div>
-                            <img
-                                class="mx-auto w-46"
-                                src="@/assets/images/multi-monitors.png"
-                                alt="multi monitors" />
+                            <img class="mx-auto w-46" src="@/assets/images/multi-monitors.png" alt="multi monitors" />
                         </div>
                     </Slide>
 
@@ -226,24 +220,16 @@
                                 <h2 class="text-2xl font-bold">Premium member yet?</h2>
                             </div>
 
-                            <img
-                                src="@/assets/images/premium-member.png"
-                                alt="premium member" />
+                            <img src="@/assets/images/premium-member.png" alt="premium member" />
                         </div>
                     </Slide>
                 </Carousel>
 
                 <!-- Footer Links -->
                 <div class="mt-6 flex justify-between gap-1 border-t border-white/50 px-6 py-4 text-white">
-                    <a
-                        href="https://www.snaplark.com"
-                        target="_blank"
+                    <a href="https://www.snaplark.com" target="_blank"
                         class="flex items-center gap-1.5 transition-colors duration-200 hover:text-blue-200">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="size-3"
-                            viewBox="0 0 24 24"
-                            fill="none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none">
                             <g clip-path="url(#clip0_4418_8228)">
                                 <path
                                     d="M7.65006 20.9098C7.62006 20.9098 7.58006 20.9298 7.55006 20.9298C5.61006 19.9698 4.03006 18.3798 3.06006 16.4398C3.06006 16.4098 3.08006 16.3698 3.08006 16.3398C4.30006 16.6998 5.56006 16.9698 6.81006 17.1798C7.03006 18.4398 7.29006 19.6898 7.65006 20.9098Z"
@@ -275,25 +261,16 @@
                             </g>
                             <defs>
                                 <clipPath id="clip0_4418_8228">
-                                    <rect
-                                        width="24"
-                                        height="24"
-                                        fill="white" />
+                                    <rect width="24" height="24" fill="white" />
                                 </clipPath>
                             </defs>
                         </svg>
                         <span class="text-xs">Website</span>
                     </a>
 
-                    <a
-                        href="https://snaplark.com/blog"
-                        target="_blank"
+                    <a href="https://snaplark.com/blog" target="_blank"
                         class="flex items-center gap-1.5 transition-colors duration-200 hover:text-blue-200">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="size-3"
-                            viewBox="0 0 24 24"
-                            fill="none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none">
                             <g clip-path="url(#clip0_4418_8261)">
                                 <path
                                     d="M12.6778 19.957C12.9525 20.0209 12.9777 20.3807 12.7101 20.4699L11.1301 20.9899C7.1601 22.2699 5.0701 21.1999 3.7801 17.2299L2.5001 13.2799C1.2201 9.30992 2.2801 7.20992 6.2501 5.92992L6.77409 5.75639C7.17696 5.62297 7.56902 6.02703 7.45463 6.43571C7.39793 6.63828 7.34338 6.84968 7.2901 7.06992L6.3101 11.2599C5.2101 15.9699 6.8201 18.5699 11.5301 19.6899L12.6778 19.957Z"
@@ -304,25 +281,16 @@
                             </g>
                             <defs>
                                 <clipPath id="clip0_4418_8261">
-                                    <rect
-                                        width="24"
-                                        height="24"
-                                        fill="white" />
+                                    <rect width="24" height="24" fill="white" />
                                 </clipPath>
                             </defs>
                         </svg>
                         <span class="text-xs">Blog Updates</span>
                     </a>
 
-                    <a
-                        href="https://snaplark.com/contact"
-                        target="_blank"
+                    <a href="https://snaplark.com/contact" target="_blank"
                         class="flex items-center gap-1.5 transition-colors duration-200 hover:text-blue-200">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="size-3"
-                            viewBox="0 0 24 24"
-                            fill="none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none">
                             <g clip-path="url(#clip0_4418_8833)">
                                 <path
                                     d="M11.05 14.95L9.2 16.8C8.81 17.19 8.19 17.19 7.79 16.81C7.68 16.7 7.57 16.6 7.46 16.49C6.43 15.45 5.5 14.36 4.67 13.22C3.85 12.08 3.19 10.94 2.71 9.81C2.24 8.67 2 7.58 2 6.54C2 5.86 2.12 5.21 2.36 4.61C2.6 4 2.98 3.44 3.51 2.94C4.15 2.31 4.85 2 5.59 2C5.87 2 6.15 2.06 6.4 2.18C6.66 2.3 6.89 2.48 7.07 2.74L9.39 6.01C9.57 6.26 9.7 6.49 9.79 6.71C9.88 6.92 9.93 7.13 9.93 7.32C9.93 7.56 9.86 7.8 9.72 8.03C9.59 8.26 9.4 8.5 9.16 8.74L8.4 9.53C8.29 9.64 8.24 9.77 8.24 9.93C8.24 10.01 8.25 10.08 8.27 10.16C8.3 10.24 8.33 10.3 8.35 10.36C8.53 10.69 8.84 11.12 9.28 11.64C9.73 12.16 10.21 12.69 10.73 13.22C10.83 13.32 10.94 13.42 11.04 13.52C11.44 13.91 11.45 14.55 11.05 14.95Z"
@@ -333,25 +301,16 @@
                             </g>
                             <defs>
                                 <clipPath id="clip0_4418_8833">
-                                    <rect
-                                        width="24"
-                                        height="24"
-                                        fill="white" />
+                                    <rect width="24" height="24" fill="white" />
                                 </clipPath>
                             </defs>
                         </svg>
                         <span class="text-xs">Contact</span>
                     </a>
 
-                    <a
-                        href="https://snaplark.com/help-center"
-                        target="_blank"
+                    <a href="https://snaplark.com/help-center" target="_blank"
                         class="flex items-center gap-1.5 transition-colors duration-200 hover:text-blue-200">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="size-3"
-                            viewBox="0 0 24 24"
-                            fill="none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="size-3" viewBox="0 0 24 24" fill="none">
                             <g clip-path="url(#clip0_4418_8671)">
                                 <path
                                     d="M17 2.42969H7C4 2.42969 2 4.42969 2 7.42969V13.4297C2 16.4297 4 18.4297 7 18.4297V20.5597C7 21.3597 7.89 21.8397 8.55 21.3897L13 18.4297H17C20 18.4297 22 16.4297 22 13.4297V7.42969C22 4.42969 20 2.42969 17 2.42969ZM12 14.5997C11.58 14.5997 11.25 14.2597 11.25 13.8497C11.25 13.4397 11.58 13.0997 12 13.0997C12.42 13.0997 12.75 13.4397 12.75 13.8497C12.75 14.2597 12.42 14.5997 12 14.5997ZM13.26 10.4497C12.87 10.7097 12.75 10.8797 12.75 11.1597V11.3697C12.75 11.7797 12.41 12.1197 12 12.1197C11.59 12.1197 11.25 11.7797 11.25 11.3697V11.1597C11.25 9.99969 12.1 9.42969 12.42 9.20969C12.79 8.95969 12.91 8.78969 12.91 8.52969C12.91 8.02969 12.5 7.61969 12 7.61969C11.5 7.61969 11.09 8.02969 11.09 8.52969C11.09 8.93969 10.75 9.27969 10.34 9.27969C9.93 9.27969 9.59 8.93969 9.59 8.52969C9.59 7.19969 10.67 6.11969 12 6.11969C13.33 6.11969 14.41 7.19969 14.41 8.52969C14.41 9.66969 13.57 10.2397 13.26 10.4497Z"
@@ -359,10 +318,7 @@
                             </g>
                             <defs>
                                 <clipPath id="clip0_4418_8671">
-                                    <rect
-                                        width="24"
-                                        height="24"
-                                        fill="white" />
+                                    <rect width="24" height="24" fill="white" />
                                 </clipPath>
                             </defs>
                         </svg>

@@ -48,7 +48,7 @@ class WindowManager {
                 height: mainDimensions.height,
                 minWidth: WINDOW_DIMENSIONS.main.width,
                 minHeight: WINDOW_DIMENSIONS.main.height,
-                resizable: true,
+                resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: true,
                 roundedCorners: true,
@@ -314,6 +314,10 @@ class WindowManager {
                 ...config.webPreferences
             }
         })
+
+        // Store logical window types for downstream services (e.g., local shortcut binding).
+        window.windowType = type
+        window.baseWindowType = baseType
 
         this.applyPlatformSpecificSettings(window, type, isSelectionWindow, config)
 

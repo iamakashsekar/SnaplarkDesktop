@@ -46,6 +46,25 @@ const store = new Store({
     encryptionKey: "snaplark-encryption-key",
 })
 
+const defaultPersistedState = getPersistableDefaults()
+
+/**
+ * Ensure nested settings are fully hydrated with defaults.
+ * electron-store defaults do not always backfill missing nested properties.
+ */
+const ensureSettingsDefaults = () => {
+    const currentSettings = store.get('settings') || {}
+    const defaultSettings = defaultPersistedState.settings || {}
+    const mergedSettings = { ...defaultSettings, ...currentSettings }
+
+    const hasMissingKeys = Object.keys(defaultSettings).some((key) => currentSettings[key] === undefined)
+    if (!store.has('settings') || hasMissingKeys) {
+        store.set('settings', mergedSettings)
+    }
+
+    return mergedSettings
+}
+
 if (started) {
     app.quit()
 }
@@ -208,6 +227,26 @@ const registerShortcutFromStore = (shortcutId) => {
     }
 
     // Determine the action based on the shortcut type
+    const getTargetScreenshotWindow = (preferredWindow = null) => {
+        if (preferredWindow && !preferredWindow.isDestroyed()) {
+            return preferredWindow
+        }
+
+        if (!windowManager?.windows) return null
+
+        const screenshotWindows = []
+        for (const [type, win] of windowManager.windows.entries()) {
+            if (type.startsWith('screenshot-') && !win.isDestroyed()) {
+                screenshotWindows.push(win)
+            }
+        }
+
+        if (screenshotWindows.length === 0) return null
+
+        const focusedWindow = screenshotWindows.find((win) => win.isFocused())
+        return focusedWindow || screenshotWindows[0]
+    }
+
     let action
     switch (definition.id) {
         case 'screenshot':
@@ -311,8 +350,8 @@ const registerShortcutFromStore = (shortcutId) => {
             }
             break
         case 'upload':
-            action = () => {
-                const screenshotWindow = windowManager?.getWindow('screenshot')
+            action = (targetWindow) => {
+                const screenshotWindow = getTargetScreenshotWindow(targetWindow)
                 if (screenshotWindow && screenshotWindow.webContents) {
                     screenshotWindow.webContents.send('trigger-upload')
                     console.log('[Main] Triggered upload action')
@@ -320,8 +359,8 @@ const registerShortcutFromStore = (shortcutId) => {
             }
             break
         case 'copy':
-            action = () => {
-                const screenshotWindow = windowManager?.getWindow('screenshot')
+            action = (targetWindow) => {
+                const screenshotWindow = getTargetScreenshotWindow(targetWindow)
                 if (screenshotWindow && screenshotWindow.webContents) {
                     screenshotWindow.webContents.send('trigger-copy')
                     console.log('[Main] Triggered copy action')
@@ -329,8 +368,8 @@ const registerShortcutFromStore = (shortcutId) => {
             }
             break
         case 'save':
-            action = () => {
-                const screenshotWindow = windowManager?.getWindow('screenshot')
+            action = (targetWindow) => {
+                const screenshotWindow = getTargetScreenshotWindow(targetWindow)
                 if (screenshotWindow && screenshotWindow.webContents) {
                     screenshotWindow.webContents.send('trigger-save')
                     console.log('[Main] Triggered save action')
@@ -363,6 +402,9 @@ const registerAllShortcuts = () => {
         console.error('[Main] ShortcutManager not initialized')
         return
     }
+
+    // Make sure all shortcut keys exist before first registration pass.
+    ensureSettingsDefaults()
 
     // Register all defined shortcuts, checking availability for global ones
     Object.keys(SHORTCUT_DEFINITIONS).forEach((key) => {
@@ -634,9 +676,11 @@ function setupIPCHandlers() {
             }
         }
 
+        const settings = store.get('settings') || {}
+        const previousValue = settings[storeKey]
+
         // Update store
         if (hotkeyValue !== undefined) {
-            const settings = store.get('settings') || {}
             settings[storeKey] = hotkeyValue
             store.set('settings', settings)
         }
@@ -646,8 +690,6 @@ function setupIPCHandlers() {
 
         if (!result || !result.success) {
             // Rollback the store change if registration failed
-            const settings = store.get('settings') || {}
-            const previousValue = settings[storeKey]
             if (previousValue !== hotkeyValue) {
                 settings[storeKey] = previousValue
                 store.set('settings', settings)

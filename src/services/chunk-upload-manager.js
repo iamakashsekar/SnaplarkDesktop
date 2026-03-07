@@ -96,7 +96,11 @@ class ChunkUploadManager {
     }
 
     /**
-     * Add data to buffer and create 5MB chunks when buffer reaches threshold
+     * Add data to buffer and create 5MB chunks when buffer reaches threshold.
+     * Uses Blob.slice() to split blobs when needed so every upload chunk is
+     * EXACTLY minChunkSize bytes (except the final flushed chunk).
+     * This satisfies the server requirement that all non-trailing parts have
+     * the same length.
      * @param {Blob} chunkBlob - Video chunk blob from MediaRecorder
      * @param {number} originalChunkIndex - Original chunk index from MediaRecorder (for logging)
      */
@@ -113,28 +117,41 @@ class ChunkUploadManager {
             `📥 Added chunk ${originalChunkIndex} to buffer (${(chunkBlob.size / 1024).toFixed(2)} KB). Buffer size: ${(this.chunkBufferSize / 1024 / 1024).toFixed(2)} MB`
         )
 
-        // Check if buffer has reached minimum chunk size (5MB)
+        // Create exactly minChunkSize upload chunks from the buffer.
+        // When a blob would push combinedSize past minChunkSize, split it with
+        // Blob.slice() so the upload chunk is exactly minChunkSize bytes and
+        // the remainder stays in the buffer for the next chunk.
         while (this.chunkBufferSize >= this.minChunkSize) {
-            // Create a 5MB chunk from buffer
             const chunksToCombine = []
             let combinedSize = 0
 
-            // Take chunks from buffer until we have at least 5MB
             while (combinedSize < this.minChunkSize && this.chunkBuffer.length > 0) {
-                const chunk = this.chunkBuffer.shift()
-                chunksToCombine.push(chunk)
-                combinedSize += chunk.size
+                const remaining = this.minChunkSize - combinedSize
+                const next = this.chunkBuffer[0]
+
+                if (next.size <= remaining) {
+                    // Entire blob fits — take it whole
+                    chunksToCombine.push(next)
+                    combinedSize += next.size
+                    this.chunkBuffer.shift()
+                    this.chunkBufferSize -= next.size
+                } else {
+                    // Blob is larger than remaining space — split it
+                    chunksToCombine.push(next.slice(0, remaining))
+                    combinedSize += remaining
+                    // Put the remainder back at the front of the buffer
+                    this.chunkBuffer[0] = next.slice(remaining)
+                    this.chunkBufferSize -= remaining
+                    // combinedSize now equals minChunkSize; exit inner loop
+                }
             }
 
-            // Create combined blob
+            // Create combined blob of exactly minChunkSize bytes
             const combinedBlob = new Blob(chunksToCombine, { type: 'video/webm' })
-            this.chunkBufferSize -= combinedSize
-
-            // Queue the combined chunk
             this.queueChunkDirectly(combinedBlob, this.nextChunkIndex++)
 
             console.log(
-                `📦 Created 5MB chunk ${this.nextChunkIndex - 1} from buffer (${(combinedBlob.size / 1024 / 1024).toFixed(2)} MB). Remaining buffer: ${(this.chunkBufferSize / 1024 / 1024).toFixed(2)} MB`
+                `📦 Created exact ${(this.minChunkSize / 1024 / 1024).toFixed(0)}MB chunk ${this.nextChunkIndex - 1} (${(combinedBlob.size / 1024 / 1024).toFixed(2)} MB). Remaining buffer: ${(this.chunkBufferSize / 1024 / 1024).toFixed(2)} MB`
             )
         }
     }
