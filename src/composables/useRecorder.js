@@ -155,6 +155,71 @@ export function useRecorder() {
         }
     }
 
+    const hasLiveScreenStream = () => {
+        return !!(
+            screenStream &&
+            screenStream.active &&
+            screenStream.getVideoTracks().some((track) => track.readyState === 'live')
+        )
+    }
+
+    const waitForScreenVideoReady = async (timeoutMs = 4000) => {
+        const video = screenVideo.value
+        if (!video) return false
+
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
+            return true
+        }
+
+        return await new Promise((resolve) => {
+            let settled = false
+
+            const cleanup = () => {
+                video.removeEventListener('loadedmetadata', checkReady)
+                video.removeEventListener('canplay', checkReady)
+                video.removeEventListener('playing', checkReady)
+                video.removeEventListener('error', handleError)
+            }
+
+            const finish = (result) => {
+                if (settled) return
+                settled = true
+                clearTimeout(timeoutId)
+                cleanup()
+                resolve(result)
+            }
+
+            const checkReady = () => {
+                if (
+                    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+                    video.videoWidth > 0 &&
+                    video.videoHeight > 0
+                ) {
+                    finish(true)
+                }
+            }
+
+            const handleError = () => finish(false)
+            const timeoutId = setTimeout(() => finish(false), timeoutMs)
+
+            video.addEventListener('loadedmetadata', checkReady)
+            video.addEventListener('canplay', checkReady)
+            video.addEventListener('playing', checkReady)
+            video.addEventListener('error', handleError)
+            checkReady()
+        })
+    }
+
+    const ensurePreviewStream = async () => {
+        if (!selectedSourceId.value) return false
+
+        if (!hasLiveScreenStream()) {
+            await startPreview()
+        }
+
+        return await waitForScreenVideoReady()
+    }
+
     const stopPreview = () => {
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId)
@@ -164,6 +229,11 @@ export function useRecorder() {
         if (screenStream) {
             screenStream.getTracks().forEach((track) => track.stop())
             screenStream = null
+        }
+
+        if (screenVideo.value) {
+            screenVideo.value.pause()
+            screenVideo.value.srcObject = null
         }
 
         if (audioStream) {
@@ -231,6 +301,13 @@ export function useRecorder() {
     }
 
     const startRecording = async () => {
+        const previewReady = await ensurePreviewStream()
+        if (!previewReady) {
+            alert('Screen video not ready. Please wait a moment and try again.')
+            console.error('❌ Screen video not ready before starting recording')
+            return
+        }
+
         uiMode.value = 'record'
 
         try {
@@ -1042,6 +1119,7 @@ export function useRecorder() {
         refreshSources,
         startRecording,
         stopRecording,
+        stopPreview,
         resetRecording,
         initialize,
         cleanup

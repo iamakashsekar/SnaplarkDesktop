@@ -233,58 +233,18 @@ class VideoRecordingService {
                 }
 
                 const allDisplays = screen.getAllDisplays()
-
-                // OPTIMIZATION: Use cached sources if available (from pre-capture)
-                // Falls back to fresh capture if cache is expired or was cleared
-                const allSources = await this.getScreenSourcesWithCache(allDisplays)
-
-                if (!allSources || allSources.length === 0) {
-                    console.error('No screen sources found')
-                    return { success: false, error: 'No screen sources available' }
-                }
-
-                // Get cursor position once before processing
-                const cursorPos = screen.getCursorScreenPoint()
-
-                // Process all displays using the pre-fetched sources
-                const screenshotResults = allDisplays.map((display) => {
-                    try {
-                        const source = this.findSourceForDisplayFromSources(allSources, display)
-                        if (!source) {
-                            console.error(`Could not find screen source for displayId: ${display.id}`)
-                            return null
-                        }
-
-                        const image = source.thumbnail
-                        const dataURL = image.toDataURL()
-
-                        const mouseX = cursorPos.x - display.bounds.x
-                        const mouseY = cursorPos.y - display.bounds.y
-
-                        return {
-                            display,
-                            dataURL,
-                            mouseX: Math.max(0, Math.min(mouseX, display.bounds.width)),
-                            mouseY: Math.max(0, Math.min(mouseY, display.bounds.height))
-                        }
-                    } catch (error) {
-                        console.error(`Error processing display ${display.id}:`, error)
-                        return null
-                    }
-                })
-
-                const validResults = screenshotResults.filter((result) => result !== null)
-
-                if (validResults.length === 0) {
-                    console.error('No valid displays found for recording')
+                if (allDisplays.length === 0) {
+                    console.error('No displays found for recording')
                     return { success: false, error: 'No displays available' }
                 }
 
                 const initialCursorPos = screen.getCursorScreenPoint()
                 const initialActiveDisplay = screen.getDisplayNearestPoint(initialCursorPos)
 
-                const windows = validResults.map(({ display, dataURL, mouseX, mouseY }) => {
+                const windows = allDisplays.map((display) => {
                     const windowType = `recording-${display.id}`
+                    const mouseX = initialCursorPos.x - display.bounds.x
+                    const mouseY = initialCursorPos.y - display.bounds.y
 
                     const win = this.windowManager.createWindow(windowType, {
                         ...display.bounds,
@@ -294,13 +254,12 @@ class VideoRecordingService {
                         height: display.bounds.height,
                         params: {
                             displayId: display.id,
-                            initialMouseX: mouseX,
-                            initialMouseY: mouseY,
+                            initialMouseX: Math.max(0, Math.min(mouseX, display.bounds.width)),
+                            initialMouseY: Math.max(0, Math.min(mouseY, display.bounds.height)),
                             activeDisplayId: initialActiveDisplay.id
                         }
                     })
 
-                    win.screenshotData = dataURL
                     win.displayInfo = display
 
                     win.setBounds({
@@ -308,14 +267,6 @@ class VideoRecordingService {
                         y: display.bounds.y,
                         width: display.bounds.width,
                         height: display.bounds.height
-                    })
-
-                    const handlerKey = `get-initial-magnifier-data-${display.id}`
-                    ipcMain.handleOnce(handlerKey, (event) => {
-                        if (event.sender === win.webContents) {
-                            return dataURL
-                        }
-                        return null
                     })
 
                     if (process.platform === 'darwin') {
@@ -383,10 +334,6 @@ class VideoRecordingService {
                         })
                     }
 
-                    win.on('closed', () => {
-                        ipcMain.removeHandler(handlerKey)
-                    })
-
                     return win
                 })
 
@@ -446,7 +393,7 @@ class VideoRecordingService {
                     windowCount: windows.length
                 }
             } catch (error) {
-                console.error('Error starting screenshot mode:', error)
+                console.error('Error starting video recording mode:', error)
                 return { success: false, error: error.message }
             }
         })
@@ -478,7 +425,7 @@ class VideoRecordingService {
                 })
                 return { success: true }
             } catch (error) {
-                console.error('Error closing other screenshot windows:', error)
+                console.error('Error closing other recording windows:', error)
                 return { success: false, error: error.message }
             }
         })
