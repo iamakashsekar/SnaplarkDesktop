@@ -2,21 +2,27 @@ export const WINDOW_TITLES = {
     settings: 'Snaplark - Settings',
     permissions: 'Snaplark - Permissions',
     welcome: 'Welcome to Snaplark',
-    update: 'Snaplark - Update Available'
+    update: 'Snaplark - Update Available',
+    design: 'Snaplark - Design',
+    issueReport: 'Snaplark - Report an Issue'
 }
 
 export const WINDOW_DIMENSIONS = {
     login: {
         width: 350,
-        height: 530,
+        height: 530
     },
     main: {
         width: 232,
-        height: 440,
+        height: 440
     },
     settings: {
         width: 450,
         height: 485 // 650 with language selection
+    },
+    'issue-report': {
+        width: 520,
+        height: 650
     },
     welcome: {
         width: 450,
@@ -55,4 +61,3 @@ export const WINDOW_DIMENSIONS = {
         height: 230
     }
 }
-

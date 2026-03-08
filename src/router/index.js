@@ -13,6 +13,7 @@ import WebcamView from '../views/WebcamView.vue'
 import RecordingOverlayView from '../views/RecordingOverlayView.vue'
 import UpdateView from '../views/UpdateView.vue'
 import { WINDOW_TITLES } from '../config/window-config'
+import IssueReportView from '../views/IssueReportView.vue'
 
 const routes = [
     {
@@ -32,6 +33,12 @@ const routes = [
         name: 'settings',
         component: SettingsView,
         meta: { windowType: 'settings', title: WINDOW_TITLES.settings }
+    },
+    {
+        path: '/issue-report',
+        name: 'issue-report',
+        component: IssueReportView,
+        meta: { windowType: 'issue-report', title: WINDOW_TITLES.issueReport }
     },
     {
         path: '/welcome',

@@ -2,6 +2,7 @@ import { ipcMain, screen, desktopCapturer, clipboard, dialog, nativeImage, Brows
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import mainLogService from './main-log-service.js'
 
 class ScreenshotService {
     constructor(windowManager, store) {
@@ -68,9 +69,11 @@ class ScreenshotService {
         const now = Date.now()
 
         // Check if cache is valid
-        if (this.cachedSources &&
+        if (
+            this.cachedSources &&
             this.cachedSources.length > 0 &&
-            (now - this.cachedSourcesTimestamp) < this.cacheValidityMs) {
+            now - this.cachedSourcesTimestamp < this.cacheValidityMs
+        ) {
             return this.cachedSources
         }
 
@@ -221,6 +224,14 @@ class ScreenshotService {
     setupHandlers() {
         ipcMain.handle('start-screenshot-mode', async () => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'screenshot.mode_started',
+                    message: 'Screenshot mode requested',
+                    processType: 'main',
+                    scope: 'capture'
+                })
+
                 const mainWindow = this.windowManager.getWindow('main')
                 const wasMainWindowVisible = mainWindow && mainWindow.isVisible()
 
@@ -464,6 +475,15 @@ class ScreenshotService {
 
         ipcMain.handle('copy-screenshot', async (event, type, bounds, displayId) => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'screenshot.copy_requested',
+                    message: 'Copy screenshot requested',
+                    processType: 'main',
+                    scope: 'capture',
+                    context: { type, bounds, displayId }
+                })
+
                 const senderWindow = BrowserWindow.fromWebContents(event.sender)
                 if (senderWindow) {
                     senderWindow.hide()
@@ -512,6 +532,13 @@ class ScreenshotService {
         })
 
         ipcMain.on('cancel-screenshot-mode', () => {
+            mainLogService.log({
+                level: 'info',
+                event: 'screenshot.mode_cancelled',
+                message: 'Screenshot mode cancelled',
+                processType: 'main',
+                scope: 'capture'
+            })
             this.windowManager.closeWindowsByType('screenshot')
         })
 
@@ -587,6 +614,15 @@ class ScreenshotService {
 
         ipcMain.handle('take-screenshot', async (event, type, bounds, displayId, closeWindow) => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'screenshot.capture_requested',
+                    message: 'Screenshot capture requested',
+                    processType: 'main',
+                    scope: 'capture',
+                    context: { type, bounds, displayId, closeWindow }
+                })
+
                 if (closeWindow) {
                     const senderWindow = BrowserWindow.fromWebContents(event.sender)
                     if (senderWindow) {

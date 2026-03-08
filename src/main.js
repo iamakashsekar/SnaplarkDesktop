@@ -9,7 +9,7 @@ import {
     dialog,
     globalShortcut,
     systemPreferences,
-    clipboard,
+    clipboard
 } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
@@ -37,13 +37,28 @@ import { getPersistableDefaults } from './store-defaults.js'
 import { SHORTCUT_DEFINITIONS } from './config/shortcuts.js'
 import { autoUpdater } from 'electron'
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
+import mainLogService from './services/main-log-service.js'
 
+mainLogService.captureConsole('main')
+mainLogService.attachProcessHandlers()
+mainLogService.log({
+    level: 'info',
+    event: 'app.bootstrap_started',
+    message: 'Main process bootstrap started',
+    processType: 'main',
+    scope: 'bootstrap',
+    context: {
+        platform: process.platform,
+        arch: process.arch,
+        pid: process.pid
+    }
+})
 
 // ==================== CONFIGURATION & INITIALIZATION ====================
 
 const store = new Store({
     defaults: getPersistableDefaults(),
-    encryptionKey: "snaplark-encryption-key",
+    encryptionKey: 'snaplark-encryption-key'
 })
 
 const defaultPersistedState = getPersistableDefaults()
@@ -74,9 +89,28 @@ if (started) {
 const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
+    mainLogService.log({
+        level: 'warn',
+        event: 'app.single_instance_denied',
+        message: 'Secondary instance detected, quitting current process',
+        processType: 'main',
+        scope: 'lifecycle'
+    })
     app.quit()
 } else {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
+        mainLogService.log({
+            level: 'info',
+            event: 'app.second_instance',
+            message: 'Second instance forwarded to existing app window',
+            processType: 'main',
+            scope: 'lifecycle',
+            context: {
+                commandLine,
+                workingDirectory
+            }
+        })
+
         const mainWindow = windowManager?.getWindow('main')
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore()
@@ -144,6 +178,14 @@ const checkAppPermissions = () => {
 }
 
 const createWindow = () => {
+    mainLogService.log({
+        level: 'info',
+        event: 'window.bootstrap',
+        message: 'Creating initial application windows and services',
+        processType: 'main',
+        scope: 'windowing'
+    })
+
     windowManager = new WindowManager(MAIN_WINDOW_VITE_DEV_SERVER_URL, MAIN_WINDOW_VITE_NAME, store, shortcutManager)
 
     const mainWindow = windowManager.createWindow('main')
@@ -437,6 +479,18 @@ const unregisterAllShortcuts = () => {
 let pendingUpdateInfo = null
 
 const setupAutoUpdater = () => {
+    mainLogService.log({
+        level: 'info',
+        event: 'updater.initialized',
+        message: 'Auto updater configured',
+        processType: 'main',
+        scope: 'updater',
+        context: {
+            platform: process.platform,
+            arch: process.arch
+        }
+    })
+
     updateElectronApp({
         updateSource: {
             type: UpdateSourceType.StaticStorage,
@@ -444,6 +498,14 @@ const setupAutoUpdater = () => {
         },
         onNotifyUser: ({ releaseName, releaseNotes, releaseDate }) => {
             pendingUpdateInfo = { releaseName, releaseNotes, releaseDate }
+            mainLogService.log({
+                level: 'info',
+                event: 'updater.update_available',
+                message: 'Update notification received',
+                processType: 'main',
+                scope: 'updater',
+                context: pendingUpdateInfo
+            })
             if (windowManager) {
                 windowManager.createWindow('update')
             }
@@ -453,6 +515,18 @@ const setupAutoUpdater = () => {
 // ==================== APP LIFECYCLE ====================
 
 app.whenReady().then(() => {
+    mainLogService.initialize()
+    mainLogService.log({
+        level: 'info',
+        event: 'app.ready',
+        message: 'Electron app is ready',
+        processType: 'main',
+        scope: 'lifecycle',
+        context: {
+            appVersion: app.getVersion()
+        }
+    })
+
     setupAutoUpdater()
     setupProtocolHandlers()
     setupIPCHandlers()
@@ -482,6 +556,14 @@ app.whenReady().then(() => {
     registerAllShortcuts()
 
     app.on('activate', () => {
+        mainLogService.log({
+            level: 'info',
+            event: 'app.activate',
+            message: 'Application activate event received',
+            processType: 'main',
+            scope: 'lifecycle'
+        })
+
         if (BrowserWindow.getAllWindows().length === 0) {
             createWindow()
         }
@@ -489,14 +571,31 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+    mainLogService.log({
+        level: 'info',
+        event: 'app.window_all_closed',
+        message: 'All application windows have been closed',
+        processType: 'main',
+        scope: 'lifecycle'
+    })
+
     if (process.platform !== 'darwin') {
         app.quit()
     }
 })
 
 app.on('will-quit', () => {
+    mainLogService.log({
+        level: 'info',
+        event: 'app.will_quit',
+        message: 'Application will quit',
+        processType: 'main',
+        scope: 'lifecycle'
+    })
+
     // Unregister all shortcuts when app is about to quit
     unregisterAllShortcuts()
+    mainLogService.shutdown()
 })
 
 // ==================== PROTOCOL HANDLERS ====================
@@ -525,6 +624,26 @@ function setupProtocolHandlers() {
 // ==================== IPC HANDLERS ====================
 
 function setupIPCHandlers() {
+    ipcMain.on('logs:write', (event, payload = {}) => {
+        const senderWindow = BrowserWindow.fromWebContents(event.sender)
+
+        mainLogService.log({
+            level: payload.level || 'info',
+            event: payload.event || 'renderer.log',
+            message: payload.message || '',
+            processType: payload.processType || 'renderer',
+            scope: payload.scope || 'renderer',
+            windowType: payload.windowType || senderWindow?.windowType || null,
+            context: {
+                ...(payload.context || {}),
+                senderUrl: event.sender.getURL()
+            }
+        })
+    })
+
+    ipcMain.handle('logs:get-file-info', () => mainLogService.getLogFileInfo())
+    ipcMain.handle('logs:read-tail', (event, options = {}) => mainLogService.readTail(options))
+
     // System handlers
     ipcMain.on('quit-app', () => {
         app.quit()
@@ -731,7 +850,7 @@ function setupIPCHandlers() {
     // Permission Management Handlers
     ipcMain.handle('check-system-permissions', async () => {
         // Add a small delay to ensure macOS has updated its permission state
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 100))
         const permissions = checkAppPermissions().statuses
         console.log('[Main] Current permissions status:', permissions)
 
@@ -740,7 +859,9 @@ function setupIPCHandlers() {
         for (const [permId, timestamp] of Object.entries(permissionGrantTimestamps)) {
             // If permission was granted in the last 10 seconds, consider it granted even if API says otherwise
             if (now - timestamp < 10000 && !permissions[permId]) {
-                console.log(`[Main] Permission ${permId} was recently granted (${now - timestamp}ms ago), forcing granted status`)
+                console.log(
+                    `[Main] Permission ${permId} was recently granted (${now - timestamp}ms ago), forcing granted status`
+                )
                 permissions[permId] = true
             }
         }
@@ -784,7 +905,7 @@ function setupIPCHandlers() {
         const focusPermissionsWindow = async () => {
             if (permissionsWindow && !permissionsWindow.isDestroyed()) {
                 // Wait a bit for the system dialog to close
-                await new Promise(resolve => setTimeout(resolve, 500))
+                await new Promise((resolve) => setTimeout(resolve, 500))
 
                 if (permissionsWindow.isMinimized()) {
                     permissionsWindow.restore()
@@ -824,7 +945,7 @@ function setupIPCHandlers() {
                     await focusPermissionsWindow()
 
                     // Wait for the system to register the permission
-                    await new Promise(resolve => setTimeout(resolve, 800))
+                    await new Promise((resolve) => setTimeout(resolve, 800))
 
                     const newStatus = systemPreferences.getMediaAccessStatus(mediaType)
                     console.log(`[Main] ${mediaType} status after request: ${newStatus}`)
@@ -884,7 +1005,7 @@ function setupIPCHandlers() {
                 await focusPermissionsWindow()
 
                 // Wait for the system to register the permission
-                await new Promise(resolve => setTimeout(resolve, 1000))
+                await new Promise((resolve) => setTimeout(resolve, 1000))
 
                 const newStatus = systemPreferences.getMediaAccessStatus('screen')
                 console.log(`[Main] Screen recording status after request: ${newStatus}`)
@@ -951,6 +1072,15 @@ function setupIPCHandlers() {
 // ==================== DEEP LINK HANDLERS ====================
 
 const handleProtocolUrl = (url) => {
+    mainLogService.log({
+        level: 'info',
+        event: 'protocol.url_received',
+        message: 'Custom protocol URL received',
+        processType: 'main',
+        scope: 'protocol',
+        context: { url }
+    })
+
     console.log('Protocol URL received:', url)
 
     if (url.startsWith('snaplark://auth')) {
@@ -986,6 +1116,14 @@ const handleProtocolUrl = (url) => {
 
 app.on('open-url', (event, url) => {
     event.preventDefault()
+    mainLogService.log({
+        level: 'info',
+        event: 'protocol.open_url',
+        message: 'Application received open-url event',
+        processType: 'main',
+        scope: 'protocol',
+        context: { url }
+    })
     handleProtocolUrl(url)
 })
 

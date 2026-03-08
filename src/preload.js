@@ -171,3 +171,11 @@ contextBridge.exposeInMainWorld('electronConnectivity', {
         ipcRenderer.removeAllListeners('connectivity-event')
     }
 })
+
+// ==================== LOGGING APIs ====================
+
+contextBridge.exposeInMainWorld('electronLogger', {
+    write: (payload) => ipcRenderer.send('logs:write', payload),
+    getLogFileInfo: () => ipcRenderer.invoke('logs:get-file-info'),
+    readTail: (options) => ipcRenderer.invoke('logs:read-tail', options)
+})

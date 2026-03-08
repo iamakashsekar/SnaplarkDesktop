@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { serializeError, serializeForLog } from '../services/log-shared.js'
 
 // Centralized URL Configuration
 export const BASE_URL = 'https://snaplark.com'
@@ -8,6 +9,21 @@ export const API_BASE_URL = `${BASE_URL}/${API_PREFIX}/${API_VERSION}`
 export const PROTOCOL = 'snaplark'
 
 export const updatesUrl = (platform, arch) => `${API_BASE_URL}/updates/${platform}/${arch}`
+
+const emitApiLog = (level, event, message, context = {}) => {
+    if (typeof window === 'undefined' || !window.electronLogger?.write) {
+        return
+    }
+
+    window.electronLogger.write({
+        level,
+        event,
+        message,
+        scope: 'api',
+        processType: 'renderer',
+        context: serializeForLog(context)
+    })
+}
 
 // Token management utilities
 export class TokenManager {
@@ -56,7 +72,13 @@ export const apiClient = axios.create({
 
 // Shared request interceptor function
 const requestInterceptor = (config) => {
+    const requestId = `req-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
     const token = TokenManager.getToken()
+    config.metadata = {
+        requestId,
+        startedAt: Date.now()
+    }
+
     console.log(
         '[API Request Interceptor] Token available:',
         token ? '✓' : '✗',
@@ -67,18 +89,53 @@ const requestInterceptor = (config) => {
     } else {
         console.warn('[API Request Interceptor] No token available for request to:', config.url)
     }
+
+    emitApiLog('info', 'api.request', 'API request started', {
+        requestId,
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        baseURL: config.baseURL,
+        hasAuthToken: !!token
+    })
+
     return config
 }
 
 const requestErrorInterceptor = (error) => {
     console.error('[API Request Error]', error)
+    emitApiLog('error', 'api.request_error', 'API request failed before sending', {
+        error: serializeError(error)
+    })
     return Promise.reject(error)
 }
 
 // Shared response interceptor function
-const responseSuccessInterceptor = (response) => response
+const responseSuccessInterceptor = (response) => {
+    const durationMs = response.config?.metadata?.startedAt ? Date.now() - response.config.metadata.startedAt : null
+
+    emitApiLog('info', 'api.response', 'API request completed', {
+        requestId: response.config?.metadata?.requestId,
+        method: response.config?.method?.toUpperCase(),
+        url: response.config?.url,
+        status: response.status,
+        durationMs
+    })
+
+    return response
+}
 
 const responseErrorInterceptor = async (error) => {
+    const durationMs = error.config?.metadata?.startedAt ? Date.now() - error.config.metadata.startedAt : null
+
+    emitApiLog('error', 'api.response_error', 'API request failed', {
+        requestId: error.config?.metadata?.requestId,
+        method: error.config?.method?.toUpperCase(),
+        url: error.config?.url,
+        status: error.response?.status,
+        durationMs,
+        error: serializeError(error) || serializeForLog(error)
+    })
+
     // Handle 401 Unauthorized - Token expired or invalid
     if (error.response?.status === 401) {
         // Clear tokens and emit logout event

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'node:path'
 import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
+import mainLogService from './main-log-service.js'
 
 class WindowManager {
     constructor(viteDevServerUrl, viteName, store = null, shortcutManager = null) {
@@ -70,6 +71,33 @@ class WindowManager {
                 modal: false,
                 frame: false,
                 titleBarStyle: 'hidden',
+                ...(process.platform === 'darwin' && {
+                    trafficLightPosition: { x: 18, y: 18 }
+                }),
+                ...(process.platform === 'win32' && {
+                    titleBarOverlay: {
+                        color: '#ffffff',
+                        symbolColor: '#334155',
+                        height: 48
+                    }
+                }),
+                transparent: false
+            },
+
+            'issue-report': {
+                ...common,
+                width: WINDOW_DIMENSIONS['issue-report'].width,
+                height: WINDOW_DIMENSIONS['issue-report'].height,
+                resizable: false,
+                alwaysOnTop: false,
+                skipTaskbar: false,
+                title: WINDOW_TITLES.issueReport,
+                show: false,
+                modal: false,
+                frame: false,
+                titleBarStyle: 'hidden',
+                focusable: true,
+                acceptFirstMouse: true,
                 ...(process.platform === 'darwin' && {
                     trafficLightPosition: { x: 18, y: 18 }
                 }),
@@ -284,6 +312,15 @@ class WindowManager {
         if (!isSelectionWindow && !isWebcamWindow && this.windows.has(type)) {
             const existingWindow = this.windows.get(type)
             if (!existingWindow.isDestroyed()) {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'window.reused',
+                    message: 'Reusing existing window instance',
+                    processType: 'main',
+                    scope: 'windowing',
+                    windowType: type,
+                    context: { type }
+                })
                 existingWindow.show()
                 existingWindow.focus()
                 return existingWindow
@@ -296,10 +333,10 @@ class WindowManager {
         const baseType = isScreenshotWindow
             ? 'screenshot'
             : isVideoRecordingWindow
-                ? 'recording'
-                : isRecordingOverlay
-                    ? 'recording-overlay'
-                    : type
+              ? 'recording'
+              : isRecordingOverlay
+                ? 'recording-overlay'
+                : type
         const config = { ...this.windowConfigs[baseType], ...options }
         const parentWindow = this.windows.get('main') || null
 
@@ -319,6 +356,25 @@ class WindowManager {
         window.windowType = type
         window.baseWindowType = baseType
 
+        mainLogService.log({
+            level: 'info',
+            event: 'window.created',
+            message: 'BrowserWindow created',
+            processType: 'main',
+            scope: 'windowing',
+            windowType: type,
+            context: {
+                type,
+                baseType,
+                bounds: {
+                    width: config.width,
+                    height: config.height,
+                    x: config.x,
+                    y: config.y
+                }
+            }
+        })
+
         this.applyPlatformSpecificSettings(window, type, isSelectionWindow, config)
 
         if (isVideoRecordingWindow) {
@@ -336,6 +392,15 @@ class WindowManager {
         }
 
         window.on('closed', () => {
+            mainLogService.log({
+                level: 'info',
+                event: 'window.closed',
+                message: 'BrowserWindow closed',
+                processType: 'main',
+                scope: 'windowing',
+                windowType: type,
+                context: { type }
+            })
             this.windows.delete(type)
         })
 
@@ -542,6 +607,15 @@ class WindowManager {
     showWindow(type) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
+            mainLogService.log({
+                level: 'info',
+                event: 'window.shown',
+                message: 'Window shown',
+                processType: 'main',
+                scope: 'windowing',
+                windowType: type,
+                context: { type }
+            })
             if (type === 'webcam') {
                 if (process.platform === 'darwin') {
                     window.setAlwaysOnTop(true, 'screen-saver', 2)
@@ -564,6 +638,15 @@ class WindowManager {
     hideWindow(type) {
         const window = this.windows.get(type)
         if (window && !window.isDestroyed()) {
+            mainLogService.log({
+                level: 'info',
+                event: 'window.hidden',
+                message: 'Window hidden',
+                processType: 'main',
+                scope: 'windowing',
+                windowType: type,
+                context: { type }
+            })
             window.hide()
         }
     }

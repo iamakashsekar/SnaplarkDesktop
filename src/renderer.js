@@ -5,9 +5,14 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
 import { useStore } from './store.js'
+import { rendererLogService } from './services/renderer-log-service.js'
 
 const pinia = createPinia()
 pinia.use(piniaPluginPersistedstate)
+pinia.use(rendererLogService.createPiniaPlugin())
+
+rendererLogService.initialize(router)
+
 const app = createApp(App)
 
 app.use(pinia)
@@ -15,6 +20,7 @@ app.use(router)
 
 // Initialize the app
 const appInstance = app.mount('#app')
+rendererLogService.info('renderer.app_mounted', 'Vue application mounted successfully', {}, 'bootstrap')
 
 // Initialize store and services after app is mounted
 const store = useStore()

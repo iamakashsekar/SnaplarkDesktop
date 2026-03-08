@@ -2,6 +2,7 @@ import { ref, watch, nextTick } from 'vue'
 
 import { BASE_URL } from '../api/config'
 import { useStore } from '../store'
+import { rendererLogService } from '../services/renderer-log-service.js'
 
 export function useRecorder() {
     const store = useStore()
@@ -106,6 +107,17 @@ export function useRecorder() {
         isProcessing.value = false
 
         try {
+            rendererLogService.info(
+                'recording.preview_started',
+                'Recording preview started',
+                {
+                    sourceId: selectedSourceId.value,
+                    cropEnabled: enableCrop.value,
+                    cropRegion: cropRegion.value
+                },
+                'capture'
+            )
+
             const constraints = {
                 audio: false,
                 video: {
@@ -222,6 +234,21 @@ export function useRecorder() {
         uiMode.value = 'record'
 
         try {
+            rendererLogService.info(
+                'recording.started',
+                'Video recording started',
+                {
+                    sourceId: selectedSourceId.value,
+                    audioDeviceId: selectedAudioDeviceId.value,
+                    videoDeviceId: selectedVideoDeviceId.value,
+                    fps: fps.value,
+                    cropEnabled: enableCrop.value,
+                    cropRegion: cropRegion.value,
+                    systemAudioEnabled: systemAudioEnabled.value
+                },
+                'capture'
+            )
+
             const canvas = recordingCanvas.value
             const ctx = canvas.getContext('2d')
             const video = screenVideo.value
@@ -312,7 +339,7 @@ export function useRecorder() {
                     await window.electron.enableLoopbackAudio()
 
                     // Small delay to ensure loopback is fully active
-                    await new Promise(resolve => setTimeout(resolve, 200))
+                    await new Promise((resolve) => setTimeout(resolve, 200))
                     console.log('🔊 Loopback enabled, calling getDisplayMedia...')
 
                     // getDisplayMedia with audio: true will now capture system audio
@@ -325,7 +352,10 @@ export function useRecorder() {
 
                     console.log('🔊 getDisplayMedia returned stream:', displayStream)
                     console.log('🔊 Stream active:', displayStream.active)
-                    console.log('🔊 All tracks:', displayStream.getTracks().map(t => `${t.kind}:${t.label}:${t.readyState}`))
+                    console.log(
+                        '🔊 All tracks:',
+                        displayStream.getTracks().map((t) => `${t.kind}:${t.label}:${t.readyState}`)
+                    )
 
                     // Extract the audio tracks (we already have video from canvas)
                     const systemAudioTracks = displayStream.getAudioTracks()
@@ -353,7 +383,7 @@ export function useRecorder() {
 
                     // Stop AND remove video tracks from displayStream (required by electron-audio-loopback)
                     const videoTracks = displayStream.getVideoTracks()
-                    videoTracks.forEach(track => {
+                    videoTracks.forEach((track) => {
                         track.stop()
                         displayStream.removeTrack(track)
                     })
@@ -367,7 +397,10 @@ export function useRecorder() {
                     // Verify audio tracks are still live after disabling loopback
                     if (systemAudioStream) {
                         const tracks = systemAudioStream.getAudioTracks()
-                        console.log('🔊 Audio tracks after loopback disabled:', tracks.map(t => `${t.readyState}:${t.enabled}`))
+                        console.log(
+                            '🔊 Audio tracks after loopback disabled:',
+                            tracks.map((t) => `${t.readyState}:${t.enabled}`)
+                        )
                     }
                 } catch (error) {
                     console.error('Error getting system audio:', error)
@@ -408,9 +441,12 @@ export function useRecorder() {
             if (audioStream && audioStream.getAudioTracks().length > 0) {
                 const micTracks = audioStream.getAudioTracks()
                 console.log('🎤 Microphone audio tracks:', micTracks.length)
-                console.log('🎤 Mic track states:', micTracks.map(t => `${t.label}:${t.readyState}:enabled=${t.enabled}`))
+                console.log(
+                    '🎤 Mic track states:',
+                    micTracks.map((t) => `${t.label}:${t.readyState}:enabled=${t.enabled}`)
+                )
                 // Only add if tracks are live
-                if (micTracks.some(t => t.readyState === 'live')) {
+                if (micTracks.some((t) => t.readyState === 'live')) {
                     availableAudioStreams.push(audioStream)
                 } else {
                     console.warn('⚠️ Microphone tracks are not live, skipping')
@@ -419,9 +455,12 @@ export function useRecorder() {
             if (systemAudioStream && systemAudioStream.getAudioTracks().length > 0) {
                 const sysTracks = systemAudioStream.getAudioTracks()
                 console.log('🔊 System audio tracks:', sysTracks.length)
-                console.log('🔊 System track states:', sysTracks.map(t => `${t.label}:${t.readyState}:enabled=${t.enabled}`))
+                console.log(
+                    '🔊 System track states:',
+                    sysTracks.map((t) => `${t.label}:${t.readyState}:enabled=${t.enabled}`)
+                )
                 // Only add if tracks are live
-                if (sysTracks.some(t => t.readyState === 'live')) {
+                if (sysTracks.some((t) => t.readyState === 'live')) {
                     availableAudioStreams.push(systemAudioStream)
                 } else {
                     console.warn('⚠️ System audio tracks are not live, skipping')
@@ -586,6 +625,15 @@ export function useRecorder() {
 
             mediaRecorder.onstop = async () => {
                 console.log('⏹️ Recording stopped, finalizing...')
+                rendererLogService.info(
+                    'recording.stopped',
+                    'Video recording stopped and finalizing',
+                    {
+                        totalChunks,
+                        tempRecordingPath: recordingTempPath
+                    },
+                    'capture'
+                )
                 isProcessing.value = true
 
                 try {
@@ -631,7 +679,8 @@ export function useRecorder() {
                     const initialTotalChunks = totalChunks
                     let noNewChunksCount = 0
 
-                    while (Date.now() - finalChunkWaitStart < 3000) { // Wait up to 3 seconds for final chunks
+                    while (Date.now() - finalChunkWaitStart < 3000) {
+                        // Wait up to 3 seconds for final chunks
                         await new Promise((resolve) => setTimeout(resolve, 100))
 
                         if (totalChunks > initialTotalChunks) {
@@ -874,6 +923,14 @@ export function useRecorder() {
 
     const stopRecording = () => {
         // uiMode.value = 'preview'
+        rendererLogService.info(
+            'recording.stop_requested',
+            'Stop recording requested',
+            {
+                isRecording: isRecording.value
+            },
+            'capture'
+        )
 
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             // Request any remaining data before stopping

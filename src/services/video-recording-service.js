@@ -2,6 +2,7 @@ import { ipcMain, screen, desktopCapturer } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import mainLogService from './main-log-service.js'
 
 class VideoRecordingService {
     constructor(windowManager, store) {
@@ -68,9 +69,11 @@ class VideoRecordingService {
         const now = Date.now()
 
         // Check if cache is valid
-        if (this.cachedSources &&
+        if (
+            this.cachedSources &&
             this.cachedSources.length > 0 &&
-            (now - this.cachedSourcesTimestamp) < this.cacheValidityMs) {
+            now - this.cachedSourcesTimestamp < this.cacheValidityMs
+        ) {
             return this.cachedSources
         }
 
@@ -199,6 +202,14 @@ class VideoRecordingService {
     setupHandlers() {
         ipcMain.handle('start-video-recording-mode', async () => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'recording.mode_started',
+                    message: 'Video recording mode requested',
+                    processType: 'main',
+                    scope: 'capture'
+                })
+
                 const mainWindow = this.windowManager.getWindow('main')
                 const wasMainWindowVisible = mainWindow && mainWindow.isVisible()
 
@@ -441,6 +452,13 @@ class VideoRecordingService {
         })
 
         ipcMain.on('cancel-video-recording-mode', () => {
+            mainLogService.log({
+                level: 'info',
+                event: 'recording.mode_cancelled',
+                message: 'Video recording mode cancelled',
+                processType: 'main',
+                scope: 'capture'
+            })
             // this.windowManager.closeWindowsByType('webcam')
             this.windowManager.closeWindowsByType('recording')
         })
@@ -482,6 +500,15 @@ class VideoRecordingService {
         // Handle saving video file to Snaplark folder (fallback when disk streaming not available)
         ipcMain.handle('save-video', async (event, buffer, filename) => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'recording.video_save_requested',
+                    message: 'Saving recorded video requested',
+                    processType: 'main',
+                    scope: 'capture',
+                    context: { filename }
+                })
+
                 // Get Snaplark folder path from settings
                 const snaplarkDir = this.ensureScreenshotsDirectory()
 
@@ -512,6 +539,15 @@ class VideoRecordingService {
         // Initialize recording stream - creates single file and starts writing immediately
         ipcMain.handle('init-recording-stream', async (event, timestamp) => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'recording.stream_initialized',
+                    message: 'Recording stream initialization requested',
+                    processType: 'main',
+                    scope: 'capture',
+                    context: { timestamp }
+                })
+
                 // Clean up any existing stream
                 if (activeWriteStream) {
                     activeWriteStream.end()
@@ -587,6 +623,15 @@ class VideoRecordingService {
         // Stop recording and close stream
         ipcMain.handle('stop-recording-stream', async (event) => {
             try {
+                mainLogService.log({
+                    level: 'info',
+                    event: 'recording.stream_stopped',
+                    message: 'Recording stream stop requested',
+                    processType: 'main',
+                    scope: 'capture',
+                    context: { activeTempPath }
+                })
+
                 if (!activeWriteStream) {
                     return { success: true, tempPath: activeTempPath }
                 }
