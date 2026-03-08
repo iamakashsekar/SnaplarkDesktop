@@ -107,6 +107,20 @@
         return { left: `${left}px`, top: `${top}px` }
     })
 
+    const shouldUseOverlayCursor = computed(() => {
+        return (
+            shouldShowMagnifier.value &&
+            magnifierActive.value &&
+            !isRecording.value &&
+            (mode.value === 'idle' || mode.value === 'selecting')
+        )
+    })
+
+    const overlayCursorStyle = computed(() => ({
+        left: `${mouseX.value}px`,
+        top: `${mouseY.value}px`
+    }))
+
     // Toolbar dragging state
     const customToolbarPosition = ref(null)
     const isDraggingToolbar = ref(false)
@@ -1103,6 +1117,7 @@
         setCropRegion,
         setEnableCrop,
         setSystemAudioEnabled,
+        setPreviewCaptureCursor,
         startRecording,
         stopRecording,
         stopPreview,
@@ -1191,6 +1206,8 @@
             store.updateSetting('selectedWebcamDeviceId', videoDevices.value[0].deviceId)
         }
 
+        // Keep the selection/magnifier feed live but without the OS cursor in the sampled stream.
+        setPreviewCaptureCursor(false)
         selectedSourceId.value = sources.value.find((s) => s.display_id === displayId.value)?.id || ''
 
         screenVideo.value?.addEventListener('loadedmetadata', handleScreenVideoReady)
@@ -1271,11 +1288,25 @@
     <div>
         <div
             v-if="uiMode === 'select'"
-            class="fixed top-0 left-0 h-screen w-screen cursor-crosshair select-none"
-            :class="{ 'pointer-events-none': loading }"
+            class="fixed top-0 left-0 h-screen w-screen select-none"
+            :class="{
+                'pointer-events-none': loading,
+                'cursor-none': shouldUseOverlayCursor,
+                'cursor-crosshair': !shouldUseOverlayCursor
+            }"
             @mousedown="handleMouseDown"
             @mousemove="handleMouseMove"
             @mouseup="handleMouseUp">
+            <div
+                v-if="shouldUseOverlayCursor"
+                class="pointer-events-none absolute z-[70] h-5 w-5 -translate-x-1/2 -translate-y-1/2"
+                :style="overlayCursorStyle">
+                <div class="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 bg-white/95"></div>
+                <div class="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 bg-white/95"></div>
+                <div class="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 scale-[0.6] bg-black/90"></div>
+                <div class="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 scale-[0.6] bg-black/90"></div>
+            </div>
+
             <!-- Dark overlay for everything outside the selection -->
             <div
                 v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"

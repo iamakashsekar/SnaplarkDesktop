@@ -57,6 +57,7 @@ export function useRecorder() {
     let totalChunks = 0 // Track total chunks for upload
     let uploadId = null // Unique ID for upload session
     let recordingAudioContext = null // Audio context for mixing audio tracks
+    let previewCaptureCursor = true
 
     // Function to set crop region externally
     const setCropRegion = (x, y, width, height) => {
@@ -69,6 +70,10 @@ export function useRecorder() {
 
     const setSystemAudioEnabled = (value) => {
         systemAudioEnabled.value = value
+    }
+
+    const setPreviewCaptureCursor = (value) => {
+        previewCaptureCursor = value !== false
     }
 
     // Methods
@@ -101,6 +106,19 @@ export function useRecorder() {
         }
     }
 
+    const applyPreviewCursorConstraints = async (stream, captureCursor) => {
+        const videoTrack = stream?.getVideoTracks?.()?.[0]
+        if (!videoTrack?.applyConstraints) return
+
+        try {
+            await videoTrack.applyConstraints({
+                cursor: captureCursor ? 'always' : 'never'
+            })
+        } catch (error) {
+            console.warn('Could not apply preview cursor constraint:', error)
+        }
+    }
+
     const startPreview = async () => {
         if (!selectedSourceId.value) return
         // Ensure no stale processing overlay blocks the preview
@@ -113,26 +131,41 @@ export function useRecorder() {
                 {
                     sourceId: selectedSourceId.value,
                     cropEnabled: enableCrop.value,
-                    cropRegion: cropRegion.value
+                    cropRegion: cropRegion.value,
+                    captureCursor: previewCaptureCursor
                 },
                 'capture'
             )
 
-            const constraints = {
-                audio: false,
-                video: {
-                    mandatory: {
-                        chromeMediaSource: 'desktop',
-                        chromeMediaSourceId: selectedSourceId.value,
-                        minWidth: 1280,
-                        maxWidth: 3840,
-                        minHeight: 720,
-                        maxHeight: 2160
-                    }
+            const baseVideoConstraints = {
+                mandatory: {
+                    chromeMediaSource: 'desktop',
+                    chromeMediaSourceId: selectedSourceId.value,
+                    minWidth: 1280,
+                    maxWidth: 3840,
+                    minHeight: 720,
+                    maxHeight: 2160
                 }
             }
 
-            screenStream = await navigator.mediaDevices.getUserMedia(constraints)
+            const constraints = {
+                audio: false,
+                video: {
+                    ...baseVideoConstraints,
+                    cursor: previewCaptureCursor ? 'always' : 'never'
+                }
+            }
+
+            try {
+                screenStream = await navigator.mediaDevices.getUserMedia(constraints)
+            } catch (error) {
+                console.warn('Retrying preview stream without cursor constraint:', error)
+                screenStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: baseVideoConstraints
+                })
+            }
+            await applyPreviewCursorConstraints(screenStream, previewCaptureCursor)
             screenVideo.value.srcObject = screenStream
 
             // Wait for screen video to be ready
@@ -210,10 +243,14 @@ export function useRecorder() {
         })
     }
 
-    const ensurePreviewStream = async () => {
+    const ensurePreviewStream = async ({ captureCursor = previewCaptureCursor } = {}) => {
         if (!selectedSourceId.value) return false
 
-        if (!hasLiveScreenStream()) {
+        if (!hasLiveScreenStream() || previewCaptureCursor !== captureCursor) {
+            previewCaptureCursor = captureCursor
+            if (hasLiveScreenStream()) {
+                stopPreview()
+            }
             await startPreview()
         }
 
@@ -301,7 +338,9 @@ export function useRecorder() {
     }
 
     const startRecording = async () => {
-        const previewReady = await ensurePreviewStream()
+        const previewReady = await ensurePreviewStream({
+            captureCursor: store.settings.showCursor !== false
+        })
         if (!previewReady) {
             alert('Screen video not ready. Please wait a moment and try again.')
             console.error('❌ Screen video not ready before starting recording')
@@ -1116,6 +1155,7 @@ export function useRecorder() {
         setCropRegion,
         setEnableCrop,
         setSystemAudioEnabled,
+        setPreviewCaptureCursor,
         refreshSources,
         startRecording,
         stopRecording,

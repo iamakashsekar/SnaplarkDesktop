@@ -339,12 +339,32 @@ class VideoRecordingService {
 
                 let currentActiveDisplayId = initialActiveDisplay.id
 
+                const focusActiveWindow = (activeDisplayId) => {
+                    if (process.platform !== 'darwin') return
+
+                    const activeWindow = windows.find(
+                        (win) => !win.isDestroyed() && win.displayInfo && win.displayInfo.id === activeDisplayId
+                    )
+
+                    if (!activeWindow) return
+
+                    setTimeout(() => {
+                        if (!activeWindow.isDestroyed()) {
+                            activeWindow.focus()
+                            activeWindow.moveTop()
+                        }
+                    }, 0)
+                }
+
+                focusActiveWindow(initialActiveDisplay.id)
+
                 const updateActiveWindow = (force = false) => {
                     const cursorPos = screen.getCursorScreenPoint()
                     const activeDisplay = screen.getDisplayNearestPoint(cursorPos)
 
                     if (force || currentActiveDisplayId !== activeDisplay.id) {
                         currentActiveDisplayId = activeDisplay.id
+                        focusActiveWindow(activeDisplay.id)
 
                         windows.forEach((win) => {
                             if (!win.isDestroyed() && win.webContents) {
