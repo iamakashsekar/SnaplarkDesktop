@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld('electronWindows', {
     getWindowType: () => ipcRenderer.invoke('get-window-type'),
     getWindow: (type) => ipcRenderer.invoke('get-window', type),
     getCurrentWindowDisplayInfo: () => ipcRenderer.invoke('get-current-window-display-info'),
+    inspectWindowAtPoint: (x, y) => ipcRenderer.invoke('inspect-window-at-point', x, y),
 
     // Display events
     onDisplayChanged: (callback) => {

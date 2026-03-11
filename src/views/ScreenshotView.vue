@@ -58,6 +58,8 @@
         handleSelectionMouseDown,
         handleMouseMove,
         handleMouseUp,
+        handleOverlayClick,
+        handleOverlayDoubleClick,
         handleArrowKeyNavigation: handleSharedArrowKeyNavigation,
         handleToolbarDragStart,
         handleToolbarDragMove,
@@ -711,6 +713,8 @@
         }"
         class="fixed top-0 left-0 h-screen w-screen"
         @mousedown="handleMouseDown"
+        @click="handleOverlayClick"
+        @dblclick="handleOverlayDoubleClick"
         @mousemove="
             (e) => {
                 handleMouseMove(e)
@@ -811,7 +815,7 @@
         <div
             v-if="mode === 'idle' && isWindowActive"
             class="pointer-events-none fixed top-1/2 left-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
-            <p>Click and drag to select an area or click to capture full screen</p>
+            <p>Single-click an app to select it, drag to select, or double-click for full screen</p>
         </div>
 
         <!-- Crosshair (only when not confirming and window is active) -->

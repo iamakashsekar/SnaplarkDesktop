@@ -2,6 +2,7 @@ import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'node:path'
 import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
 import mainLogService from './main-log-service.js'
+import { inspectWindowAtScreenPoint } from './window-inspector-service.js'
 
 class WindowManager {
     constructor(viteDevServerUrl, viteName, store = null, shortcutManager = null) {
@@ -868,6 +869,50 @@ class WindowManager {
                 }
             } catch (error) {
                 console.error('Error getting current window display info:', error)
+                return { success: false, error: error.message }
+            }
+        })
+
+        ipcMain.handle('inspect-window-at-point', async (event, localX, localY) => {
+            try {
+                const senderWindow = BrowserWindow.fromWebContents(event.sender)
+                if (!senderWindow || senderWindow.isDestroyed()) {
+                    return { success: false, error: 'Window not found' }
+                }
+
+                const bounds = senderWindow.getBounds()
+                const screenPoint = {
+                    x: bounds.x + Math.round(localX ?? 0),
+                    y: bounds.y + Math.round(localY ?? 0)
+                }
+
+                const result = await inspectWindowAtScreenPoint(screenPoint, process.pid)
+
+                if (!result?.success || result.kind !== 'window') {
+                    return result
+                }
+
+                const windowBounds = result.window?.bounds
+                if (!windowBounds) {
+                    return { success: false, error: 'Window bounds were unavailable' }
+                }
+
+                const selectionLeft = Math.max(0, windowBounds.x - bounds.x)
+                const selectionTop = Math.max(0, windowBounds.y - bounds.y)
+                const selectionRight = Math.min(bounds.width, windowBounds.x + windowBounds.width - bounds.x)
+                const selectionBottom = Math.min(bounds.height, windowBounds.y + windowBounds.height - bounds.y)
+
+                return {
+                    ...result,
+                    selectionBounds: {
+                        left: selectionLeft,
+                        top: selectionTop,
+                        width: Math.max(0, selectionRight - selectionLeft),
+                        height: Math.max(0, selectionBottom - selectionTop)
+                    }
+                }
+            } catch (error) {
+                console.error('Error inspecting window at point:', error)
                 return { success: false, error: error.message }
             }
         })

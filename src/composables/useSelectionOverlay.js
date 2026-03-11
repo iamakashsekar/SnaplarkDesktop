@@ -44,6 +44,8 @@ export function useSelectionOverlay({
     const isDraggingToolbar = ref(false)
     const toolbarDragStart = ref({ x: 0, y: 0 })
 
+    let overlayClickTimeoutId = null
+
     let magnifierAnimationFrameId = null
     let magnifierVideoFrameCallbackId = null
     let checkerboardPatternContext = null
@@ -314,8 +316,61 @@ export function useSelectionOverlay({
         }, 10)
     }
 
+    const clearPendingOverlayClick = () => {
+        if (overlayClickTimeoutId !== null) {
+            clearTimeout(overlayClickTimeoutId)
+            overlayClickTimeoutId = null
+        }
+    }
+
+    const clearSelection = () => {
+        startX.value = 0
+        startY.value = 0
+        endX.value = 0
+        endY.value = 0
+    }
+
+    const confirmSelection = async (bounds, transformType = 'selecting') => {
+        startX.value = bounds.left
+        startY.value = bounds.top
+        endX.value = bounds.left + bounds.width
+        endY.value = bounds.top + bounds.height
+        magnifierActive.value = false
+        mode.value = 'confirming'
+
+        if (onSelectionConfirmed) {
+            await onSelectionConfirmed(selectionRect.value)
+        }
+        if (onAfterTransform) {
+            await onAfterTransform(transformType)
+        }
+    }
+
+    const inspectClickedTarget = async (x, y) => {
+        if (mode.value !== 'idle' || isBusy.value) return
+
+        try {
+            const result = await window.electronWindows?.inspectWindowAtPoint?.(x, y)
+
+            if (!result?.success || result.kind !== 'window') {
+                return
+            }
+
+            const bounds = result.selectionBounds
+            if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+                return
+            }
+
+            await confirmSelection(bounds)
+        } catch (error) {
+            console.error('Unable to inspect the clicked target:', error)
+        }
+    }
+
     const handleMouseDown = async (event) => {
         if (blockedModes.includes(mode.value)) return
+
+        clearPendingOverlayClick()
 
         if (onBeforeSelectionStart) {
             await onBeforeSelectionStart(event)
@@ -446,9 +501,11 @@ export function useSelectionOverlay({
             const { width, height } = selectionRect.value
 
             if (width < 10 && height < 10) {
-                startX.value = startY.value = 0
-                endX.value = window.innerWidth
-                endY.value = window.innerHeight
+                magnifierActive.value = shouldShowMagnifier.value && isWindowActive.value
+                clearSelection()
+                mode.value = 'idle'
+                ensureMagnifierLoop()
+                return
             }
 
             const normalizedLeft = Math.min(startX.value, endX.value)
@@ -502,6 +559,32 @@ export function useSelectionOverlay({
                 await onAfterTransform('moving')
             }
         }
+    }
+
+    const handleOverlayDoubleClick = async () => {
+        clearPendingOverlayClick()
+
+        if (blockedModes.includes(mode.value) || mode.value !== 'idle') return
+
+        await confirmSelection({
+            left: 0,
+            top: 0,
+            width: window.innerWidth,
+            height: window.innerHeight
+        })
+    }
+
+    const handleOverlayClick = (event) => {
+        if (blockedModes.includes(mode.value) || mode.value !== 'idle' || isBusy.value) return
+
+        clearPendingOverlayClick()
+        const clickX = event.clientX
+        const clickY = event.clientY
+
+        overlayClickTimeoutId = window.setTimeout(() => {
+            overlayClickTimeoutId = null
+            inspectClickedTarget(clickX, clickY)
+        }, 250)
     }
 
     const handleArrowKeyNavigation = async (event) => {
@@ -596,6 +679,7 @@ export function useSelectionOverlay({
     )
 
     onUnmounted(() => {
+        clearPendingOverlayClick()
         stopMagnifierLoop()
     })
 
@@ -625,6 +709,8 @@ export function useSelectionOverlay({
         handleSelectionMouseDown,
         handleMouseMove,
         handleMouseUp,
+        handleOverlayClick,
+        handleOverlayDoubleClick,
         handleArrowKeyNavigation,
         handleToolbarDragStart,
         handleToolbarDragMove,
