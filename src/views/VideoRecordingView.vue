@@ -1,5 +1,6 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+    import { useSelectionOverlay } from '@/composables/useSelectionOverlay'
     import { useRecorder } from '@/composables/useRecorder'
     import { useStore } from '../store'
     import VideoPreview from '../components/VideoPreview.vue'
@@ -9,50 +10,41 @@
     const store = useStore()
 
     const loading = ref(false)
-    // Core selection state
-    const startX = ref(0)
-    const startY = ref(0)
-    const endX = ref(0)
-    const endY = ref(0)
-    const mouseX = ref(0)
-    const mouseY = ref(0)
     const displayId = ref(null)
     const displayScaleFactor = ref(window.devicePixelRatio || 1)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving', 'countdown'
-    const resizingHandle = ref(null)
 
     // Countdown state
     const showCountdown = ref(false)
     const countdownValue = ref(3)
 
-    // Dragging state
-    const dragStartMouseX = ref(0)
-    const dragStartMouseY = ref(0)
-    const dragStartSelectionX = ref(0)
-    const dragStartSelectionY = ref(0)
-    const dragStartWidth = ref(0)
-    const dragStartHeight = ref(0)
-
-    // Magnifier state
-    const magnifierActive = ref(false) // Will be activated when window is active
-    const isWindowActive = ref(false) // Track if this window is currently active
-    const magnifierSize = 200
-    const zoomFactor = 2
-    const magnifierCanvas = ref(null)
-
     // Webcam repositioning throttle
     let webcamRepositionTimeout = null
 
-    // Arrow key navigation
-    const nudgeAmount = ref(10) // pixels to move/resize per arrow key press
-
-    const selectionRect = computed(() => {
-        const left = Math.min(startX.value, endX.value)
-        const top = Math.min(startY.value, endY.value)
-        const width = Math.abs(endX.value - startX.value)
-        const height = Math.abs(endY.value - startY.value)
-        return { left, top, width, height }
-    })
+    // Start recording functionality
+    const {
+        uiMode,
+        recordingCanvas,
+        screenVideo,
+        sources,
+        selectedSourceId,
+        audioDevices,
+        selectedAudioDeviceId,
+        videoDevices,
+        windowType,
+        isRecording,
+        recordingTime,
+        filename,
+        systemAudioEnabled,
+        setCropRegion,
+        setEnableCrop,
+        setSystemAudioEnabled,
+        setPreviewCaptureCursor,
+        startRecording,
+        stopRecording,
+        stopPreview,
+        initialize,
+        cleanup
+    } = useRecorder()
 
     // Settings computed properties
     const shouldShowMagnifier = computed(() => {
@@ -63,68 +55,67 @@
         return store.settings.showCrosshair === true
     })
 
-    const selectionBorderClass = computed(() => {
-        if (mode.value !== 'selecting') return 'animated-dashed-border'
+    const selectionBusy = computed(() => {
+        return isRecording.value || showCountdown.value
+    })
 
-        // If crosshair is disabled, show all borders
-        if (!shouldShowCrosshair.value) {
-            return 'animated-dashed-border'
-        }
+    const {
+        startX,
+        startY,
+        endX,
+        endY,
+        mouseX,
+        mouseY,
+        mode,
+        magnifierActive,
+        isWindowActive,
+        magnifierSize,
+        magnifierCanvas,
+        selectionRect,
+        selectionBorderClass,
+        magnifierStyle,
+        shouldUseOverlayCursor,
+        overlayCursorStyle,
+        customToolbarPosition,
+        isDraggingToolbar,
+        handleMouseDown,
+        handleResizeHandleMouseDown,
+        handleSelectionMouseDown,
+        handleMouseMove,
+        handleMouseUp,
+        handleArrowKeyNavigation,
+        handleToolbarDragStart,
+        handleToolbarDragMove,
+        handleToolbarDragEnd,
+        handleScreenVideoReady,
+        handleDisplayActivationChanged,
+        activateCurrentWindow
+    } = useSelectionOverlay({
+        screenVideo,
+        shouldShowMagnifier,
+        shouldShowCrosshair,
+        isBusy: selectionBusy,
+        blockedModes: ['countdown'],
+        arrowNavigationModes: ['confirming'],
+        onBeforeSelectionStart: async () => {
+            try {
+                await window.electronWindows?.closeOtherVideoRecordingWindows(displayId.value)
+            } catch (error) {
+                console.error('Error closing other recording windows:', error)
+            }
+        },
+        onDuringTransform: () => {
+            repositionWebcam(true)
+        },
+        onAfterTransform: async (transformType) => {
+            await repositionWebcam()
 
-        // Determine drag direction to hide borders where crosshair is located
-        // This only applies when crosshair is enabled
-        const draggingRight = endX.value >= startX.value
-        const draggingDown = endY.value >= startY.value
-
-        if (draggingRight && draggingDown) {
-            // Mouse at bottom-right, hide right and bottom borders
-            return 'animated-dashed-border-selecting-top-left'
-        } else if (!draggingRight && draggingDown) {
-            // Mouse at bottom-left, hide left and bottom borders
-            return 'animated-dashed-border-selecting-top-right'
-        } else if (draggingRight && !draggingDown) {
-            // Mouse at top-right, hide right and top borders
-            return 'animated-dashed-border-selecting-bottom-left'
-        } else {
-            // Mouse at top-left, hide left and top borders
-            return 'animated-dashed-border-selecting-bottom-right'
+            if (transformType !== 'keyboard') {
+                await enableWebcam()
+            }
         }
     })
 
-    const magnifierStyle = computed(() => {
-        const offset = 10
-        let left = mouseX.value + offset
-        let top = mouseY.value + offset
-
-        // Keep magnifier on screen
-        if (left + magnifierSize > window.innerWidth) {
-            left = mouseX.value - magnifierSize - offset
-        }
-        if (top + magnifierSize > window.innerHeight) {
-            top = mouseY.value - magnifierSize - offset
-        }
-
-        return { left: `${left}px`, top: `${top}px` }
-    })
-
-    const shouldUseOverlayCursor = computed(() => {
-        return (
-            shouldShowMagnifier.value &&
-            magnifierActive.value &&
-            !isRecording.value &&
-            (mode.value === 'idle' || mode.value === 'selecting')
-        )
-    })
-
-    const overlayCursorStyle = computed(() => ({
-        left: `${mouseX.value}px`,
-        top: `${mouseY.value}px`
-    }))
-
-    // Toolbar dragging state
-    const customToolbarPosition = ref(null)
-    const isDraggingToolbar = ref(false)
-    const toolbarDragStart = ref({ x: 0, y: 0 })
     const toolbarContainerRef = ref(null)
 
     const toolbarStyle = computed(() => {
@@ -152,320 +143,6 @@
 
         return { left: `${toolbarLeft}px`, top: `${toolbarTop}px` }
     })
-
-    const handleMouseDown = async (e) => {
-        if (mode.value === 'editing' || mode.value === 'edited') return
-
-        // Close other recording selection windows when user starts selecting on this monitor
-        try {
-            await window.electronWindows?.closeOtherVideoRecordingWindows(displayId.value)
-        } catch (error) {
-            console.error('Error closing other recording windows:', error)
-        }
-
-        // Ensure this window is active when user starts selecting
-        isWindowActive.value = true
-        mode.value = 'selecting'
-        magnifierActive.value = shouldShowMagnifier.value
-        startX.value = endX.value = e.clientX
-        startY.value = endY.value = e.clientY
-    }
-
-    const handleResizeHandleMouseDown = (e, handle) => {
-        e.stopPropagation()
-        mode.value = 'resizing'
-        magnifierActive.value = shouldShowMagnifier.value
-        resizingHandle.value = handle
-    }
-
-    const handleSelectionMouseDown = (e) => {
-        if (mode.value !== 'confirming') return
-        e.stopPropagation()
-        mode.value = 'moving'
-        dragStartMouseX.value = e.clientX
-        dragStartMouseY.value = e.clientY
-        dragStartSelectionX.value = Math.min(startX.value, endX.value)
-        dragStartSelectionY.value = Math.min(startY.value, endY.value)
-        dragStartWidth.value = Math.abs(endX.value - startX.value)
-        dragStartHeight.value = Math.abs(endY.value - startY.value)
-    }
-
-    const handleMouseMove = (e) => {
-        mouseX.value = e.clientX
-        mouseY.value = e.clientY
-
-        if (mode.value === 'selecting') {
-            endX.value = e.clientX
-            endY.value = e.clientY
-        } else if (mode.value === 'resizing') {
-            const handle = resizingHandle.value
-            if (handle.includes('left')) startX.value = e.clientX
-            if (handle.includes('right')) endX.value = e.clientX
-            if (handle.includes('top')) startY.value = e.clientY
-            if (handle.includes('bottom')) endY.value = e.clientY
-
-            // Reposition webcam during resize (throttled)
-            repositionWebcam(true)
-        } else if (mode.value === 'moving') {
-            const deltaX = e.clientX - dragStartMouseX.value
-            const deltaY = e.clientY - dragStartMouseY.value
-
-            const newLeft = dragStartSelectionX.value + deltaX
-            const newTop = dragStartSelectionY.value + deltaY
-            const newRight = newLeft + dragStartWidth.value
-            const newBottom = newTop + dragStartHeight.value
-
-            let finalLeft = newLeft
-            let finalTop = newTop
-            let finalRight = newRight
-            let finalBottom = newBottom
-
-            // Minimum size to prevent selection from disappearing
-            const minSize = 10
-
-            // Handle horizontal boundaries and retraction
-            if (newLeft < 0) {
-                // Pushing against left edge - retract from left
-                const overpush = Math.abs(newLeft)
-                finalLeft = 0
-                finalRight = Math.max(minSize, dragStartWidth.value - overpush)
-            } else if (newRight > window.innerWidth) {
-                // Pushing against right edge - retract from right
-                const overpush = newRight - window.innerWidth
-                finalRight = window.innerWidth
-                finalLeft = Math.max(0, window.innerWidth - (dragStartWidth.value - overpush))
-                // Ensure minimum size
-                if (finalRight - finalLeft < minSize) {
-                    finalLeft = finalRight - minSize
-                }
-            } else {
-                // Not pushing against horizontal edges - normal movement
-                finalLeft = Math.max(0, Math.min(newLeft, window.innerWidth - dragStartWidth.value))
-                finalRight = finalLeft + dragStartWidth.value
-            }
-
-            // Handle vertical boundaries and retraction
-            if (newTop < 0) {
-                // Pushing against top edge - retract from top
-                const overpush = Math.abs(newTop)
-                finalTop = 0
-                finalBottom = Math.max(minSize, dragStartHeight.value - overpush)
-            } else if (newBottom > window.innerHeight) {
-                // Pushing against bottom edge - retract from bottom
-                const overpush = newBottom - window.innerHeight
-                finalBottom = window.innerHeight
-                finalTop = Math.max(0, window.innerHeight - (dragStartHeight.value - overpush))
-                // Ensure minimum size
-                if (finalBottom - finalTop < minSize) {
-                    finalTop = finalBottom - minSize
-                }
-            } else {
-                // Not pushing against vertical edges - normal movement
-                finalTop = Math.max(0, Math.min(newTop, window.innerHeight - dragStartHeight.value))
-                finalBottom = finalTop + dragStartHeight.value
-            }
-
-            startX.value = finalLeft
-            startY.value = finalTop
-            endX.value = finalRight
-            endY.value = finalBottom
-
-            // Reposition webcam during move (throttled)
-            repositionWebcam(true)
-        }
-
-        // Only update magnifier if this window is active
-        if (isWindowActive.value && magnifierActive.value) {
-            updateMagnifier(e.clientX, e.clientY)
-        }
-    }
-
-    const handleMouseUp = async () => {
-        if (mode.value === 'selecting') {
-            magnifierActive.value = false
-            const { width, height } = selectionRect.value
-
-            // If it's a click (no drag), select full screen
-            if (width < 10 && height < 10) {
-                startX.value = startY.value = 0
-                endX.value = window.innerWidth
-                endY.value = window.innerHeight
-            }
-
-            // Normalize coordinates so start is always top-left and end is always bottom-right
-            const normalizedLeft = Math.min(startX.value, endX.value)
-            const normalizedTop = Math.min(startY.value, endY.value)
-            const normalizedRight = Math.max(startX.value, endX.value)
-            const normalizedBottom = Math.max(startY.value, endY.value)
-
-            startX.value = normalizedLeft
-            startY.value = normalizedTop
-            endX.value = normalizedRight
-            endY.value = normalizedBottom
-
-            mode.value = 'confirming'
-
-            // Reposition webcam after selection is created
-            await repositionWebcam()
-        } else if (mode.value === 'resizing') {
-            magnifierActive.value = false
-
-            // Normalize coordinates after resizing to prevent flipped state issues
-            const normalizedLeft = Math.min(startX.value, endX.value)
-            const normalizedTop = Math.min(startY.value, endY.value)
-            const normalizedRight = Math.max(startX.value, endX.value)
-            const normalizedBottom = Math.max(startY.value, endY.value)
-
-            startX.value = normalizedLeft
-            startY.value = normalizedTop
-            endX.value = normalizedRight
-            endY.value = normalizedBottom
-
-            mode.value = 'confirming'
-            resizingHandle.value = null
-
-            // Reposition webcam after selection is resized
-            await repositionWebcam()
-        } else if (mode.value === 'moving') {
-            magnifierActive.value = false
-            mode.value = 'confirming'
-
-            // Reposition webcam after selection is moved
-            await repositionWebcam()
-        }
-
-        // Toggle webcam back on if it was enabled before recording
-        enableWebcam()
-    }
-
-    const hasMagnifierFrame = () => {
-        return !!(
-            screenVideo.value &&
-            screenVideo.value.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-            screenVideo.value.videoWidth > 0 &&
-            screenVideo.value.videoHeight > 0
-        )
-    }
-
-    const tryUpdateMagnifier = () => {
-        if (
-            magnifierCanvas.value &&
-            isWindowActive.value &&
-            magnifierActive.value &&
-            mode.value === 'idle' &&
-            hasMagnifierFrame()
-        ) {
-            updateMagnifier(mouseX.value, mouseY.value)
-        }
-    }
-
-    const handleScreenVideoReady = () => {
-        setTimeout(() => {
-            tryUpdateMagnifier()
-        }, 10)
-    }
-
-    const updateMagnifier = (x, y) => {
-        if (!magnifierCanvas.value || !hasMagnifierFrame()) return
-
-        try {
-            const canvas = magnifierCanvas.value
-            const ctx = canvas.getContext('2d', { alpha: false })
-            if (!ctx) return
-
-            // Clear and setup canvas
-            ctx.imageSmoothingEnabled = false
-            ctx.clearRect(0, 0, magnifierSize, magnifierSize)
-
-            // Map cursor position in view space to image space
-            const video = screenVideo.value
-            const imgW = video.videoWidth
-            const imgH = video.videoHeight
-            const viewW = window.innerWidth
-            const viewH = window.innerHeight
-            const scaleX = imgW / viewW
-            const scaleY = imgH / viewH
-
-            // Desired source rectangle centered on cursor
-            const sourceSizeView = magnifierSize / zoomFactor
-            const sourceWImg = sourceSizeView * scaleX
-            const sourceHImg = sourceSizeView * scaleY
-            const centerXImg = x * scaleX
-            const centerYImg = y * scaleY
-            const desiredLeft = centerXImg - sourceWImg / 2
-            const desiredTop = centerYImg - sourceHImg / 2
-            const desiredRight = desiredLeft + sourceWImg
-            const desiredBottom = desiredTop + sourceHImg
-
-            // Intersect with image bounds to support edges/corners
-            const interLeft = Math.max(0, desiredLeft)
-            const interTop = Math.max(0, desiredTop)
-            const interRight = Math.min(imgW, desiredRight)
-            const interBottom = Math.min(imgH, desiredBottom)
-            const interW = Math.max(0, interRight - interLeft)
-            const interH = Math.max(0, interBottom - interTop)
-
-            // create an offscreen canvas for pattern
-            const patternCanvas = document.createElement('canvas')
-            const size = 10 // size of each square
-            patternCanvas.width = size * 2
-            patternCanvas.height = size * 2
-
-            const pctx = patternCanvas.getContext('2d')
-
-            // colors
-            const color1 = '#eee' // light gray
-            const color2 = '#ccc' // darker gray
-
-            // draw squares
-            pctx.fillStyle = color1
-            pctx.fillRect(0, 0, size * 2, size * 2)
-
-            pctx.fillStyle = color2
-            pctx.fillRect(0, 0, size, size)
-            pctx.fillRect(size, size, size, size)
-
-            // create pattern
-            const pattern = ctx.createPattern(patternCanvas, 'repeat')
-
-            // Fill background so out-of-bounds area shows as blank
-            ctx.fillStyle = pattern
-            ctx.fillRect(0, 0, magnifierSize, magnifierSize)
-
-            if (interW > 0 && interH > 0) {
-                // Position the sampled image so the cursor stays centered
-                const destX = ((interLeft - desiredLeft) / sourceWImg) * magnifierSize
-                const destY = ((interTop - desiredTop) / sourceHImg) * magnifierSize
-                const destW = (interW / sourceWImg) * magnifierSize
-                const destH = (interH / sourceHImg) * magnifierSize
-
-                ctx.drawImage(video, interLeft, interTop, interW, interH, destX, destY, destW, destH)
-            }
-
-            // Draw crosshair
-            const center = magnifierSize / 2
-            ctx.strokeStyle = 'white'
-            ctx.lineWidth = 4 // This will create the white border
-            ctx.beginPath()
-            ctx.moveTo(center, 0)
-            ctx.lineTo(center, magnifierSize)
-            ctx.moveTo(0, center)
-            ctx.lineTo(magnifierSize, center)
-            ctx.stroke()
-
-            ctx.strokeStyle = 'black'
-            ctx.lineWidth = 2 // This will be the black line inside the white border
-            ctx.beginPath()
-            ctx.moveTo(center, 0)
-            ctx.lineTo(center, magnifierSize)
-            ctx.moveTo(0, center)
-            ctx.lineTo(magnifierSize, center)
-            ctx.stroke()
-        } catch (error) {
-            // console.warn('Magnifier error:', error)
-            alert(error)
-        }
-    }
 
     const isFullScreen = computed(() => {
         const { width, height } = selectionRect.value
@@ -839,120 +516,8 @@
         }
     }
 
-    const handleArrowKeyNavigation = (event) => {
-        // Only handle arrow keys when selection is confirmed (not during recording or countdown)
-        if (mode.value !== 'confirming') return
-
-        // Don't handle arrow keys if recording is active
-        if (isRecording.value) return
-
-        // Check if it's an arrow key
-        const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
-        if (!arrowKeys.includes(event.key)) return
-
-        event.preventDefault()
-
-        const amount = nudgeAmount.value
-        const shift = event.shiftKey
-
-        if (!shift) {
-            // Move the entire selection
-            const { left, top, width, height } = selectionRect.value
-
-            if (event.key === 'ArrowLeft') {
-                // Move left - check boundary
-                const delta = Math.min(amount, left)
-                startX.value -= delta
-                endX.value -= delta
-            } else if (event.key === 'ArrowRight') {
-                // Move right - check boundary
-                const delta = Math.min(amount, window.innerWidth - (left + width))
-                startX.value += delta
-                endX.value += delta
-            } else if (event.key === 'ArrowUp') {
-                // Move up - check boundary
-                const delta = Math.min(amount, top)
-                startY.value -= delta
-                endY.value -= delta
-            } else if (event.key === 'ArrowDown') {
-                // Move down - check boundary
-                const delta = Math.min(amount, window.innerHeight - (top + height))
-                startY.value += delta
-                endY.value += delta
-            }
-
-            // Reposition webcam after arrow key movement
-            repositionWebcam()
-        } else {
-            // Resize the selection (Shift + Arrow)
-            if (event.key === 'ArrowLeft') {
-                // Expand left - move left edge left
-                startX.value = Math.max(0, startX.value - amount)
-            } else if (event.key === 'ArrowRight') {
-                // Expand right - move right edge right
-                endX.value = Math.min(window.innerWidth, endX.value + amount)
-            } else if (event.key === 'ArrowUp') {
-                // Expand up - move top edge up
-                startY.value = Math.max(0, startY.value - amount)
-            } else if (event.key === 'ArrowDown') {
-                // Expand down - move bottom edge down
-                endY.value = Math.min(window.innerHeight, endY.value + amount)
-            }
-
-            // Reposition webcam after arrow key resize
-            repositionWebcam()
-        }
-    }
-    // Toolbar dragging handlers
-    const handleToolbarDragMove = (e) => {
-        if (!isDraggingToolbar.value) return
-
-        e.preventDefault() // Prevent text selection during drag
-
-        // Calculate new position
-        let newX = e.clientX - toolbarDragStart.value.x
-        let newY = e.clientY - toolbarDragStart.value.y
-
-        // Keep toolbar within viewport bounds (with some padding)
-        const margin = 10
-        const toolbarWidth = 400
-        const toolbarHeight = 60
-
-        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
-        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
-
-        customToolbarPosition.value = { x: newX, y: newY }
-    }
-
-    const handleToolbarDragEnd = () => {
-        if (!isDraggingToolbar.value) return
-
-        isDraggingToolbar.value = false
-
-        // Remove global event listeners
-        document.removeEventListener('mousemove', handleToolbarDragMove)
-        document.removeEventListener('mouseup', handleToolbarDragEnd)
-    }
-
-    const handleToolbarDragStart = (e) => {
-        e.stopPropagation()
-        e.preventDefault() // Prevent text selection
-
-        isDraggingToolbar.value = true
-
-        // Get current toolbar position
-        const toolbar = e.currentTarget.closest('.toolbar-container')
-        const rect = toolbar.getBoundingClientRect()
-
-        // Store the offset from mouse to toolbar top-left
-        toolbarDragStart.value = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        }
-
-        // Attach global event listeners for smooth dragging
-        document.addEventListener('mousemove', handleToolbarDragMove)
-        document.addEventListener('mouseup', handleToolbarDragEnd)
+    const handleSelectionArrowKeyNavigation = (event) => {
+        handleArrowKeyNavigation(event)
     }
 
     const showToolbar = ref(true)
@@ -1099,32 +664,6 @@
         }
     }
 
-    // Start recording functionality
-    const {
-        uiMode,
-        recordingCanvas,
-        screenVideo,
-        sources,
-        selectedSourceId,
-        audioDevices,
-        selectedAudioDeviceId,
-        videoDevices,
-        windowType,
-        isRecording,
-        recordingTime,
-        filename,
-        systemAudioEnabled,
-        setCropRegion,
-        setEnableCrop,
-        setSystemAudioEnabled,
-        setPreviewCaptureCursor,
-        startRecording,
-        stopRecording,
-        stopPreview,
-        initialize,
-        cleanup
-    } = useRecorder()
-
     onMounted(async () => {
         const params = new URLSearchParams(window.location.search)
         displayId.value = params.get('displayId')
@@ -1140,7 +679,7 @@
         const isThisDisplayActive = activeDisplayId && displayId.value === activeDisplayId
 
         document.addEventListener('keydown', handleEscapeKeyCancel)
-        document.addEventListener('keydown', handleArrowKeyNavigation)
+        document.addEventListener('keydown', handleSelectionArrowKeyNavigation)
 
         // Listen for global shortcut triggers from main process
         window.electron?.ipcRenderer?.on('trigger-start-stop-recording', handleStartStopTrigger)
@@ -1215,44 +754,20 @@
         screenVideo.value?.addEventListener('playing', handleScreenVideoReady)
 
         // Set up display activation listener first
-        window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
-            console.log(`Display ${displayId.value} activation changed:`, activationData.isActive)
-            isWindowActive.value = activationData.isActive
-
-            if (activationData.isActive) {
-                // This window is now active - show magnifier and update mouse position
-                magnifierActive.value = shouldShowMagnifier.value
-                mouseX.value = Math.max(0, Math.min(activationData.mouseX, window.innerWidth))
-                mouseY.value = Math.max(0, Math.min(activationData.mouseY, window.innerHeight))
-
-                // Try to update magnifier immediately when the live preview has a frame ready
-                // Use a small delay to ensure canvas is rendered
-                setTimeout(() => {
-                    tryUpdateMagnifier()
-                }, 10)
-            } else {
-                // This window is no longer active - hide magnifier and crosshair
-                magnifierActive.value = false
-            }
-        })
+        window.electronWindows?.onDisplayActivationChanged?.(handleDisplayActivationChanged)
 
         // Fallback: If activation event hasn't arrived after a short delay,
         // only activate if this display is confirmed to be the active one
         setTimeout(() => {
             if (!isWindowActive.value && isThisDisplayActive) {
-                console.log(`Fallback activation for display ${displayId.value} (confirmed active display)`)
-                isWindowActive.value = true
-                magnifierActive.value = shouldShowMagnifier.value
-                setTimeout(() => {
-                    tryUpdateMagnifier()
-                }, 10)
+                activateCurrentWindow()
             }
         }, 150)
     })
 
     onUnmounted(() => {
         document.removeEventListener('keydown', handleEscapeKeyCancel)
-        document.removeEventListener('keydown', handleArrowKeyNavigation)
+        document.removeEventListener('keydown', handleSelectionArrowKeyNavigation)
         screenVideo.value?.removeEventListener('loadedmetadata', handleScreenVideoReady)
         screenVideo.value?.removeEventListener('canplay', handleScreenVideoReady)
         screenVideo.value?.removeEventListener('playing', handleScreenVideoReady)
@@ -1265,12 +780,6 @@
         }
 
         window.electronWindows?.removeDisplayActivationChangedListener?.()
-
-        // Cleanup toolbar drag listeners if still active
-        if (isDraggingToolbar.value) {
-            document.removeEventListener('mousemove', handleToolbarDragMove)
-            document.removeEventListener('mouseup', handleToolbarDragEnd)
-        }
 
         // Cleanup webcam reposition timeout
         if (webcamRepositionTimeout) {
@@ -1295,8 +804,18 @@
                 'cursor-crosshair': !shouldUseOverlayCursor
             }"
             @mousedown="handleMouseDown"
-            @mousemove="handleMouseMove"
-            @mouseup="handleMouseUp">
+            @mousemove="
+                (event) => {
+                    handleMouseMove(event)
+                    handleToolbarDragMove(event)
+                }
+            "
+            @mouseup="
+                (event) => {
+                    handleMouseUp(event)
+                    handleToolbarDragEnd()
+                }
+            ">
             <div
                 v-if="shouldUseOverlayCursor"
                 class="pointer-events-none absolute z-[70] h-5 w-5 -translate-x-1/2 -translate-y-1/2"

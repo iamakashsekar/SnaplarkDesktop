@@ -1,57 +1,25 @@
 <script setup>
-    import { ref, onMounted, onUnmounted, computed } from 'vue'
+    import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
     import KonvaEditor from '../components/KonvaEditor.vue'
     import SizeIndicatorPill from '../components/SizeIndicatorPill.vue'
     import Tooltip from '../components/Tooltip.vue'
     import { createWorker } from 'tesseract.js'
     import { useStore } from '@/store'
     import { rendererLogService } from '@/services/renderer-log-service.js'
+    import { useDesktopCapturePreview } from '@/composables/useDesktopCapturePreview'
+    import { useSelectionOverlay } from '@/composables/useSelectionOverlay'
 
     const store = useStore()
 
     const loading = ref(false)
-    // Core selection state
-    const startX = ref(0)
-    const startY = ref(0)
-    const endX = ref(0)
-    const endY = ref(0)
-    const mouseX = ref(0)
-    const mouseY = ref(0)
     const displayId = ref(null)
-    const mode = ref('idle') // 'idle', 'selecting', 'resizing', 'confirming', 'editing', 'moving'
-    const resizingHandle = ref(null)
-
-    // Dragging state
-    const dragStartMouseX = ref(0)
-    const dragStartMouseY = ref(0)
-    const dragStartSelectionX = ref(0)
-    const dragStartSelectionY = ref(0)
-    const dragStartWidth = ref(0)
-    const dragStartHeight = ref(0)
-
-    // Magnifier state
-    const magnifierActive = ref(false) // Will be activated when window is active
-    const isWindowActive = ref(false) // Track if this window is currently active
-    const magnifierSize = 200
-    const zoomFactor = 2
-    const magnifierCanvas = ref(null)
-    const fullScreenImage = ref(null)
+    const selectedSourceId = ref('')
+    const editorBackgroundSrc = ref(null)
 
     // OCR Modal state
     const showOCRModal = ref(false)
     const ocrText = ref('')
     const ocrCopyTooltip = ref('Copy Text')
-
-    // Arrow key navigation
-    const nudgeAmount = ref(10) // pixels to move/resize per arrow key press
-
-    const selectionRect = computed(() => {
-        const left = Math.min(startX.value, endX.value)
-        const top = Math.min(startY.value, endY.value)
-        const width = Math.abs(endX.value - startX.value)
-        const height = Math.abs(endY.value - startY.value)
-        return { left, top, width, height }
-    })
 
     // Settings computed properties
     const shouldShowMagnifier = computed(() => {
@@ -62,118 +30,108 @@
         return store.settings.showCrosshair === true
     })
 
-    const shouldShowCursor = computed(() => {
-        return store.settings.showCursor !== false
-    })
-
-    const selectionBorderClass = computed(() => {
-        if (mode.value !== 'selecting') return 'animated-dashed-border'
-
-        // If crosshair is disabled, show all borders
-        if (!shouldShowCrosshair.value) {
-            return 'animated-dashed-border'
-        }
-
-        // Determine drag direction to hide borders where crosshair is located
-        // This only applies when crosshair is enabled
-        const draggingRight = endX.value >= startX.value
-        const draggingDown = endY.value >= startY.value
-
-        if (draggingRight && draggingDown) {
-            // Mouse at bottom-right, hide right and bottom borders
-            return 'animated-dashed-border-selecting-top-left'
-        } else if (!draggingRight && draggingDown) {
-            // Mouse at bottom-left, hide left and bottom borders
-            return 'animated-dashed-border-selecting-top-right'
-        } else if (draggingRight && !draggingDown) {
-            // Mouse at top-right, hide right and top borders
-            return 'animated-dashed-border-selecting-bottom-left'
-        } else {
-            // Mouse at top-left, hide left and top borders
-            return 'animated-dashed-border-selecting-bottom-right'
-        }
-    })
-
     const konvaEditorRef = ref(null)
+    const { screenVideo, sources, refreshSources, setPreviewCaptureCursor, startPreview, stopPreview } =
+        useDesktopCapturePreview(selectedSourceId)
 
-    const backgroundSrc = computed(() => {
-        if (!fullScreenImage.value) return null
-        const { left, top, width, height } = selectionRect.value
-        if (width <= 0 || height <= 0) return null
+    const {
+        startX,
+        startY,
+        endX,
+        endY,
+        mouseX,
+        mouseY,
+        mode,
+        magnifierActive,
+        isWindowActive,
+        magnifierSize,
+        magnifierCanvas,
+        selectionRect,
+        selectionBorderClass,
+        magnifierStyle,
+        shouldUseOverlayCursor,
+        overlayCursorStyle,
+        customToolbarPosition,
+        isDraggingToolbar,
+        handleMouseDown,
+        handleResizeHandleMouseDown,
+        handleSelectionMouseDown,
+        handleMouseMove,
+        handleMouseUp,
+        handleArrowKeyNavigation: handleSharedArrowKeyNavigation,
+        handleToolbarDragStart,
+        handleToolbarDragMove,
+        handleToolbarDragEnd,
+        handleScreenVideoReady,
+        handleDisplayActivationChanged,
+        activateCurrentWindow
+    } = useSelectionOverlay({
+        screenVideo,
+        shouldShowMagnifier,
+        shouldShowCrosshair,
+        blockedModes: ['editing', 'edited'],
+        arrowNavigationModes: ['confirming', 'edited'],
+        onBeforeSelectionStart: async () => {
+            rendererLogService.info(
+                'screenshot.selection_started',
+                'Screenshot selection started',
+                {
+                    displayId: displayId.value
+                },
+                'capture'
+            )
 
-        // Wait for image to be loaded
-        if (!fullScreenImage.value.complete || fullScreenImage.value.naturalWidth === 0) {
-            return null
-        }
-
-        const canvas = document.createElement('canvas')
-        const dpr = window.devicePixelRatio || 1
-
-        // Set canvas buffer size accounting for device pixel ratio for high quality
-        const bufferWidth = Math.round(width * dpr)
-        const bufferHeight = Math.round(height * dpr)
-        canvas.width = bufferWidth
-        canvas.height = bufferHeight
-
-        // Set CSS size to display size
-        canvas.style.width = `${width}px`
-        canvas.style.height = `${height}px`
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return null
-
-        // Scale context to account for device pixel ratio
-        ctx.scale(dpr, dpr)
-
-        // Enable high-quality image smoothing
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-
-        // Calculate the scale between image natural size and display size
-        const img = fullScreenImage.value
-        const imgW = img.naturalWidth
-        const imgH = img.naturalHeight
-        const viewW = window.innerWidth
-        const viewH = window.innerHeight
-        const scaleX = imgW / viewW
-        const scaleY = imgH / viewH
-
-        // Convert selection coordinates to image coordinates
-        const srcLeft = left * scaleX
-        const srcTop = top * scaleY
-        const srcWidth = width * scaleX
-        const srcHeight = height * scaleY
-
-        ctx.drawImage(img, srcLeft, srcTop, srcWidth, srcHeight, 0, 0, width, height)
-
-        return canvas.toDataURL('image/png')
+            try {
+                await window.electronWindows?.closeOtherScreenshotWindows(displayId.value)
+            } catch (error) {
+                console.error('Error closing other screenshot windows:', error)
+            }
+        },
+        onSelectionConfirmed: async (selection) => {
+            editorBackgroundSrc.value = null
+            rendererLogService.info(
+                'screenshot.selection_confirmed',
+                'Screenshot selection confirmed',
+                {
+                    displayId: displayId.value,
+                    selection
+                },
+                'capture'
+            )
+        },
+        onSelectionResized: async (selection) => {
+            editorBackgroundSrc.value = null
+            rendererLogService.info(
+                'screenshot.selection_resized',
+                'Screenshot selection resized',
+                {
+                    displayId: displayId.value,
+                    selection
+                },
+                'capture'
+            )
+        },
+        onSelectionMoved: async (selection) => {
+            editorBackgroundSrc.value = null
+            rendererLogService.info(
+                'screenshot.selection_moved',
+                'Screenshot selection moved',
+                {
+                    displayId: displayId.value,
+                    selection
+                },
+                'capture'
+            )
+        },
+        canHandleArrowKey: () => !showOCRModal.value
     })
+
+    const backgroundSrc = computed(() => editorBackgroundSrc.value)
 
     const getEditedDataUrl = () => {
         const dpr = window.devicePixelRatio || 1
         return konvaEditorRef.value?.exportPNG?.({ pixelRatio: dpr, mimeType: 'image/png' }) || null
     }
-
-    const magnifierStyle = computed(() => {
-        const offset = 10
-        let left = mouseX.value + offset
-        let top = mouseY.value + offset
-
-        // Keep magnifier on screen
-        if (left + magnifierSize > window.innerWidth) {
-            left = mouseX.value - magnifierSize - offset
-        }
-        if (top + magnifierSize > window.innerHeight) {
-            top = mouseY.value - magnifierSize - offset
-        }
-
-        return { left: `${left}px`, top: `${top}px` }
-    })
-
-    // Toolbar dragging state
-    const customToolbarPosition = ref(null)
-    const isDraggingToolbar = ref(false)
-    const toolbarDragStart = ref({ x: 0, y: 0 })
 
     const toolbarStyle = computed(() => {
         // If user has custom position, use that
@@ -201,315 +159,38 @@
         return { left: `${toolbarLeft}px`, top: `${toolbarTop}px` }
     })
 
-    const handleMouseDown = async (e) => {
-        if (mode.value === 'editing' || mode.value === 'edited') return
+    const captureSelectionPreviewDataUrl = async () => {
+        const ready = await startPreview({ captureCursor: false })
+        if (!ready || !screenVideo.value || !screenVideo.value.videoWidth || !screenVideo.value.videoHeight) {
+            return null
+        }
 
-        rendererLogService.info(
-            'screenshot.selection_started',
-            'Screenshot selection started',
-            {
-                displayId: displayId.value
-            },
-            'capture'
+        const { left, top, width, height } = selectionRect.value
+        if (width <= 0 || height <= 0) return null
+
+        const scaleX = screenVideo.value.videoWidth / window.innerWidth
+        const scaleY = screenVideo.value.videoHeight / window.innerHeight
+
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(width * scaleX))
+        canvas.height = Math.max(1, Math.round(height * scaleY))
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return null
+
+        ctx.drawImage(
+            screenVideo.value,
+            Math.round(left * scaleX),
+            Math.round(top * scaleY),
+            Math.round(width * scaleX),
+            Math.round(height * scaleY),
+            0,
+            0,
+            canvas.width,
+            canvas.height
         )
 
-        // Close other screenshot windows when user starts selecting on this monitor
-        try {
-            await window.electronWindows?.closeOtherScreenshotWindows(displayId.value)
-        } catch (error) {
-            console.error('Error closing other screenshot windows:', error)
-        }
-
-        // Ensure this window is active when user starts selecting
-        isWindowActive.value = true
-        mode.value = 'selecting'
-        magnifierActive.value = shouldShowMagnifier.value
-        startX.value = endX.value = e.clientX
-        startY.value = endY.value = e.clientY
-    }
-
-    const handleResizeHandleMouseDown = (e, handle) => {
-        e.stopPropagation()
-        mode.value = 'resizing'
-        magnifierActive.value = shouldShowMagnifier.value
-        resizingHandle.value = handle
-    }
-
-    const handleSelectionMouseDown = (e) => {
-        if (mode.value !== 'confirming') return
-        e.stopPropagation()
-        mode.value = 'moving'
-        dragStartMouseX.value = e.clientX
-        dragStartMouseY.value = e.clientY
-        dragStartSelectionX.value = Math.min(startX.value, endX.value)
-        dragStartSelectionY.value = Math.min(startY.value, endY.value)
-        dragStartWidth.value = Math.abs(endX.value - startX.value)
-        dragStartHeight.value = Math.abs(endY.value - startY.value)
-    }
-
-    const handleMouseMove = (e) => {
-        mouseX.value = e.clientX
-        mouseY.value = e.clientY
-
-        if (mode.value === 'selecting') {
-            endX.value = e.clientX
-            endY.value = e.clientY
-        } else if (mode.value === 'resizing') {
-            const handle = resizingHandle.value
-            if (handle.includes('left')) startX.value = e.clientX
-            if (handle.includes('right')) endX.value = e.clientX
-            if (handle.includes('top')) startY.value = e.clientY
-            if (handle.includes('bottom')) endY.value = e.clientY
-        } else if (mode.value === 'moving') {
-            const deltaX = e.clientX - dragStartMouseX.value
-            const deltaY = e.clientY - dragStartMouseY.value
-
-            const newLeft = dragStartSelectionX.value + deltaX
-            const newTop = dragStartSelectionY.value + deltaY
-            const newRight = newLeft + dragStartWidth.value
-            const newBottom = newTop + dragStartHeight.value
-
-            let finalLeft = newLeft
-            let finalTop = newTop
-            let finalRight = newRight
-            let finalBottom = newBottom
-
-            // Minimum size to prevent selection from disappearing
-            const minSize = 10
-
-            // Handle horizontal boundaries and retraction
-            if (newLeft < 0) {
-                // Pushing against left edge - retract from left
-                const overpush = Math.abs(newLeft)
-                finalLeft = 0
-                finalRight = Math.max(minSize, dragStartWidth.value - overpush)
-            } else if (newRight > window.innerWidth) {
-                // Pushing against right edge - retract from right
-                const overpush = newRight - window.innerWidth
-                finalRight = window.innerWidth
-                finalLeft = Math.max(0, window.innerWidth - (dragStartWidth.value - overpush))
-                // Ensure minimum size
-                if (finalRight - finalLeft < minSize) {
-                    finalLeft = finalRight - minSize
-                }
-            } else {
-                // Not pushing against horizontal edges - normal movement
-                finalLeft = Math.max(0, Math.min(newLeft, window.innerWidth - dragStartWidth.value))
-                finalRight = finalLeft + dragStartWidth.value
-            }
-
-            // Handle vertical boundaries and retraction
-            if (newTop < 0) {
-                // Pushing against top edge - retract from top
-                const overpush = Math.abs(newTop)
-                finalTop = 0
-                finalBottom = Math.max(minSize, dragStartHeight.value - overpush)
-            } else if (newBottom > window.innerHeight) {
-                // Pushing against bottom edge - retract from bottom
-                const overpush = newBottom - window.innerHeight
-                finalBottom = window.innerHeight
-                finalTop = Math.max(0, window.innerHeight - (dragStartHeight.value - overpush))
-                // Ensure minimum size
-                if (finalBottom - finalTop < minSize) {
-                    finalTop = finalBottom - minSize
-                }
-            } else {
-                // Not pushing against vertical edges - normal movement
-                finalTop = Math.max(0, Math.min(newTop, window.innerHeight - dragStartHeight.value))
-                finalBottom = finalTop + dragStartHeight.value
-            }
-
-            startX.value = finalLeft
-            startY.value = finalTop
-            endX.value = finalRight
-            endY.value = finalBottom
-        }
-
-        // Only update magnifier if this window is active
-        if (isWindowActive.value && magnifierActive.value) {
-            updateMagnifier(e.clientX, e.clientY)
-        }
-    }
-
-    const handleMouseUp = () => {
-        if (mode.value === 'selecting') {
-            magnifierActive.value = false
-            const { width, height } = selectionRect.value
-
-            // If it's a click (no drag), select full screen
-            if (width < 10 && height < 10) {
-                startX.value = startY.value = 0
-                endX.value = window.innerWidth
-                endY.value = window.innerHeight
-            }
-
-            // Normalize coordinates so start is always top-left and end is always bottom-right
-            const normalizedLeft = Math.min(startX.value, endX.value)
-            const normalizedTop = Math.min(startY.value, endY.value)
-            const normalizedRight = Math.max(startX.value, endX.value)
-            const normalizedBottom = Math.max(startY.value, endY.value)
-
-            startX.value = normalizedLeft
-            startY.value = normalizedTop
-            endX.value = normalizedRight
-            endY.value = normalizedBottom
-
-            mode.value = 'confirming'
-            rendererLogService.info(
-                'screenshot.selection_confirmed',
-                'Screenshot selection confirmed',
-                {
-                    displayId: displayId.value,
-                    selection: selectionRect.value
-                },
-                'capture'
-            )
-        } else if (mode.value === 'resizing') {
-            magnifierActive.value = false
-
-            // Normalize coordinates after resizing to prevent flipped state issues
-            const normalizedLeft = Math.min(startX.value, endX.value)
-            const normalizedTop = Math.min(startY.value, endY.value)
-            const normalizedRight = Math.max(startX.value, endX.value)
-            const normalizedBottom = Math.max(startY.value, endY.value)
-
-            startX.value = normalizedLeft
-            startY.value = normalizedTop
-            endX.value = normalizedRight
-            endY.value = normalizedBottom
-
-            mode.value = 'confirming'
-            resizingHandle.value = null
-            rendererLogService.info(
-                'screenshot.selection_resized',
-                'Screenshot selection resized',
-                {
-                    displayId: displayId.value,
-                    selection: selectionRect.value
-                },
-                'capture'
-            )
-        } else if (mode.value === 'moving') {
-            magnifierActive.value = false
-            mode.value = 'confirming'
-            rendererLogService.info(
-                'screenshot.selection_moved',
-                'Screenshot selection moved',
-                {
-                    displayId: displayId.value,
-                    selection: selectionRect.value
-                },
-                'capture'
-            )
-        }
-    }
-
-    const updateMagnifier = (x, y) => {
-        if (!magnifierCanvas.value || !fullScreenImage.value) return
-
-        // Wait for image to be loaded
-        if (!fullScreenImage.value.complete || fullScreenImage.value.naturalWidth === 0) {
-            fullScreenImage.value.onload = () => updateMagnifier(x, y)
-            return
-        }
-
-        try {
-            const canvas = magnifierCanvas.value
-            const ctx = canvas.getContext('2d', { alpha: false })
-            if (!ctx) return
-
-            // Clear and setup canvas
-            ctx.imageSmoothingEnabled = false
-            ctx.clearRect(0, 0, magnifierSize, magnifierSize)
-
-            // Map cursor position in view space to image space
-            const img = fullScreenImage.value
-            const imgW = img.naturalWidth
-            const imgH = img.naturalHeight
-            const viewW = window.innerWidth
-            const viewH = window.innerHeight
-            const scaleX = imgW / viewW
-            const scaleY = imgH / viewH
-
-            // Desired source rectangle centered on cursor
-            const sourceSizeView = magnifierSize / zoomFactor
-            const sourceWImg = sourceSizeView * scaleX
-            const sourceHImg = sourceSizeView * scaleY
-            const centerXImg = x * scaleX
-            const centerYImg = y * scaleY
-            const desiredLeft = centerXImg - sourceWImg / 2
-            const desiredTop = centerYImg - sourceHImg / 2
-            const desiredRight = desiredLeft + sourceWImg
-            const desiredBottom = desiredTop + sourceHImg
-
-            // Intersect with image bounds to support edges/corners
-            const interLeft = Math.max(0, desiredLeft)
-            const interTop = Math.max(0, desiredTop)
-            const interRight = Math.min(imgW, desiredRight)
-            const interBottom = Math.min(imgH, desiredBottom)
-            const interW = Math.max(0, interRight - interLeft)
-            const interH = Math.max(0, interBottom - interTop)
-
-            // create an offscreen canvas for pattern
-            const patternCanvas = document.createElement('canvas')
-            const size = 10 // size of each square
-            patternCanvas.width = size * 2
-            patternCanvas.height = size * 2
-
-            const pctx = patternCanvas.getContext('2d')
-
-            // colors
-            const color1 = '#eee' // light gray
-            const color2 = '#ccc' // darker gray
-
-            // draw squares
-            pctx.fillStyle = color1
-            pctx.fillRect(0, 0, size * 2, size * 2)
-
-            pctx.fillStyle = color2
-            pctx.fillRect(0, 0, size, size)
-            pctx.fillRect(size, size, size, size)
-
-            // create pattern
-            const pattern = ctx.createPattern(patternCanvas, 'repeat')
-
-            // Fill background so out-of-bounds area shows as blank
-            ctx.fillStyle = pattern
-            ctx.fillRect(0, 0, magnifierSize, magnifierSize)
-
-            if (interW > 0 && interH > 0) {
-                // Position the sampled image so the cursor stays centered
-                const destX = ((interLeft - desiredLeft) / sourceWImg) * magnifierSize
-                const destY = ((interTop - desiredTop) / sourceHImg) * magnifierSize
-                const destW = (interW / sourceWImg) * magnifierSize
-                const destH = (interH / sourceHImg) * magnifierSize
-
-                ctx.drawImage(img, interLeft, interTop, interW, interH, destX, destY, destW, destH)
-            }
-
-            // Draw crosshair
-            const center = magnifierSize / 2
-            ctx.strokeStyle = 'white'
-            ctx.lineWidth = 4 // This will create the white border
-            ctx.beginPath()
-            ctx.moveTo(center, 0)
-            ctx.lineTo(center, magnifierSize)
-            ctx.moveTo(0, center)
-            ctx.lineTo(magnifierSize, center)
-            ctx.stroke()
-
-            ctx.strokeStyle = 'black'
-            ctx.lineWidth = 2 // This will be the black line inside the white border
-            ctx.beginPath()
-            ctx.moveTo(center, 0)
-            ctx.lineTo(center, magnifierSize)
-            ctx.moveTo(0, center)
-            ctx.lineTo(magnifierSize, center)
-            ctx.stroke()
-        } catch (error) {
-            // console.warn('Magnifier error:', error)
-            alert(error)
-        }
+        return canvas.toDataURL('image/png')
     }
 
     // Action handlers
@@ -603,6 +284,7 @@
             },
             'capture'
         )
+        stopPreview()
         window.electron?.cancelScreenshotMode()
     }
 
@@ -916,62 +598,8 @@
     }
 
     const handleArrowKeyNavigation = (event) => {
-        // Only handle arrow keys when selection is confirmed
-        if (mode.value !== 'confirming' && mode.value !== 'edited') return
-
-        // Don't handle arrow keys if OCR modal is open
         if (showOCRModal.value) return
-
-        // Check if it's an arrow key
-        const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
-        if (!arrowKeys.includes(event.key)) return
-
-        event.preventDefault()
-
-        const amount = nudgeAmount.value
-        const shift = event.shiftKey
-
-        if (!shift) {
-            // Move the entire selection
-            const { left, top, width, height } = selectionRect.value
-
-            if (event.key === 'ArrowLeft') {
-                // Move left - check boundary
-                const delta = Math.min(amount, left)
-                startX.value -= delta
-                endX.value -= delta
-            } else if (event.key === 'ArrowRight') {
-                // Move right - check boundary
-                const delta = Math.min(amount, window.innerWidth - (left + width))
-                startX.value += delta
-                endX.value += delta
-            } else if (event.key === 'ArrowUp') {
-                // Move up - check boundary
-                const delta = Math.min(amount, top)
-                startY.value -= delta
-                endY.value -= delta
-            } else if (event.key === 'ArrowDown') {
-                // Move down - check boundary
-                const delta = Math.min(amount, window.innerHeight - (top + height))
-                startY.value += delta
-                endY.value += delta
-            }
-        } else {
-            // Resize the selection (Shift + Arrow)
-            if (event.key === 'ArrowLeft') {
-                // Expand left - move left edge left
-                startX.value = Math.max(0, startX.value - amount)
-            } else if (event.key === 'ArrowRight') {
-                // Expand right - move right edge right
-                endX.value = Math.min(window.innerWidth, endX.value + amount)
-            } else if (event.key === 'ArrowUp') {
-                // Expand up - move top edge up
-                startY.value = Math.max(0, startY.value - amount)
-            } else if (event.key === 'ArrowDown') {
-                // Expand down - move bottom edge down
-                endY.value = Math.min(window.innerHeight, endY.value + amount)
-            }
-        }
+        handleSharedArrowKeyNavigation(event)
     }
 
     onMounted(async () => {
@@ -988,118 +616,31 @@
         // Check if this display is the active one
         const isThisDisplayActive = activeDisplayId && displayId.value === activeDisplayId
 
-        // Helper function to update magnifier when both conditions are met
-        const tryUpdateMagnifier = () => {
-            if (
-                magnifierCanvas.value &&
-                isWindowActive.value &&
-                magnifierActive.value &&
-                mode.value === 'idle' &&
-                fullScreenImage.value &&
-                fullScreenImage.value.complete &&
-                fullScreenImage.value.naturalWidth > 0
-            ) {
-                updateMagnifier(mouseX.value, mouseY.value)
-            }
-        }
-
         document.addEventListener('keydown', handleEscapeKeyCancel)
         document.addEventListener('keydown', handleToolbarShortcuts)
 
         // Listen for IPC events from main process for local shortcuts
-        window.electron?.ipcRenderer?.on('trigger-upload', () => {
-            if (mode.value === 'confirming' || mode.value === 'edited') {
-                handleUpload()
-            }
-        })
-        window.electron?.ipcRenderer?.on('trigger-copy', () => {
-            if (mode.value === 'confirming' || mode.value === 'edited') {
-                handleCopy()
-            }
-        })
-        window.electron?.ipcRenderer?.on('trigger-save', () => {
-            if (mode.value === 'confirming' || mode.value === 'edited') {
-                handleSave()
-            }
-        })
+        window.electron?.ipcRenderer?.on('trigger-upload', handleTriggeredUpload)
+        window.electron?.ipcRenderer?.on('trigger-copy', handleTriggeredCopy)
+        window.electron?.ipcRenderer?.on('trigger-save', handleTriggeredSave)
         document.addEventListener('keydown', handleArrowKeyNavigation)
 
+        await refreshSources()
+        setPreviewCaptureCursor(false)
+        selectedSourceId.value = sources.value.find((s) => s.display_id === displayId.value)?.id || ''
+
+        screenVideo.value?.addEventListener('loadedmetadata', handleScreenVideoReady)
+        screenVideo.value?.addEventListener('canplay', handleScreenVideoReady)
+        screenVideo.value?.addEventListener('playing', handleScreenVideoReady)
+
         // Set up display activation listener first
-        window.electronWindows?.onDisplayActivationChanged?.((activationData) => {
-            console.log(`Display ${displayId.value} activation changed:`, activationData.isActive)
-            isWindowActive.value = activationData.isActive
-
-            if (activationData.isActive) {
-                // This window is now active - show magnifier and update mouse position
-                magnifierActive.value = shouldShowMagnifier.value
-                mouseX.value = Math.max(0, Math.min(activationData.mouseX, window.innerWidth))
-                mouseY.value = Math.max(0, Math.min(activationData.mouseY, window.innerHeight))
-
-                // Try to update magnifier immediately (will work if image is already loaded)
-                // Use a small delay to ensure canvas is rendered
-                setTimeout(() => {
-                    tryUpdateMagnifier()
-                    // If canvas still not ready, try again after a short delay
-                    if (!magnifierCanvas.value && fullScreenImage.value) {
-                        setTimeout(() => {
-                            tryUpdateMagnifier()
-                        }, 50)
-                    }
-                }, 10)
-            } else {
-                // This window is no longer active - hide magnifier and crosshair
-                magnifierActive.value = false
-            }
-        })
-
-        const processMagnifierData = (dataURL) => {
-            if (!dataURL) return
-            const img = new Image()
-            img.src = dataURL
-            img.onload = () => {
-                fullScreenImage.value = img
-                // Try to update magnifier immediately (will work if window is already active)
-                // Use a small delay to ensure Vue has updated the refs and canvas is rendered
-                setTimeout(() => {
-                    tryUpdateMagnifier()
-                    // If canvas still not ready, try again after a short delay
-                    if (!magnifierCanvas.value && isWindowActive.value && magnifierActive.value) {
-                        setTimeout(() => {
-                            tryUpdateMagnifier()
-                        }, 50)
-                    }
-                }, 10)
-            }
-            img.onerror = (e) => console.error('Error loading magnifier image from data URL:', e)
-        }
-
-        // Fetch the initial screenshot data for this specific display
-        try {
-            const handlerKey = `get-initial-magnifier-data-${displayId.value}`
-            const initialDataURL = await window.electron?.invoke(handlerKey)
-            processMagnifierData(initialDataURL)
-        } catch (error) {
-            console.error('Failed to get initial magnifier data:', error)
-        }
+        window.electronWindows?.onDisplayActivationChanged?.(handleDisplayActivationChanged)
 
         // Fallback: If activation event hasn't arrived after a short delay,
         // only activate if this display is confirmed to be the active one
         setTimeout(() => {
             if (!isWindowActive.value && isThisDisplayActive) {
-                console.log(`Fallback activation for display ${displayId.value} (confirmed active display)`)
-                isWindowActive.value = true
-                magnifierActive.value = shouldShowMagnifier.value
-                // Try to update magnifier (will work if image is already loaded)
-                // Use a small delay to ensure canvas is rendered
-                setTimeout(() => {
-                    tryUpdateMagnifier()
-                    // If canvas still not ready, try again after a short delay
-                    if (!magnifierCanvas.value && fullScreenImage.value) {
-                        setTimeout(() => {
-                            tryUpdateMagnifier()
-                        }, 50)
-                    }
-                }, 10)
+                activateCurrentWindow()
             }
         }, 150)
     })
@@ -1108,16 +649,22 @@
         document.removeEventListener('keydown', handleEscapeKeyCancel)
         document.removeEventListener('keydown', handleToolbarShortcuts)
         document.removeEventListener('keydown', handleArrowKeyNavigation)
+        screenVideo.value?.removeEventListener('loadedmetadata', handleScreenVideoReady)
+        screenVideo.value?.removeEventListener('canplay', handleScreenVideoReady)
+        screenVideo.value?.removeEventListener('playing', handleScreenVideoReady)
         window.electronWindows?.removeDisplayActivationChangedListener?.()
+        stopPreview()
 
         // Remove IPC event listeners
-        window.electron?.ipcRenderer?.removeListener('trigger-upload')
-        window.electron?.ipcRenderer?.removeListener('trigger-copy')
-        window.electron?.ipcRenderer?.removeListener('trigger-save')
+        window.electron?.ipcRenderer?.removeListener('trigger-upload', handleTriggeredUpload)
+        window.electron?.ipcRenderer?.removeListener('trigger-copy', handleTriggeredCopy)
+        window.electron?.ipcRenderer?.removeListener('trigger-save', handleTriggeredSave)
     })
 
     // Editing
-    const handleEdit = () => {
+    const handleEdit = async () => {
+        editorBackgroundSrc.value = await captureSelectionPreviewDataUrl()
+        if (!editorBackgroundSrc.value) return
         mode.value = 'editing'
     }
 
@@ -1126,55 +673,43 @@
     }
 
     // Toolbar dragging handlers
-    const handleToolbarDragStart = (e) => {
-        e.stopPropagation()
-        isDraggingToolbar.value = true
-
-        // Get current toolbar position
-        const toolbar = e.currentTarget.closest('.toolbar-container')
-        const rect = toolbar.getBoundingClientRect()
-
-        // Store the offset from mouse to toolbar top-left
-        toolbarDragStart.value = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+    const handleTriggeredUpload = () => {
+        if (mode.value === 'confirming' || mode.value === 'edited') {
+            handleUpload()
         }
     }
 
-    const handleToolbarDragMove = (e) => {
-        if (!isDraggingToolbar.value) return
-
-        // Calculate new position
-        let newX = e.clientX - toolbarDragStart.value.x
-        let newY = e.clientY - toolbarDragStart.value.y
-
-        // Keep toolbar within viewport bounds (with some padding)
-        const margin = 10
-        const toolbarWidth = 400
-        const toolbarHeight = 60
-
-        newX = Math.max(margin, Math.min(newX, window.innerWidth - toolbarWidth - margin))
-        newY = Math.max(margin, Math.min(newY, window.innerHeight - toolbarHeight - margin))
-
-        customToolbarPosition.value = { x: newX, y: newY }
+    const handleTriggeredCopy = () => {
+        if (mode.value === 'confirming' || mode.value === 'edited') {
+            handleCopy()
+        }
     }
 
-    const handleToolbarDragEnd = () => {
-        isDraggingToolbar.value = false
+    const handleTriggeredSave = () => {
+        if (mode.value === 'confirming' || mode.value === 'edited') {
+            handleSave()
+        }
     }
+
+    watch(selectedSourceId, async () => {
+        if (selectedSourceId.value) {
+            stopPreview()
+            const success = await startPreview({ captureCursor: false })
+            if (!success) {
+                console.error('Failed to start screenshot preview stream')
+            }
+        }
+    })
 </script>
 
 <template>
     <div
-        :class="{ 'cursor-crosshair select-none': mode !== 'editing', 'pointer-events-none': loading }"
-        class="fixed top-0 left-0 h-screen w-screen"
-        :style="{
-            backgroundImage: fullScreenImage ? `url(${fullScreenImage.src})` : 'none',
-            backgroundSize: '100% 100%',
-            backgroundPosition: 'top left',
-            backgroundRepeat: 'no-repeat',
-            imageRendering: 'auto'
+        :class="{
+            'pointer-events-none': loading,
+            'cursor-none': shouldUseOverlayCursor,
+            'cursor-crosshair select-none': !shouldUseOverlayCursor && mode !== 'editing'
         }"
+        class="fixed top-0 left-0 h-screen w-screen"
         @mousedown="handleMouseDown"
         @mousemove="
             (e) => {
@@ -1188,6 +723,16 @@
                 handleToolbarDragEnd()
             }
         ">
+        <div
+            v-if="shouldUseOverlayCursor"
+            class="pointer-events-none absolute z-[70] h-5 w-5 -translate-x-1/2 -translate-y-1/2"
+            :style="overlayCursorStyle">
+            <div class="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 bg-white/95"></div>
+            <div class="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 bg-white/95"></div>
+            <div class="absolute top-1/2 left-0 h-px w-full -translate-y-1/2 scale-[0.6] bg-black/90"></div>
+            <div class="absolute top-0 left-1/2 h-full w-px -translate-x-1/2 scale-[0.6] bg-black/90"></div>
+        </div>
+
         <!-- Dark overlay for everything outside the selection -->
         <div
             v-if="mode === 'confirming' || mode === 'editing' || mode == 'edited'"
@@ -1659,6 +1204,13 @@
                 </transition>
             </div>
         </transition>
+
+        <video
+            ref="screenVideo"
+            class="hidden"
+            autoplay
+            muted
+            playsinline></video>
     </div>
 </template>
 

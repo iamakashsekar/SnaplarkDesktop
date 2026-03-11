@@ -377,7 +377,7 @@ class WindowManager {
 
         this.applyPlatformSpecificSettings(window, type, isSelectionWindow, config)
 
-        if (isVideoRecordingWindow) {
+        if (isSelectionWindow) {
             window.setContentProtection(true)
         }
 

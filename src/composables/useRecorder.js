@@ -3,18 +3,17 @@ import { ref, watch, nextTick } from 'vue'
 import { BASE_URL } from '../api/config'
 import { useStore } from '../store'
 import { rendererLogService } from '../services/renderer-log-service.js'
+import { useDesktopCapturePreview } from './useDesktopCapturePreview'
 
 export function useRecorder() {
     const store = useStore()
     // Refs for video/canvas elements
     const previewCanvas = ref(null)
     const recordingCanvas = ref(null)
-    const screenVideo = ref(null)
     const recordedVideo = ref(null)
 
     // State
     const uiMode = ref('select') // select, record, preview
-    const sources = ref([])
     const selectedSourceId = ref('')
     const audioDevices = ref([])
     const selectedAudioDeviceId = ref('default')
@@ -42,8 +41,18 @@ export function useRecorder() {
         height: 720
     })
 
+    const {
+        screenVideo,
+        sources: previewSources,
+        refreshSources,
+        setPreviewCaptureCursor,
+        startPreview,
+        ensurePreviewStream,
+        stopPreview
+    } = useDesktopCapturePreview(selectedSourceId)
+    const sources = previewSources
+
     // Streams and recording
-    let screenStream = null
     let audioStream = null
     let systemAudioStream = null
     let mediaRecorder = null
@@ -57,7 +66,6 @@ export function useRecorder() {
     let totalChunks = 0 // Track total chunks for upload
     let uploadId = null // Unique ID for upload session
     let recordingAudioContext = null // Audio context for mixing audio tracks
-    let previewCaptureCursor = true
 
     // Function to set crop region externally
     const setCropRegion = (x, y, width, height) => {
@@ -72,21 +80,7 @@ export function useRecorder() {
         systemAudioEnabled.value = value
     }
 
-    const setPreviewCaptureCursor = (value) => {
-        previewCaptureCursor = value !== false
-    }
-
     // Methods
-
-    const refreshSources = async () => {
-        try {
-            if (window.electron) {
-                sources.value = await window.electron.getSources()
-            }
-        } catch (error) {
-            console.error('Error getting sources:', error)
-        }
-    }
 
     const getAudioDevices = async () => {
         try {
@@ -106,172 +100,13 @@ export function useRecorder() {
         }
     }
 
-    const applyPreviewCursorConstraints = async (stream, captureCursor) => {
-        const videoTrack = stream?.getVideoTracks?.()?.[0]
-        if (!videoTrack?.applyConstraints) return
-
-        try {
-            await videoTrack.applyConstraints({
-                cursor: captureCursor ? 'always' : 'never'
-            })
-        } catch (error) {
-            console.warn('Could not apply preview cursor constraint:', error)
-        }
-    }
-
-    const startPreview = async () => {
-        if (!selectedSourceId.value) return
-        // Ensure no stale processing overlay blocks the preview
-        isProcessing.value = false
-
-        try {
-            rendererLogService.info(
-                'recording.preview_started',
-                'Recording preview started',
-                {
-                    sourceId: selectedSourceId.value,
-                    cropEnabled: enableCrop.value,
-                    cropRegion: cropRegion.value,
-                    captureCursor: previewCaptureCursor
-                },
-                'capture'
-            )
-
-            const baseVideoConstraints = {
-                mandatory: {
-                    chromeMediaSource: 'desktop',
-                    chromeMediaSourceId: selectedSourceId.value,
-                    minWidth: 1280,
-                    maxWidth: 3840,
-                    minHeight: 720,
-                    maxHeight: 2160
-                }
-            }
-
-            const constraints = {
-                audio: false,
-                video: {
-                    ...baseVideoConstraints,
-                    cursor: previewCaptureCursor ? 'always' : 'never'
-                }
-            }
-
-            try {
-                screenStream = await navigator.mediaDevices.getUserMedia(constraints)
-            } catch (error) {
-                console.warn('Retrying preview stream without cursor constraint:', error)
-                screenStream = await navigator.mediaDevices.getUserMedia({
-                    audio: false,
-                    video: baseVideoConstraints
-                })
-            }
-            await applyPreviewCursorConstraints(screenStream, previewCaptureCursor)
-            screenVideo.value.srcObject = screenStream
-
-            // Wait for screen video to be ready
-            await new Promise((resolve) => {
-                screenVideo.value.onloadedmetadata = () => {
-                    screenVideo.value
-                        .play()
-                        .then(resolve)
-                        .catch((err) => {
-                            console.error('Error playing screen video:', err)
-                            resolve()
-                        })
-                }
-            })
-
-            renderPreview()
-        } catch (error) {
-            console.error('Error starting preview:', error)
-            alert('Error accessing screen. Please select a valid source.')
-        }
-    }
-
-    const hasLiveScreenStream = () => {
-        return !!(
-            screenStream &&
-            screenStream.active &&
-            screenStream.getVideoTracks().some((track) => track.readyState === 'live')
-        )
-    }
-
-    const waitForScreenVideoReady = async (timeoutMs = 4000) => {
-        const video = screenVideo.value
-        if (!video) return false
-
-        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-            return true
-        }
-
-        return await new Promise((resolve) => {
-            let settled = false
-
-            const cleanup = () => {
-                video.removeEventListener('loadedmetadata', checkReady)
-                video.removeEventListener('canplay', checkReady)
-                video.removeEventListener('playing', checkReady)
-                video.removeEventListener('error', handleError)
-            }
-
-            const finish = (result) => {
-                if (settled) return
-                settled = true
-                clearTimeout(timeoutId)
-                cleanup()
-                resolve(result)
-            }
-
-            const checkReady = () => {
-                if (
-                    video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-                    video.videoWidth > 0 &&
-                    video.videoHeight > 0
-                ) {
-                    finish(true)
-                }
-            }
-
-            const handleError = () => finish(false)
-            const timeoutId = setTimeout(() => finish(false), timeoutMs)
-
-            video.addEventListener('loadedmetadata', checkReady)
-            video.addEventListener('canplay', checkReady)
-            video.addEventListener('playing', checkReady)
-            video.addEventListener('error', handleError)
-            checkReady()
-        })
-    }
-
-    const ensurePreviewStream = async ({ captureCursor = previewCaptureCursor } = {}) => {
-        if (!selectedSourceId.value) return false
-
-        if (!hasLiveScreenStream() || previewCaptureCursor !== captureCursor) {
-            previewCaptureCursor = captureCursor
-            if (hasLiveScreenStream()) {
-                stopPreview()
-            }
-            await startPreview()
-        }
-
-        return await waitForScreenVideoReady()
-    }
-
-    const stopPreview = () => {
+    const stopPreviewAndMedia = () => {
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId)
             animationFrameId = null
         }
 
-        if (screenStream) {
-            screenStream.getTracks().forEach((track) => track.stop())
-            screenStream = null
-        }
-
-        if (screenVideo.value) {
-            screenVideo.value.pause()
-            screenVideo.value.srcObject = null
-        }
+        stopPreview()
 
         if (audioStream) {
             audioStream.getTracks().forEach((track) => track.stop())
@@ -753,7 +588,7 @@ export function useRecorder() {
                 isProcessing.value = true
 
                 try {
-                    stopPreview()
+                    stopPreviewAndMedia()
 
                     // Close audio context used for mixing
                     if (recordingAudioContext) {
@@ -1105,7 +940,7 @@ export function useRecorder() {
     const cleanup = () => {
         navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange)
 
-        stopPreview()
+        stopPreviewAndMedia()
         if (recordedVideoUrl.value && recordedVideoUrl.value.startsWith('blob:')) {
             URL.revokeObjectURL(recordedVideoUrl.value)
         }
@@ -1121,7 +956,7 @@ export function useRecorder() {
     watch(selectedSourceId, () => {
         if (selectedSourceId.value && !isRecording.value) {
             isProcessing.value = false
-            stopPreview()
+            stopPreviewAndMedia()
             startPreview()
         }
     })
@@ -1159,7 +994,7 @@ export function useRecorder() {
         refreshSources,
         startRecording,
         stopRecording,
-        stopPreview,
+        stopPreview: stopPreviewAndMedia,
         resetRecording,
         initialize,
         cleanup
