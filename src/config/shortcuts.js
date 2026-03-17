@@ -10,6 +10,7 @@ export const SHORTCUT_DEFINITIONS = {
         storeKey: 'hotkeyScreenshot',
         type: 'global',
         description: 'Capture screen area',
+        descriptionKey: 'shortcuts.descriptions.captureScreenArea',
         category: 'capture'
     },
 
@@ -19,6 +20,7 @@ export const SHORTCUT_DEFINITIONS = {
         storeKey: 'hotkeyRecording',
         type: 'global',
         description: 'Start screen recording',
+        descriptionKey: 'shortcuts.descriptions.startScreenRecording',
         category: 'capture'
     },
 
@@ -28,6 +30,7 @@ export const SHORTCUT_DEFINITIONS = {
         storeKey: 'hotkeyStartStopRecording',
         type: 'global',
         description: 'Start/Stop recording',
+        descriptionKey: 'shortcuts.descriptions.startStopRecording',
         category: 'capture'
     },
 
@@ -37,6 +40,7 @@ export const SHORTCUT_DEFINITIONS = {
         storeKey: 'hotkeyToggleMicrophone',
         type: 'global',
         description: 'Mute/Unmute microphone',
+        descriptionKey: 'shortcuts.descriptions.muteUnmuteMicrophone',
         category: 'capture'
     },
 
@@ -46,6 +50,7 @@ export const SHORTCUT_DEFINITIONS = {
         storeKey: 'hotkeyToggleWebcam',
         type: 'global',
         description: 'Enable/Disable webcam',
+        descriptionKey: 'shortcuts.descriptions.enableDisableWebcam',
         category: 'capture'
     },
 
@@ -55,6 +60,7 @@ export const SHORTCUT_DEFINITIONS = {
         storeKey: 'hotkeyQuickMenu',
         type: 'global',
         description: 'Open quick menu',
+        descriptionKey: 'shortcuts.descriptions.openQuickMenu',
         category: 'navigation'
     },
 
@@ -65,6 +71,7 @@ export const SHORTCUT_DEFINITIONS = {
         type: 'local',
         windowId: 'screenshot',
         description: 'Upload to website',
+        descriptionKey: 'shortcuts.descriptions.uploadToWebsite',
         category: 'screenshot'
     },
 
@@ -74,6 +81,7 @@ export const SHORTCUT_DEFINITIONS = {
         type: 'local',
         windowId: 'screenshot',
         description: 'Copy to clipboard',
+        descriptionKey: 'shortcuts.descriptions.copyToClipboard',
         category: 'screenshot'
     },
 
@@ -83,6 +91,7 @@ export const SHORTCUT_DEFINITIONS = {
         type: 'local',
         windowId: 'screenshot',
         description: 'Save to file',
+        descriptionKey: 'shortcuts.descriptions.saveToFile',
         category: 'screenshot'
     }
 }

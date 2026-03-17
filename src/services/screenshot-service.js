@@ -4,6 +4,7 @@ import os from 'node:os'
 import fs from 'node:fs'
 import mainLogService from './main-log-service.js'
 import { openSelectionWindows } from './selection-window-service.js'
+import { getStoredLocale, translateShared } from '../i18n/shared.js'
 
 class ScreenshotService {
     constructor(windowManager, store) {
@@ -501,7 +502,7 @@ class ScreenshotService {
                 const defaultPath = path.join(os.homedir(), 'Pictures', filenameWithoutExt)
 
                 const result = await dialog.showSaveDialog({
-                    title: 'Save Screenshot',
+                    title: translateShared(getStoredLocale(this.store), 'common.buttons.save'),
                     defaultPath: defaultPath,
                     filters: [
                         { name: 'PNG Image', extensions: ['png'] },

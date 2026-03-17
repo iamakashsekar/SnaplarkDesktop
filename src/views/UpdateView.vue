@@ -25,29 +25,29 @@ const dismiss = () => {
     <GradientFrame>
         <div class="drag relative rounded-xl bg-white p-4 dark:bg-gray-900">
             <div class="flex flex-col items-center text-center">
-                <img src="@/assets/icons/icon.png" alt="Snaplark" class="mb-2 size-10" />
+                <img src="@/assets/icons/icon.png" :alt="$t('common.appName')" class="mb-2 size-10" />
 
                 <h1 class="text-sm font-semibold text-gray-900 dark:text-white">
-                    Update Available
+                    {{ $t('update.title') }}
                 </h1>
                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    A new version of Snaplark is ready to install.
+                    {{ $t('update.description') }}
                 </p>
 
                 <div v-if="updateInfo" class="mt-3 w-full rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800">
                     <span class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {{ updateInfo.releaseName || 'New Version' }}
+                        {{ updateInfo.releaseName || $t('update.fallbackReleaseName') }}
                     </span>
                 </div>
 
                 <div class="no-drag mt-3 flex w-full gap-2">
                     <button @click="dismiss"
                         class="flex-1 cursor-pointer rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
-                        Later
+                        {{ $t('common.buttons.later') }}
                     </button>
                     <button @click="installUpdate"
                         class="flex-1 cursor-pointer rounded-xl bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600">
-                        Update Now
+                        {{ $t('common.buttons.updateNow') }}
                     </button>
                 </div>
             </div>

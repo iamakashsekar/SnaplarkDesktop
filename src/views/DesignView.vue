@@ -12,8 +12,7 @@
         <div class="rounded-2xl bg-white p-5">
             <!-- Title -->
             <div class="drag mb-5 flex items-center gap-4">
-                <h2 class="font-bold">Name of the video file</h2>
-
+                <h2 class="font-bold">{{ $t('design.fileName') }}</h2>
                 <div class="ml-auto flex items-center gap-1">
                     <button>
                         <svg
@@ -50,8 +49,8 @@
                             class="absolute inset-0 animate-spin rounded-full border-4 border-white/20 border-t-white"></div>
                     </div>
                     <div class="text-center">
-                        <p class="text-lg font-semibold text-white">Processing video...</p>
-                        <small class="mt-1 block text-sm text-white/70">Fixing duration metadata</small>
+                        <p class="text-lg font-semibold text-white">{{ $t('design.processingTitle') }}</p>
+                        <small class="mt-1 block text-sm text-white/70">{{ $t('design.processingDescription') }}</small>
                     </div>
                 </div>
             </div>
@@ -65,7 +64,7 @@
         <div class="mx-auto flex items-center rounded-full bg-white/90">
             <button
                 @click="handleUpload"
-                title="Upload"
+                :title="$t('design.upload')"
                 class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                 <svg
                     class="size-6 group-hover:text-white"
@@ -76,12 +75,12 @@
                         d="M21.74 12.91C21.48 12.05 21.05 11.3 20.48 10.69C19.75 9.86 18.78 9.29 17.69 9.04C17.14 6.54 15.6 4.74 13.41 4.07C11.03 3.33 8.27 4.05 6.54 5.86C5.02 7.45 4.52 9.64 5.11 11.97C3.11 12.46 2.12 14.13 2.01 15.72C2 15.83 2 15.93 2 16.03C2 17.91 3.23 20.02 5.97 20.22H16.35C17.77 20.22 19.13 19.69 20.17 18.74C21.8 17.31 22.4 15.08 21.74 12.91Z"
                         fill="currentColor" />
                 </svg>
-                <span class="hidden group-hover:block group-hover:text-white"> Upload </span>
+                <span class="hidden group-hover:block group-hover:text-white"> {{ $t('design.upload') }} </span>
             </button>
 
             <button
                 @click="handleCopy"
-                title="Copy"
+                :title="$t('design.copy')"
                 class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                 <svg
                     class="size-6 group-hover:text-white"
@@ -98,12 +97,12 @@
                         d="M11.9796 7.14999C11.6696 6.83999 11.1396 7.04999 11.1396 7.47999V10.1C11.1396 11.2 12.0696 12.1 13.2096 12.1C13.9196 12.11 14.9096 12.11 15.7596 12.11C16.1896 12.11 16.4096 11.61 16.1096 11.31C15.0196 10.22 13.0796 8.26999 11.9796 7.14999Z"
                         fill="currentColor" />
                 </svg>
-                <span class="hidden group-hover:block group-hover:text-white"> Copy </span>
+                <span class="hidden group-hover:block group-hover:text-white"> {{ $t('design.copy') }} </span>
             </button>
 
             <button
                 @click="handleSave"
-                title="Save"
+                :title="$t('design.save')"
                 class="group hover:bg-primary-blue flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5">
                 <svg
                     class="size-6 group-hover:text-white"
@@ -114,7 +113,7 @@
                         d="M8.78125 13.2002H15.4746C15.6843 13.2002 15.8564 13.3717 15.8564 13.585V19.5C15.8564 19.6933 15.6992 19.8496 15.5059 19.8496H8.75C8.55672 19.8496 8.40039 19.6933 8.40039 19.5V13.585C8.40039 13.3717 8.5716 13.2002 8.78125 13.2002ZM7.8252 3.15039C8.09431 3.1505 8.3125 3.36856 8.3125 3.6377V5.88672C8.3125 6.85441 9.09271 7.64062 10.0566 7.64062H14.2002C15.164 7.64049 15.9434 6.85433 15.9434 5.88672V4.21094C15.9434 4.14578 15.9785 4.09968 16.0195 4.0791C16.0582 4.05972 16.104 4.06116 16.1465 4.09961L18.5703 6.29492C19.3447 6.99621 19.787 7.99515 19.7871 9.04395V16.1514C19.7869 17.6994 18.8424 19.0247 17.502 19.5762C17.3737 19.6289 17.219 19.5336 17.2188 19.3623V13.585C17.2188 12.6173 16.4385 11.8311 15.4746 11.8311H8.78125C7.81734 11.8311 7.03711 12.6173 7.03711 13.585V19.4736C7.03709 19.6348 6.89786 19.7335 6.77051 19.6953C5.25543 19.2392 4.15058 17.8254 4.15039 16.1514V6.84863C4.15062 4.80501 5.79657 3.15039 7.8252 3.15039ZM10.0254 3.15039H14.2314C14.4246 3.15053 14.5811 3.30679 14.5811 3.5V5.88672C14.5811 6.09992 14.4098 6.27134 14.2002 6.27148H10.0566C9.84697 6.27148 9.6748 6.10001 9.6748 5.88672V3.5C9.6748 3.3067 9.83209 3.15039 10.0254 3.15039Z"
                         fill="currentColor" />
                 </svg>
-                <span class="hidden group-hover:block group-hover:text-white"> Save </span>
+                <span class="hidden group-hover:block group-hover:text-white"> {{ $t('design.save') }} </span>
             </button>
         </div>
     </div>

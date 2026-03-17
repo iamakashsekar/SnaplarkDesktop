@@ -12,7 +12,7 @@ import VideoRecordingView from '../views/VideoRecordingView.vue'
 import WebcamView from '../views/WebcamView.vue'
 import RecordingOverlayView from '../views/RecordingOverlayView.vue'
 import UpdateView from '../views/UpdateView.vue'
-import { WINDOW_TITLES } from '../config/window-config'
+import { WINDOW_TITLE_KEYS } from '../config/window-config'
 import IssueReportView from '../views/IssueReportView.vue'
 
 const routes = [
@@ -32,19 +32,19 @@ const routes = [
         path: '/settings',
         name: 'settings',
         component: SettingsView,
-        meta: { windowType: 'settings', title: WINDOW_TITLES.settings }
+        meta: { windowType: 'settings', titleKey: WINDOW_TITLE_KEYS.settings }
     },
     {
         path: '/issue-report',
         name: 'issue-report',
         component: IssueReportView,
-        meta: { windowType: 'issue-report', title: WINDOW_TITLES.issueReport }
+        meta: { windowType: 'issue-report', titleKey: WINDOW_TITLE_KEYS.issueReport }
     },
     {
         path: '/welcome',
         name: 'welcome',
         component: WelcomeView,
-        meta: { windowType: 'welcome', title: WINDOW_TITLES.welcome }
+        meta: { windowType: 'welcome', titleKey: WINDOW_TITLE_KEYS.welcome }
     },
     {
         path: '/screenshot',
@@ -68,7 +68,7 @@ const routes = [
         path: '/design',
         name: 'design',
         component: DesignView,
-        meta: { windowType: 'design', title: WINDOW_TITLES.design }
+        meta: { windowType: 'design', titleKey: WINDOW_TITLE_KEYS.design }
     },
     {
         path: '/notifications',
@@ -86,13 +86,13 @@ const routes = [
         path: '/permissions',
         name: 'permissions',
         component: () => import('../views/PermissionsView.vue'),
-        meta: { windowType: 'permissions', title: WINDOW_TITLES.permissions }
+        meta: { windowType: 'permissions', titleKey: WINDOW_TITLE_KEYS.permissions }
     },
     {
         path: '/update',
         name: 'update',
         component: UpdateView,
-        meta: { windowType: 'update', title: WINDOW_TITLES.update }
+        meta: { windowType: 'update', titleKey: WINDOW_TITLE_KEYS.update }
     }
 ]
 
@@ -138,13 +138,6 @@ router.beforeEach(async (to, from, next) => {
     } catch (error) {
         console.error('Error in router navigation guard:', error)
         next()
-    }
-})
-
-router.afterEach((to) => {
-    // Update the document title based on the route meta
-    if (to.meta.title) {
-        document.title = to.meta.title
     }
 })
 

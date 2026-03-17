@@ -922,7 +922,7 @@
             <div
                 v-if="mode === 'idle' && isWindowActive && !isRecording"
                 class="pointer-events-none fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
-                <p>Single-click an app to select it, drag to select, or double-click for full screen</p>
+                <p>{{ $t('recording.instructions') }}</p>
             </div>
 
             <!-- Crosshair (only when not confirming and window is active) -->
@@ -976,7 +976,7 @@
             }"
             :style="toolbarStyle">
             <!-- Drag Handle -->
-            <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('common.buttons.move') : ''">
                 <div
                     @mousedown="handleToolbarDragStart"
                     @mouseenter="handleToolbarButtonHover(true)"
@@ -1010,8 +1010,8 @@
                     :text="
                         store.settings.showTooltips
                             ? isRecording
-                                ? `Stop Recording (${store.settings.hotkeyStartStopRecording})`
-                                : `Start Recording (${store.settings.hotkeyStartStopRecording})`
+                                ? $t('recording.tooltips.stopRecording', { hotkey: store.settings.hotkeyStartStopRecording })
+                                : $t('recording.tooltips.startRecording', { hotkey: store.settings.hotkeyStartStopRecording })
                             : ''
                     ">
                     <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
@@ -1044,7 +1044,7 @@
                                 </defs>
                             </svg>
 
-                            <span>{{ isRecording ? 'Stop' : 'Record' }}</span>
+                            <span>{{ isRecording ? $t('common.buttons.stop') : $t('common.buttons.record') }}</span>
 
                             <div v-if="isRecording">{{ recordingTime }}</div>
                         </button>
@@ -1064,7 +1064,7 @@
                         class="absolute top-1.5 -right-5">
                         <Tooltip
                             :spacing="isRecording ? 'mt-3' : 'mt-4'"
-                            :text="store.settings.showTooltips ? 'Show Toolbar' : ''">
+                            :text="store.settings.showTooltips ? $t('recording.tooltips.showToolbar') : ''">
                             <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                                 <button
                                     @click="expandToolbar"
@@ -1114,8 +1114,8 @@
                             :text="
                                 store.settings.showTooltips
                                     ? store.settings.webcamEnabled
-                                        ? `Disable webcam (${store.settings.hotkeyToggleWebcam})`
-                                        : `Enable webcam (${store.settings.hotkeyToggleWebcam})`
+                                        ? $t('recording.tooltips.disableWebcam', { hotkey: store.settings.hotkeyToggleWebcam })
+                                        : $t('recording.tooltips.enableWebcam', { hotkey: store.settings.hotkeyToggleWebcam })
                                     : ''
                             ">
                             <div class="webcam-settings-container">
@@ -1227,7 +1227,7 @@
                                         <div
                                             v-if="videoDevices.length === 0"
                                             class="px-4 py-2.5 text-sm text-gray-500">
-                                            No cameras found
+                                            {{ $t('recording.noCamerasFound') }}
                                         </div>
                                     </div>
                                 </div>
@@ -1347,7 +1347,7 @@
                                     <div
                                         v-if="videoDevices.length === 0"
                                         class="px-4 py-2.5 text-sm text-gray-500">
-                                        No cameras found
+                                        {{ $t('recording.noCamerasFound') }}
                                     </div>
                                 </div>
                             </div>
@@ -1360,8 +1360,8 @@
                             :text="
                                 store.settings.showTooltips
                                     ? selectedAudioDeviceId
-                                        ? `Mute microphone (${store.settings.hotkeyToggleMicrophone})`
-                                        : `Unmute microphone (${store.settings.hotkeyToggleMicrophone})`
+                                        ? $t('recording.tooltips.muteMicrophone', { hotkey: store.settings.hotkeyToggleMicrophone })
+                                        : $t('recording.tooltips.unmuteMicrophone', { hotkey: store.settings.hotkeyToggleMicrophone })
                                     : ''
                             ">
                             <div class="audio-settings-container">
@@ -1471,7 +1471,7 @@
                                                         d="M18.0001 16.75C17.8401 16.75 17.6901 16.7 17.5501 16.6C17.2201 16.35 17.1501 15.88 17.4001 15.55C18.2201 14.46 18.6701 13.15 18.6701 11.77C18.6701 10.43 18.2501 9.16002 17.4801 8.09002C17.2401 7.76002 17.3201 7.29002 17.6501 7.05002C17.9801 6.81002 18.4501 6.89002 18.6901 7.22002C19.6601 8.56002 20.1801 10.13 20.1801 11.78C20.1801 13.48 19.6201 15.1 18.5901 16.46C18.4501 16.65 18.2201 16.75 18.0001 16.75Z"
                                                         fill="#2178FF" />
                                                 </svg>
-                                                <span>System Audio</span>
+                                                <span>{{ $t('recording.systemAudio') }}</span>
                                             </div>
                                             <svg
                                                 v-if="systemAudioEnabled"
@@ -1523,7 +1523,7 @@
                                         <div
                                             v-if="audioDevices.length === 0"
                                             class="px-4 py-2.5 text-sm text-gray-500">
-                                            No microphones found
+                                            {{ $t('recording.noMicrophonesFound') }}
                                         </div>
                                     </div>
                                 </div>
@@ -1625,7 +1625,7 @@
                                                 : 'text-gray-700 dark:text-gray-300'
                                         ]">
                                         <div class="flex items-center gap-2">
-                                            <span>System Audio</span>
+                                            <span>{{ $t('recording.systemAudio') }}</span>
                                         </div>
                                         <svg
                                             v-if="systemAudioEnabled"
@@ -1677,7 +1677,7 @@
                                     <div
                                         v-if="audioDevices.length === 0"
                                         class="px-4 py-2.5 text-sm text-gray-500">
-                                        No microphones found
+                                        {{ $t('recording.noMicrophonesFound') }}
                                     </div>
                                 </div>
                             </div>
@@ -1686,7 +1686,7 @@
 
                     <Tooltip
                         :spacing="isRecording ? 'mt-3' : 'mt-4'"
-                        :text="store.settings.showTooltips ? 'Cancel (esc)' : ''">
+                        :text="store.settings.showTooltips ? $t('recording.tooltips.cancel') : ''">
                         <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                             <button
                                 @click="handleCancel"
@@ -1711,7 +1711,7 @@
 
                     <Tooltip
                         :spacing="isRecording ? 'mt-3' : 'mt-4'"
-                        :text="store.settings.showTooltips ? 'Hide Toolbar' : ''">
+                        :text="store.settings.showTooltips ? $t('recording.tooltips.hideToolbar') : ''">
                         <div class="dark:bg-dark-800/90 rounded-full bg-white/90">
                             <button
                                 @click="collapseToolbar"

@@ -1,20 +1,7 @@
 import { apiClient } from './config.js'
+import { formatLocalizedFileSize } from '@/i18n/formatters'
 
 export const ISSUE_REPORT_ENDPOINT = '/issue-reports'
-
-const bytesToFileSize = (bytes) => {
-    if (!bytes) return '0 Bytes'
-
-    const units = ['Bytes', 'KB', 'MB', 'GB']
-    const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-    const value = bytes / Math.pow(1024, unitIndex)
-
-    if (unitIndex === 0) {
-        return `${bytes} Bytes`
-    }
-
-    return `${value.toFixed(1)} ${units[unitIndex]}`
-}
 
 const normalizeBuffer = (buffer) => {
     if (!buffer) {
@@ -67,4 +54,4 @@ export const submitIssueReport = async ({
     })
 }
 
-export const formatAttachmentSize = bytesToFileSize
+export const formatAttachmentSize = formatLocalizedFileSize

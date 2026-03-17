@@ -445,7 +445,8 @@ class ShortcutManager {
                 return {
                     id: config.id,
                     hotkey: config.hotkey,
-                    description: config.description
+                    description: config.description,
+                    descriptionKey: config.descriptionKey
                 }
             }
         }

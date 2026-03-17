@@ -5,6 +5,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
 import { useStore } from './store.js'
+import { i18n, setLanguage } from './i18n'
 import { rendererLogService } from './services/renderer-log-service.js'
 
 const pinia = createPinia()
@@ -17,6 +18,8 @@ const app = createApp(App)
 
 app.use(pinia)
 app.use(router)
+app.use(i18n)
+setLanguage(window.electronStore?.get?.('settings')?.language)
 
 // Initialize the app
 const appInstance = app.mount('#app')

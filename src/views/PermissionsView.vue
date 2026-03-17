@@ -1,38 +1,25 @@
 <script setup>
-    import { ref, onMounted, onUnmounted } from 'vue'
+    import { ref, onMounted, onUnmounted, computed } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import TitleBar from '@/components/TitleBar.vue'
-    import { WINDOW_TITLES } from '@/config/window-config'
+    import { WINDOW_TITLE_KEYS } from '@/config/window-config'
 
-    const permissions = ref([
-        {
-            id: 'camera',
-            name: 'Camera',
-            description: 'So viewers can see you',
-            icon: 'camera',
-            granted: false
-        },
-        {
-            id: 'microphone',
-            name: 'Microphone',
-            description: 'So viewers can hear you',
-            icon: 'microphone',
-            granted: false
-        },
-        {
-            id: 'accessibility',
-            name: 'Accessibility',
-            description: 'To record specific windows',
-            icon: 'accessibility',
-            granted: false
-        },
-        {
-            id: 'screen',
-            name: 'Screen Recording',
-            description: 'To Share Your Screen',
-            icon: 'screen',
-            granted: false
-        }
+    const { t } = useI18n()
+
+    const permissionStatuses = ref([
+        { id: 'camera', icon: 'camera', granted: false },
+        { id: 'microphone', icon: 'microphone', granted: false },
+        { id: 'accessibility', icon: 'accessibility', granted: false },
+        { id: 'screen', icon: 'screen', granted: false }
     ])
+
+    const permissions = computed(() => {
+        return permissionStatuses.value.map((permission) => ({
+            ...permission,
+            name: t(`permissions.${permission.id}.name`),
+            description: t(`permissions.${permission.id}.description`)
+        }))
+    })
 
     const loading = ref(true)
     const checkingPermission = ref(null)
@@ -46,7 +33,7 @@
         try {
             const statuses = await window.electron.checkSystemPermissions()
             console.log('Permission statuses:', statuses)
-            permissions.value.forEach((p) => {
+            permissionStatuses.value.forEach((p) => {
                 if (statuses[p.id] !== undefined) {
                     p.granted = statuses[p.id]
                     
@@ -90,7 +77,7 @@
 
                     // Mark as granted optimistically for immediate UI feedback
                     recentlyGrantedPermissions.add(id)
-                    const perm = permissions.value.find(p => p.id === id)
+                    const perm = permissionStatuses.value.find((p) => p.id === id)
                     if (perm) {
                         perm.granted = true
                     }
@@ -101,15 +88,15 @@
                     }, 300)
                     
                     // Wait for macOS to register the permission
-                    await new Promise(resolve => setTimeout(resolve, 1200))
+                    await new Promise((resolve) => setTimeout(resolve, 1200))
                     await checkPermissions()
                     
                     // Keep checking for confirmation
                     for (let i = 0; i < 5; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 600))
+                        await new Promise((resolve) => setTimeout(resolve, 600))
                         await checkPermissions()
                         
-                        const currentPerm = permissions.value.find(p => p.id === id)
+                        const currentPerm = permissionStatuses.value.find((p) => p.id === id)
                         if (currentPerm && currentPerm.granted && !recentlyGrantedPermissions.has(id)) {
                             console.log(`Permission ${id} confirmed as granted by system`)
                             break
@@ -124,7 +111,7 @@
                     
                     if (granted) {
                         recentlyGrantedPermissions.add(id)
-                        const perm = permissions.value.find(p => p.id === id)
+                        const perm = permissionStatuses.value.find((p) => p.id === id)
                         if (perm) {
                             perm.granted = true
                         }
@@ -140,7 +127,7 @@
                         await new Promise(resolve => setTimeout(resolve, 600))
                         await checkPermissions()
                         
-                        const currentPerm = permissions.value.find(p => p.id === id)
+                        const currentPerm = permissionStatuses.value.find((p) => p.id === id)
                         if (currentPerm && currentPerm.granted && !recentlyGrantedPermissions.has(id)) {
                             console.log(`Permission ${id} confirmed as granted by system`)
                             break
@@ -159,10 +146,10 @@
                 const checkDelay = id === 'screen' ? 1000 : 600
                 
                 for (let i = 0; i < checkCount; i++) {
-                    await new Promise(resolve => setTimeout(resolve, checkDelay))
+                    await new Promise((resolve) => setTimeout(resolve, checkDelay))
                     await checkPermissions()
                     
-                    const perm = permissions.value.find(p => p.id === id)
+                    const perm = permissionStatuses.value.find((p) => p.id === id)
                     if (perm && perm.granted) {
                         console.log(`Permission ${id} confirmed as granted`)
                         break
@@ -205,18 +192,18 @@
     <div
         class="dark:bg-dark-blue flex h-full w-full flex-col items-center justify-center bg-white text-slate-900 shadow-xl select-none dark:text-gray-200">
         <!-- Reusable Title Bar -->
-        <TitleBar :title="WINDOW_TITLES.permissions" />
+        <TitleBar :title="$t(WINDOW_TITLE_KEYS.permissions)" />
 
         <div class="flex w-full flex-1 flex-col items-center justify-center p-6">
             <div class="mb-6 flex flex-col items-center">
                 <img
                     class="mb-4 size-16"
                     src="@/assets/icons/icon.png"
-                    alt="premium member" />
+                    :alt="$t('common.appName')" />
                 <h1 class="mb-2 text-2xl font-bold dark:text-white">
-                    Welcome To <span class="text-blue-500">Snaplark</span>
+                    {{ $t('permissions.welcome', { appName: $t('common.appName') }) }}
                 </h1>
-                <p class="text-sm text-slate-500 dark:text-gray-400">Enable all permissions to get started</p>
+                <p class="text-sm text-slate-500 dark:text-gray-400">{{ $t('permissions.description') }}</p>
             </div>
 
             <div class="mb-4 w-full space-y-4">
@@ -328,7 +315,7 @@
                                 ? 'cursor-wait bg-blue-400 text-white'
                                 : 'cursor-pointer bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-600'
                         ]">
-                        <span v-if="perm.granted">Done</span>
+                        <span v-if="perm.granted">{{ $t('common.buttons.done') }}</span>
                         <svg
                             v-if="perm.granted"
                             class="ml-1 h-4 w-4"
@@ -345,7 +332,7 @@
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                         </span>
-                        <span v-else>Enable</span>
+                        <span v-else>{{ $t('common.buttons.enable') }}</span>
                     </button>
                 </div>
             </div>
@@ -354,8 +341,8 @@
                 <button
                     @click="relaunch"
                     class="flex cursor-pointer items-center space-x-1 text-sm font-medium">
-                    <span class="text-blue-500 underline hover:text-blue-600">Relaunch Snaplark</span>
-                    <span class="text-slate-500 dark:text-gray-400">after enabling permissions</span>
+                    <span class="text-blue-500 underline hover:text-blue-600">{{ $t('permissions.relaunchPrefix') }}</span>
+                    <span class="text-slate-500 dark:text-gray-400">{{ $t('permissions.relaunchSuffix') }}</span>
                 </button>
             </div>
         </div>

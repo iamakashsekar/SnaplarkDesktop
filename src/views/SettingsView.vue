@@ -1,15 +1,18 @@
 <script setup>
-    import { ref, onMounted } from 'vue'
+    import { ref, onMounted, computed } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import { useWindows } from '@/composables/useWindows'
     import { useStore } from '@/store'
     import SettingsSwitchItem from '@/components/SettingsSwitchItem.vue'
     import SettingsHotkeyItem from '@/components/SettingsHotkeyItem.vue'
     import Switch from '@/components/Switch.vue'
     import TitleBar from '@/components/TitleBar.vue'
-    import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '@/config/window-config'
+    import { WINDOW_TITLE_KEYS, WINDOW_DIMENSIONS } from '@/config/window-config'
+    import { SUPPORTED_LOCALES } from '@/i18n/shared'
 
     const { resizeWindowTo } = useWindows()
     const store = useStore()
+    const { t } = useI18n()
 
     // Direct reference to store.settings (it's already reactive)
     const settings = store.settings
@@ -18,11 +21,23 @@
     const contentRef = ref(null)
     const appVersion = ref('')
 
-    const mainTabs = [
-        { id: 'general', label: 'General', width: WINDOW_DIMENSIONS.settings.width, height: WINDOW_DIMENSIONS.settings.height },
-        { id: 'hotkeys', label: 'Hotkeys', width: WINDOW_DIMENSIONS.settings.width, height: 670 },
-        { id: 'capture', label: 'Capture', width: WINDOW_DIMENSIONS.settings.width, height: 540 }
-    ]
+    const mainTabs = computed(() => [
+        {
+            id: 'general',
+            label: t('settings.tabs.general'),
+            width: WINDOW_DIMENSIONS.settings.width,
+            height: WINDOW_DIMENSIONS.settings.height
+        },
+        { id: 'hotkeys', label: t('settings.tabs.hotkeys'), width: WINDOW_DIMENSIONS.settings.width, height: 670 },
+        { id: 'capture', label: t('settings.tabs.capture'), width: WINDOW_DIMENSIONS.settings.width, height: 540 }
+    ])
+
+    const languageOptions = computed(() => {
+        return SUPPORTED_LOCALES.map((language) => ({
+            code: language.code,
+            label: language.name
+        }))
+    })
 
     const browseSaveFolder = async () => {
         if (window.electron?.invoke) {
@@ -50,11 +65,13 @@
         ref="contentRef"
         class="dark:bg-dark-blue relative flex h-screen w-full flex-col bg-white text-slate-900 dark:text-gray-200">
         <!-- Custom Title Bar -->
-        <TitleBar :title="WINDOW_TITLES.settings" />
+        <TitleBar :title="$t(WINDOW_TITLE_KEYS.settings)" />
 
         <div class="mb-2.5 space-y-0.5 px-4">
-            <h1 class="text-xl font-semibold dark:text-white">Settings <span class="text-sm text-slate-500 dark:text-gray-400">(v{{ appVersion }})</span></h1>
-            <p class="text-sm text-slate-500 dark:text-gray-400">Configure Snaplark to your preferences</p>
+            <h1 class="text-xl font-semibold dark:text-white">
+                {{ $t('settings.title') }} <span class="text-sm text-slate-500 dark:text-gray-400">(v{{ appVersion }})</span>
+            </h1>
+            <p class="text-sm text-slate-500 dark:text-gray-400">{{ $t('settings.description') }}</p>
         </div>
 
         <nav
@@ -89,61 +106,59 @@
                     class="space-y-2 pb-2">
                     <!-- GENERAL TAB -->
                     <template v-if="activeTab === 'general'">
-                        <!-- Launch at Startup -->
                         <SettingsSwitchItem
-                            title="Launch at Startup"
-                            description="Start Snaplark when your system boots"
+                            :title="$t('settings.general.launchAtStartup.title')"
+                            :description="$t('settings.general.launchAtStartup.description')"
                             v-model="settings.launchAtStartup" />
 
-                        <!-- Dark Mode -->
                         <SettingsSwitchItem
-                            title="Dark Mode"
-                            description="Enable dark theme for the application"
+                            :title="$t('settings.general.darkMode.title')"
+                            :description="$t('settings.general.darkMode.description')"
                             v-model="settings.darkMode" />
 
-                        <!-- Open in Browser -->
                         <SettingsSwitchItem
-                            title="Open in Browser"
-                            description="Automatically open the uploaded capture link"
+                            :title="$t('settings.general.openInBrowser.title')"
+                            :description="$t('settings.general.openInBrowser.description')"
                             v-model="settings.openInBrowser" />
 
-                        <!-- Show Tooltips -->
                         <SettingsSwitchItem
-                            title="Show Tooltips"
-                            description="Display helpful tooltips throughout the application"
+                            :title="$t('settings.general.showTooltips.title')"
+                            :description="$t('settings.general.showTooltips.description')"
                             v-model="settings.showTooltips" />
 
                         <!-- Language Selection -->
-                        <!-- <div
+                        <div
                             class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
                             <label class="block">
-                                <h3 class="text-sm font-medium dark:text-gray-100">Language</h3>
+                                <h3 class="text-sm font-medium dark:text-gray-100">{{ $t('settings.language.label') }}</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                    Choose your preferred language
+                                    {{ $t('settings.language.description') }}
                                 </p>
                                 <select
                                     v-model="settings.language"
                                     class="dark:border-dark-700 dark:bg-dark-900 mt-1.5 w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none dark:text-gray-400">
-                                    <option value="en">English</option>
-                                    <option value="ru">Russian</option>
+                                    <option
+                                        v-for="language in languageOptions"
+                                        :key="language.code"
+                                        :value="language.code">
+                                        {{ language.label }}
+                                    </option>
                                 </select>
                             </label>
-                        </div> -->
+                        </div>
 
-                        <!-- Save Location Behavior -->
                         <SettingsSwitchItem
-                            title="Prompt for Save Location"
-                            description="Ask where to save each screenshot"
+                            :title="$t('settings.general.promptForSaveLocation.title')"
+                            :description="$t('settings.general.promptForSaveLocation.description')"
                             v-model="settings.promptForSaveLocation" />
 
-                        <!-- Default Save Folder -->
                         <div
                             v-if="!settings.promptForSaveLocation"
                             class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <label class="block">
-                                <h3 class="ttext-sm font-medium dark:text-gray-100">Default Save Folder</h3>
+                                <h3 class="ttext-sm font-medium dark:text-gray-100">{{ $t('settings.general.defaultSaveFolder.title') }}</h3>
                                 <p class="mt-1 text-sm font-medium text-slate-500 dark:text-gray-300">
-                                    Where screenshots and recordings are saved
+                                    {{ $t('settings.general.defaultSaveFolder.description') }}
                                 </p>
                                 <div class="mt-3 flex gap-2">
                                     <input
@@ -155,7 +170,7 @@
                                         type="button"
                                         @click="browseSaveFolder"
                                         class="rounded-lg border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm text-blue-600 transition hover:bg-blue-500/20 focus:ring-2 focus:ring-blue-500/30 focus:outline-none dark:text-blue-400">
-                                        Browse
+                                        {{ $t('common.buttons.browse') }}
                                     </button>
                                 </div>
                             </label>
@@ -168,15 +183,15 @@
                         <div class="mb-3 px-1">
                             <h3
                                 class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
-                                Quick Access
+                                {{ $t('settings.hotkeys.sections.quickAccess') }}
                             </h3>
                         </div>
 
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
                             <SettingsHotkeyItem
-                                title="Quick Menu"
-                                description="Open quick menu to access all features"
+                                :title="$t('settings.hotkeys.quickMenu.title')"
+                                :description="$t('settings.hotkeys.quickMenu.description')"
                                 storeKey="hotkeyQuickMenu"
                                 v-model="settings.hotkeyQuickMenu" />
                         </div>
@@ -185,39 +200,39 @@
                         <div class="mt-5 mb-3 px-1">
                             <h3
                                 class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
-                                Screenshot
+                                {{ $t('settings.hotkeys.sections.screenshot') }}
                             </h3>
                         </div>
 
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
                             <SettingsHotkeyItem
-                                title="Capture Screen"
-                                description="Open screenshot selection tool"
+                                :title="$t('settings.hotkeys.captureScreen.title')"
+                                :description="$t('settings.hotkeys.captureScreen.description')"
                                 storeKey="hotkeyScreenshot"
                                 v-model="settings.hotkeyScreenshot" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Upload"
-                                description="Upload screenshot to website"
+                                :title="$t('settings.hotkeys.upload.title')"
+                                :description="$t('settings.hotkeys.upload.description')"
                                 storeKey="hotkeyUpload"
                                 v-model="settings.hotkeyUpload" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Copy"
-                                description="Copy screenshot to clipboard"
+                                :title="$t('settings.hotkeys.copy.title')"
+                                :description="$t('settings.hotkeys.copy.description')"
                                 storeKey="hotkeyCopy"
                                 v-model="settings.hotkeyCopy" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Save"
-                                description="Save screenshot to file"
+                                :title="$t('settings.hotkeys.save.title')"
+                                :description="$t('settings.hotkeys.save.description')"
                                 storeKey="hotkeySave"
                                 v-model="settings.hotkeySave" />
                         </div>
@@ -226,39 +241,39 @@
                         <div class="mt-5 mb-3 px-1">
                             <h3
                                 class="text-xs font-semibold tracking-wider text-slate-400 uppercase dark:text-gray-500">
-                                Video Recording
+                                {{ $t('settings.hotkeys.sections.videoRecording') }}
                             </h3>
                         </div>
 
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 space-y-0 rounded-xl border border-slate-100 bg-slate-50/50 px-4">
                             <SettingsHotkeyItem
-                                title="Select Recording Area"
-                                description="Open screen area selection for recording"
+                                :title="$t('settings.hotkeys.selectRecordingArea.title')"
+                                :description="$t('settings.hotkeys.selectRecordingArea.description')"
                                 storeKey="hotkeyRecording"
                                 v-model="settings.hotkeyRecording" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Start/Stop Recording"
-                                description="Toggle recording on/off"
+                                :title="$t('settings.hotkeys.startStopRecording.title')"
+                                :description="$t('settings.hotkeys.startStopRecording.description')"
                                 storeKey="hotkeyStartStopRecording"
                                 v-model="settings.hotkeyStartStopRecording" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Toggle Microphone"
-                                description="Mute or unmute microphone"
+                                :title="$t('settings.hotkeys.toggleMicrophone.title')"
+                                :description="$t('settings.hotkeys.toggleMicrophone.description')"
                                 storeKey="hotkeyToggleMicrophone"
                                 v-model="settings.hotkeyToggleMicrophone" />
 
                             <hr class="dark:border-dark-700/50 border-slate-100" />
 
                             <SettingsHotkeyItem
-                                title="Toggle Webcam"
-                                description="Enable or disable webcam"
+                                :title="$t('settings.hotkeys.toggleWebcam.title')"
+                                :description="$t('settings.hotkeys.toggleWebcam.description')"
                                 storeKey="hotkeyToggleWebcam"
                                 v-model="settings.hotkeyToggleWebcam" />
                         </div>
@@ -270,28 +285,28 @@
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
                             <div>
-                                <h3 class="text-sm font-medium dark:text-gray-100">Crop Screen Tools</h3>
+                                <h3 class="text-sm font-medium dark:text-gray-100">{{ $t('settings.capture.cropTools.title') }}</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                    Enable additional capture tools
+                                    {{ $t('settings.capture.cropTools.description') }}
                                 </p>
                             </div>
 
                             <div class="flex items-center justify-between pt-2">
-                                <label class="text-sm text-slate-700 dark:text-gray-100">Show Magnifier</label>
+                                <label class="text-sm text-slate-700 dark:text-gray-100">{{ $t('settings.capture.cropTools.showMagnifier') }}</label>
                                 <Switch
                                     v-model="settings.showMagnifier"
                                     size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm text-slate-700 dark:text-gray-100">Show Crosshair</label>
+                                <label class="text-sm text-slate-700 dark:text-gray-100">{{ $t('settings.capture.cropTools.showCrosshair') }}</label>
                                 <Switch
                                     v-model="settings.showCrosshair"
                                     size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm text-slate-700 dark:text-gray-100">Show Cursor</label>
+                                <label class="text-sm text-slate-700 dark:text-gray-100">{{ $t('settings.capture.cropTools.showCursor') }}</label>
                                 <Switch
                                     v-model="settings.showCursor"
                                     size="md" />
@@ -302,21 +317,21 @@
                         <div
                             class="dark:border-dark-700 dark:bg-dark-800 space-y-2 rounded-xl border border-slate-100 bg-slate-50/50 p-5">
                             <div>
-                                <h3 class="text-sm font-medium dark:text-gray-100">Recording</h3>
+                                <h3 class="text-sm font-medium dark:text-gray-100">{{ $t('settings.capture.recording.title') }}</h3>
                                 <p class="mt-1 text-sm text-slate-500 dark:text-gray-300">
-                                    Enable additional capture tools
+                                    {{ $t('settings.capture.recording.description') }}
                                 </p>
                             </div>
 
                             <div class="flex items-center justify-between pt-2">
-                                <label class="text-sm text-slate-700 dark:text-gray-100">Mirror Webcam</label>
+                                <label class="text-sm text-slate-700 dark:text-gray-100">{{ $t('settings.capture.recording.mirrorWebcam') }}</label>
                                 <Switch
                                     v-model="settings.flipCamera"
                                     size="md" />
                             </div>
 
                             <div class="flex items-center justify-between">
-                                <label class="text-sm text-slate-700 dark:text-gray-100">3 Second Countdown</label>
+                                <label class="text-sm text-slate-700 dark:text-gray-100">{{ $t('settings.capture.recording.countdown') }}</label>
                                 <Switch
                                     v-model="settings.recordingCountdown"
                                     size="md" />

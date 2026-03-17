@@ -1,5 +1,6 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import { apiClient, BASE_URL } from '../api/config'
     import { ChunkUploadManager } from '../services/chunk-upload-manager'
     import { useStore } from '../store'
@@ -24,12 +25,13 @@
     const emit = defineEmits(['close', 'hide', 'show'])
 
     const store = useStore()
+    const { t } = useI18n()
 
     // Common State
     const status = ref('pending') // pending/uploading, finalizing, success, error
     const progress = ref(0)
     const link = ref('')
-    const tooltipText = ref('Copy Link')
+    const tooltipText = ref(t('notifications.tooltips.copyLink'))
     const autoCloseCountdown = ref(0)
     const autoCloseTimer = ref(null)
 
@@ -99,9 +101,9 @@
     const copyToClipboard = async () => {
         try {
             await window.electron.writeToClipboard(link.value)
-            tooltipText.value = 'Copied'
+            tooltipText.value = t('common.messages.copied')
             setTimeout(() => {
-                tooltipText.value = 'Copy Link'
+                tooltipText.value = t('notifications.tooltips.copyLink')
             }, 2000)
 
             setTimeout(() => {
@@ -291,11 +293,13 @@
     // --- Computed for UI ---
 
     const statusText = computed(() => {
-        if (status.value === 'finalizing') return 'Finalizing Video...'
-        if (status.value === 'success') return props.type === 'video' ? 'Video Link Ready' : 'Upload Completed'
-        if (status.value === 'error') return 'Upload Failed'
+        if (status.value === 'finalizing') return t('notifications.status.finalizingVideo')
+        if (status.value === 'success') {
+            return props.type === 'video' ? t('notifications.status.videoLinkReady') : t('notifications.status.uploadCompleted')
+        }
+        if (status.value === 'error') return t('notifications.status.uploadFailed')
         // pending/uploading
-        return props.type === 'video' ? 'Uploading Video...' : 'Uploading'
+        return props.type === 'video' ? t('notifications.status.uploadingVideo') : t('notifications.status.uploading')
     })
 </script>
 
@@ -406,7 +410,7 @@
 
             <!-- Actions -->
             <div class="ml-auto flex items-center gap-1">
-                <Tooltip :text="store.settings.showTooltips ? 'Hide notification (upload continues in background)' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('notifications.tooltips.hide') : ''">
                     <button
                         @click="$emit('hide')"
                         class="dark:hover:bg-dark-700 rounded-full p-1 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
@@ -426,7 +430,7 @@
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="store.settings.showTooltips ? 'Close' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('notifications.tooltips.close') : ''">
                     <button
                         @click="$emit('close')"
                         class="dark:hover:bg-dark-700 rounded-full p-1 text-slate-500 transition-colors hover:bg-gray-100 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
@@ -456,7 +460,7 @@
                 v-if="type === 'image'"
                 class="flex items-end justify-between">
                 <p class="text-xs text-slate-500 dark:text-slate-400">{{ fileInfo.fileSize }}</p>
-                <Tooltip :text="store.settings.showTooltips ? 'Retry' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('notifications.tooltips.retry') : ''">
                     <button
                         @click="startImageUpload"
                         v-if="status === 'error'"
@@ -492,10 +496,10 @@
             <!-- Status Text -->
             <p class="mt-2 text-right text-xs text-slate-400 dark:text-slate-500">
                 <template v-if="status === 'error'">
-                    {{ type === 'image' ? 'Error 500 API not working' : '' }}
-                    <template v-if="type === 'video'">Processing...</template>
+                    {{ type === 'image' ? $t('notifications.error.imageUpload') : '' }}
+                    <template v-if="type === 'video'">{{ $t('notifications.error.videoUpload') }}</template>
                 </template>
-                <template v-else> Processing... </template>
+                <template v-else> {{ $t('notifications.processing') }} </template>
             </p>
         </template>
 
@@ -507,7 +511,7 @@
                     {{ link }}
                 </div>
                 <!-- Open in file manager -->
-                <Tooltip :text="store.settings.showTooltips ? 'Show in folder' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('notifications.tooltips.showInFolder') : ''">
                     <button
                         v-if="fileInfo.path"
                         @click="openInFileManager"
@@ -567,7 +571,7 @@
                     </button>
                 </Tooltip>
                 <!-- Open Button -->
-                <Tooltip :text="store.settings.showTooltips ? 'Open' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('common.buttons.open') : ''">
                     <button
                         @click="openLink"
                         class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-500 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50">
@@ -603,11 +607,11 @@
             <div
                 v-if="autoCloseCountdown > 0"
                 class="mt-3 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
-                <span class="text-gray-600 dark:text-gray-400">Auto-closing in {{ autoCloseCountdown }}s</span>
+                <span class="text-gray-600 dark:text-gray-400">{{ $t('notifications.autoClosing', { seconds: autoCloseCountdown }) }}</span>
                 <button
                     @click="cancelAutoClose"
                     class="text-blue-500 underline hover:text-blue-600 dark:text-blue-400">
-                    Cancel
+                    {{ $t('common.buttons.cancel') }}
                 </button>
             </div>
         </template>

@@ -35,6 +35,7 @@ import StoreService from './services/store-service.js'
 import ShortcutManager from './services/shortcut-manager.js'
 import { getPersistableDefaults } from './store-defaults.js'
 import { SHORTCUT_DEFINITIONS } from './config/shortcuts.js'
+import { getStoredLocale, translateShared } from './i18n/shared.js'
 import { autoUpdater } from 'electron'
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
 import mainLogService from './services/main-log-service.js'
@@ -145,6 +146,11 @@ let notificationService
 let storeService
 let shortcutManager
 
+const handleLanguageChange = () => {
+    tray?.refreshLabels?.()
+    windowManager?.refreshLocalizedWindowTitles?.()
+}
+
 // Cache for tracking when permissions were last granted to force refresh
 const permissionGrantTimestamps = {}
 
@@ -209,7 +215,7 @@ const createWindow = () => {
         }
     }
 
-    tray = new SystemTray(windowManager)
+    tray = new SystemTray(windowManager, store)
 
     // Only auto-show the window if the app was NOT launched at login
     // When launched at login, it should stay hidden until user clicks tray or uses shortcut
@@ -552,6 +558,12 @@ app.whenReady().then(() => {
 
     createWindow()
 
+    store.onDidChange('settings', (newSettings, oldSettings) => {
+        if (newSettings?.language !== oldSettings?.language) {
+            handleLanguageChange()
+        }
+    })
+
     // Register all global shortcuts after window is created
     registerAllShortcuts()
 
@@ -691,6 +703,7 @@ function setupIPCHandlers() {
     // Dialog handlers
     ipcMain.handle('dialog:openDirectory', async () => {
         const result = await dialog.showOpenDialog({
+            title: translateShared(getStoredLocale(store), 'settings.general.defaultSaveFolder.title'),
             properties: ['openDirectory', 'createDirectory']
         })
         return result

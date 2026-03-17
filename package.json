@@ -1,7 +1,7 @@
 {
     "name": "snaplark",
     "productName": "Snaplark",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "description": "Capture, collaborate, and manage your media assets in one high-velocity workspace.",
     "main": ".vite/build/main.js",
     "scripts": {
@@ -11,6 +11,7 @@
         "publish": "electron-forge publish",
         "lint": "echo \"No linting configured\"",
         "rebuild": "electron-rebuild",
+        "sync-languages": "node scripts/sync-languages.js",
         "sync-releases": "node scripts/sync-releases.js"
     },
     "keywords": [],
@@ -53,6 +54,7 @@
         "tesseract.js": "^6.0.1",
         "update-electron-app": "^3.1.2",
         "vue": "^3.5.25",
+        "vue-i18n": "^9.14.5",
         "vue-konva": "^3.2.6",
         "vue-router": "^4.6.3",
         "vue3-carousel": "^0.16.0"

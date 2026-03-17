@@ -1,5 +1,6 @@
 <script setup>
     import { ref, computed } from 'vue'
+    import { useI18n } from 'vue-i18n'
 
     const props = defineProps({
         title: {
@@ -30,6 +31,7 @@
     })
 
     const emit = defineEmits(['update:modelValue', 'validation-result', 'shortcut-changed'])
+    const { t } = useI18n()
 
     const isRecording = ref(false)
     const previousValue = ref('')
@@ -98,15 +100,20 @@
                 localValidationState.value = 'error'
                 
                 if (validation.duplicate) {
-                    localErrorMessage.value = `Already assigned to "${validation.duplicate.description}"`
+                    const duplicateDescription = validation.duplicate.descriptionKey
+                        ? t(validation.duplicate.descriptionKey)
+                        : validation.duplicate.description
+                    localErrorMessage.value = t('shortcuts.validation.alreadyAssigned', {
+                        description: duplicateDescription
+                    })
                 } else if (validation.error) {
                     if (validation.error.includes('not found') || validation.error.includes('Shortcut not found')) {
-                        localErrorMessage.value = 'This shortcut combination is not supported'
+                        localErrorMessage.value = t('shortcuts.validation.unsupported')
                     } else {
                         localErrorMessage.value = validation.error
                     }
                 } else {
-                    localErrorMessage.value = 'Invalid shortcut combination'
+                    localErrorMessage.value = t('shortcuts.validation.invalid')
                 }
 
                 emit('update:modelValue', previousValue.value)
@@ -133,11 +140,11 @@
                 localValidationState.value = 'error'
                 
                 if (result?.error?.includes('another application') || result?.error?.includes('already in use')) {
-                    localErrorMessage.value = 'This shortcut is being used by another application. Please choose a different one.'
+                    localErrorMessage.value = t('shortcuts.validation.usedByAnotherApp')
                 } else if (result?.error) {
                     localErrorMessage.value = result.error
                 } else {
-                    localErrorMessage.value = 'Failed to register shortcut. It may be in use by your system or another application.'
+                    localErrorMessage.value = t('shortcuts.validation.failedToRegister')
                 }
                 
                 emit('update:modelValue', previousValue.value)
@@ -150,7 +157,7 @@
         } catch (error) {
             console.error('Error validating/updating shortcut:', error)
             localValidationState.value = 'error'
-            localErrorMessage.value = 'Unable to register this shortcut. Please try a different combination.'
+            localErrorMessage.value = t('shortcuts.validation.tryDifferent')
             
             emit('update:modelValue', previousValue.value)
 
@@ -241,7 +248,7 @@
                     <input
                         type="text"
                         :value="isRecording ? '' : modelValue"
-                        :placeholder="isRecording ? 'Press keys...' : 'Click to set'"
+                        :placeholder="isRecording ? $t('shortcuts.input.pressKeys') : $t('shortcuts.input.clickToSet')"
                         @focus="startRecording"
                         @blur="stopRecording"
                         @keydown="handleKeyDown"
@@ -279,7 +286,7 @@
                             v-if="currentState === 'success'"
                             class="w-44 text-right">
                             <p class="text-xs font-medium text-green-600 dark:text-green-400">
-                                Shortcut updated successfully
+                                {{ $t('shortcuts.validation.updated') }}
                             </p>
                         </div>
                     </transition>

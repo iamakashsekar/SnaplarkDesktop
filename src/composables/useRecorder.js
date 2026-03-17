@@ -4,6 +4,7 @@ import { BASE_URL } from '../api/config'
 import { useStore } from '../store'
 import { rendererLogService } from '../services/renderer-log-service.js'
 import { useDesktopCapturePreview } from './useDesktopCapturePreview'
+import { translate } from '../i18n'
 
 export function useRecorder() {
     const store = useStore()
@@ -177,7 +178,7 @@ export function useRecorder() {
             captureCursor: store.settings.showCursor !== false
         })
         if (!previewReady) {
-            alert('Screen video not ready. Please wait a moment and try again.')
+            alert(translate('errors.screenVideoNotReady'))
             console.error('❌ Screen video not ready before starting recording')
             return
         }
@@ -206,7 +207,7 @@ export function useRecorder() {
 
             // Ensure screen video is ready
             if (!video || video.readyState < 2 || video.videoWidth === 0) {
-                alert('Screen video not ready. Please wait a moment and try again.')
+                alert(translate('errors.screenVideoNotReady'))
                 console.error('❌ Screen video not ready:', {
                     exists: !!video,
                     readyState: video?.readyState,
@@ -376,7 +377,7 @@ export function useRecorder() {
             console.log('📹 Video tracks:', canvasStream.getVideoTracks().length)
 
             if (canvasStream.getVideoTracks().length === 0) {
-                alert('ERROR: Canvas stream has no video track! Cannot record.')
+                alert(translate('errors.canvasStreamNoVideo'))
                 console.error('❌ Canvas stream has no video tracks!')
                 return
             }
@@ -773,7 +774,7 @@ export function useRecorder() {
                     }
                 } catch (error) {
                     console.error('❌ Error in onstop:', error)
-                    alert('Error processing recording: ' + error.message)
+                    alert(translate('errors.processingRecording', { message: error.message }))
                 } finally {
                     isProcessing.value = false
                     console.log('🔍 Debug - isProcessing set to false')
@@ -814,7 +815,7 @@ export function useRecorder() {
             renderRecording()
         } catch (error) {
             console.error('Error starting recording:', error)
-            alert('Error starting recording: ' + error.message)
+            alert(translate('errors.startingRecording', { message: error.message }))
             isRecording.value = false
         }
     }

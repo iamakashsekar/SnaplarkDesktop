@@ -1,10 +1,10 @@
-export const WINDOW_TITLES = {
-    settings: 'Snaplark - Settings',
-    permissions: 'Snaplark - Permissions',
-    welcome: 'Welcome to Snaplark',
-    update: 'Snaplark - Update Available',
-    design: 'Snaplark - Design',
-    issueReport: 'Snaplark - Report an Issue'
+export const WINDOW_TITLE_KEYS = {
+    settings: 'windowTitles.settings',
+    permissions: 'windowTitles.permissions',
+    welcome: 'windowTitles.welcome',
+    update: 'windowTitles.update',
+    design: 'windowTitles.design',
+    issueReport: 'windowTitles.issueReport'
 }
 
 export const WINDOW_DIMENSIONS = {

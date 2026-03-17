@@ -1,17 +1,23 @@
 import { app, Tray, Menu, screen } from 'electron'
 import path from 'node:path'
+import { getStoredLocale, translateShared } from '../i18n/shared.js'
 
 class SystemTray {
-    constructor(windowManager) {
+    constructor(windowManager, store) {
         const iconName = process.platform === 'win32' ? 'win-tray.ico' : 'tray.png'
         const iconPath = app.isPackaged
             ? path.join(process.resourcesPath, 'icons', iconName)
             : path.join(__dirname, `../../resources/icons/${iconName}`)
         this.tray = new Tray(iconPath)
         this.windowManager = windowManager
-        this.tray.setToolTip('Snaplark')
+        this.store = store
+        this.refreshLabels()
         this.tray.on('click', this.onTrayClick.bind(this))
         this.tray.on('right-click', this.onTrayRightClick.bind(this))
+    }
+
+    refreshLabels() {
+        this.tray.setToolTip(translateShared(getStoredLocale(this.store), 'common.appName'))
     }
 
     /**
@@ -156,14 +162,14 @@ class SystemTray {
 
         const contextMenu = Menu.buildFromTemplate([
             {
-                label: 'Open Snaplark',
+                label: translateShared(getStoredLocale(this.store), 'tray.open'),
                 click: () => {
                     this.showMainAtTray(null, { gap: 5 })
                 }
             },
             { type: 'separator' },
             {
-                label: 'Quit',
+                label: translateShared(getStoredLocale(this.store), 'tray.quit'),
                 click: () => {
                     app.quit()
                 }

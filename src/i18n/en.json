@@ -1,0 +1,413 @@
+{
+  "common": {
+    "appName": "Snaplark",
+    "buttons": {
+      "browse": "Browse",
+      "chooseImage": "Choose image",
+      "remove": "Remove",
+      "revealLog": "Reveal log",
+      "submit": "Submit",
+      "cancel": "Cancel",
+      "later": "Later",
+      "updateNow": "Update now",
+      "next": "Next",
+      "finish": "Finish",
+      "skipTour": "Skip tour",
+      "login": "Login",
+      "register": "Register",
+      "enable": "Enable",
+      "done": "Done",
+      "relaunch": "Relaunch",
+      "open": "Open",
+      "close": "Close",
+      "hide": "Hide",
+      "retry": "Retry",
+      "copy": "Copy",
+      "save": "Save",
+      "upload": "Upload",
+      "edit": "Edit",
+      "search": "Search",
+      "record": "Record",
+      "stop": "Stop",
+      "move": "Move",
+      "delete": "Delete"
+    },
+    "states": {
+      "loading": "Loading...",
+      "submitting": "Submitting...",
+      "processing": "Processing...",
+      "pleaseWait": "Please wait..."
+    },
+    "labels": {
+      "size": "Size",
+      "updated": "Updated",
+      "version": "Version",
+      "unknownDevice": "Unknown device"
+    },
+    "messages": {
+      "copied": "Copied",
+      "copiedWithBang": "Copied!"
+    },
+    "languages": {
+      "en": "English",
+      "ru": "Russian"
+    },
+    "units": {
+      "bytes": "Bytes",
+      "kb": "KB",
+      "mb": "MB",
+      "gb": "GB"
+    }
+  },
+  "design": {
+    "fileName": "Name of the video file",
+    "processingTitle": "Processing video...",
+    "processingDescription": "Fixing duration metadata",
+    "upload": "Upload",
+    "copy": "Copy",
+    "save": "Save"
+  },
+  "editor": {
+    "tooltips": {
+      "move": "Move",
+      "undo": "Undo",
+      "redo": "Redo",
+      "line": "Line",
+      "arrow": "Arrow",
+      "circle": "Circle",
+      "rectangle": "Rectangle",
+      "pencil": "Pencil",
+      "highlight": "Highlight",
+      "eraser": "Eraser",
+      "blur": "Blur",
+      "text": "Text",
+      "color": "Color",
+      "delete": "Delete",
+      "done": "Done"
+    }
+  },
+  "errors": {
+    "connectionInterrupted": "Connection was interrupted. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "screenVideoNotReady": "Screen video is not ready. Please wait a moment and try again.",
+    "canvasStreamNoVideo": "Canvas stream has no video track. Recording cannot start.",
+    "processingRecording": "Error processing recording: {message}",
+    "startingRecording": "Error starting recording: {message}"
+  },
+  "issueReport": {
+    "title": "Report an issue",
+    "description": "Send a message to engineering with an optional screenshot and diagnostics.",
+    "whatHappened": "What happened?",
+    "whatHappenedHelp": "Required. Describe what the user was doing and what went wrong.",
+    "whatHappenedPlaceholder": "Example: The app froze after I started a screen recording and tried to enable my webcam.",
+    "screenshotAttachment": "Screenshot attachment",
+    "screenshotAttachmentHelp": "Optional. Add a screenshot that shows the problem.",
+    "noScreenshotAttached": "No screenshot attached",
+    "diagnosticLog": "Diagnostic log",
+    "diagnosticLogHelp": "Optional. Attach the live application log collected from startup through the current session.",
+    "diagnosticLogUnavailable": "Diagnostic log unavailable",
+    "diagnosticLogNotInitialized": "No log file has been initialized yet.",
+    "feedback": {
+      "submitted": "Issue report submitted successfully.",
+      "backendNotReady": "The report UI is ready, but the backend endpoint is not available yet.",
+      "submitFailed": "Failed to submit issue report.",
+      "loadLogFailed": "Failed to load diagnostic log state"
+    },
+    "submitReport": "Submit report"
+  },
+  "login": {
+    "signIn": "Sign in to {appName}",
+    "termsIntro": "By logging in or registering, you agree to our",
+    "termsAndConditions": "Terms and Conditions",
+    "privacyPolicy": "Privacy Policy",
+    "whatsNewTitle": "What's new?",
+    "whatsNewDescription": "Check out the latest updates on the Snaplark blog",
+    "latestUpdate": "Latest update",
+    "blogBadge": "{appName}",
+    "blogFallback": "Welcome to Snaplark! Check out our blog for the latest updates and tutorials.",
+    "lightweightModeTitle": "Lightweight mode",
+    "lightweightModeDescription": "Feeling overwhelmed by the available options? Use lightweight mode to disable resource-intensive features and improve performance.",
+    "didYouKnowTitle": "Did you know?",
+    "didYouKnowDescription": "Using multiple monitors? Snaplark covers them all.",
+    "premiumTitle": "Premium member yet?",
+    "footer": {
+      "website": "Website",
+      "blogUpdates": "Blog updates",
+      "contact": "Contact",
+      "tutorials": "Tutorials"
+    },
+    "alts": {
+      "lightweightMode": "Lightweight mode",
+      "multiMonitors": "Multiple monitors",
+      "premiumMember": "Premium member"
+    }
+  },
+  "main": {
+    "takeScreenshot": "Take screenshot",
+    "recordVideo": "Record video",
+    "lastCapture": "Last capture",
+    "uploadMedia": "Upload media",
+    "uploadedHistory": "Uploaded history",
+    "openLastUploadedCapture": "Open last uploaded capture",
+    "noCaptureUploadedYet": "No capture uploaded yet",
+    "help": "Help",
+    "settings": "Settings",
+    "reportIssue": "Report issue",
+    "logout": "Logout",
+    "quit": "Quit",
+    "close": "Close",
+    "premium": "Premium",
+    "free": "Free",
+    "defaultUserName": "Jade Warren",
+    "userAvatarAlt": "User avatar"
+  },
+  "notifications": {
+    "status": {
+      "finalizingVideo": "Finalizing video...",
+      "videoLinkReady": "Video link ready",
+      "uploadCompleted": "Upload completed",
+      "uploadFailed": "Upload failed",
+      "uploadingVideo": "Uploading video...",
+      "uploading": "Uploading"
+    },
+    "tooltips": {
+      "hide": "Hide notification (upload continues in background)",
+      "close": "Close",
+      "retry": "Retry",
+      "showInFolder": "Show in folder",
+      "copyLink": "Copy link"
+    },
+    "error": {
+      "imageUpload": "Error 500 API not working",
+      "videoUpload": "Processing..."
+    },
+    "processing": "Processing...",
+    "autoClosing": "Auto-closing in {seconds}s"
+  },
+  "permissions": {
+    "welcome": "Welcome to {appName}",
+    "description": "Enable all permissions to get started",
+    "camera": {
+      "name": "Camera",
+      "description": "So viewers can see you"
+    },
+    "microphone": {
+      "name": "Microphone",
+      "description": "So viewers can hear you"
+    },
+    "accessibility": {
+      "name": "Accessibility",
+      "description": "To record specific windows"
+    },
+    "screen": {
+      "name": "Screen recording",
+      "description": "To share your screen"
+    },
+    "relaunchPrefix": "Relaunch Snaplark",
+    "relaunchSuffix": "after enabling permissions"
+  },
+  "recording": {
+    "instructions": "Single-click an app to select it, drag to select, or double-click for full screen",
+    "tooltips": {
+      "startRecording": "Start recording ({hotkey})",
+      "stopRecording": "Stop recording ({hotkey})",
+      "showToolbar": "Show toolbar",
+      "hideToolbar": "Hide toolbar",
+      "enableWebcam": "Enable webcam ({hotkey})",
+      "disableWebcam": "Disable webcam ({hotkey})",
+      "muteMicrophone": "Mute microphone ({hotkey})",
+      "unmuteMicrophone": "Unmute microphone ({hotkey})",
+      "cancel": "Cancel (Esc)"
+    },
+    "record": "Record",
+    "stop": "Stop",
+    "noCamerasFound": "No cameras found",
+    "noMicrophonesFound": "No microphones found",
+    "systemAudio": "System audio"
+  },
+  "screenshot": {
+    "instructions": "Single-click an app to select it, drag to select, or double-click for full screen",
+    "tooltips": {
+      "upload": "Upload ({hotkey})",
+      "copy": "Copy ({hotkey})",
+      "save": "Save ({hotkey})",
+      "ocr": "Read text from image",
+      "search": "Search with Google Lens",
+      "edit": "Open in editor",
+      "cancel": "Cancel (Esc)"
+    },
+    "ocr": {
+      "button": "OCR",
+      "copyText": "Copy text",
+      "loadingTitle": "Extracting text",
+      "loadingDescription": "Processing with OCR technology",
+      "cancel": "Cancel OCR",
+      "modalTitle": "OCR text",
+      "placeholder": "OCR text will appear here..."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure Snaplark to your preferences",
+    "tabs": {
+      "general": "General",
+      "hotkeys": "Hotkeys",
+      "capture": "Capture"
+    },
+    "language": {
+      "label": "Language",
+      "description": "Choose your preferred language"
+    },
+    "general": {
+      "launchAtStartup": {
+        "title": "Launch at startup",
+        "description": "Start Snaplark when your system boots"
+      },
+      "darkMode": {
+        "title": "Dark mode",
+        "description": "Enable dark theme for the application"
+      },
+      "openInBrowser": {
+        "title": "Open in browser",
+        "description": "Automatically open the uploaded capture link"
+      },
+      "showTooltips": {
+        "title": "Show tooltips",
+        "description": "Display helpful tooltips throughout the application"
+      },
+      "promptForSaveLocation": {
+        "title": "Prompt for save location",
+        "description": "Ask where to save each screenshot"
+      },
+      "defaultSaveFolder": {
+        "title": "Default save folder",
+        "description": "Where screenshots and recordings are saved"
+      }
+    },
+    "hotkeys": {
+      "sections": {
+        "quickAccess": "Quick access",
+        "screenshot": "Screenshot",
+        "videoRecording": "Video recording"
+      },
+      "quickMenu": {
+        "title": "Quick menu",
+        "description": "Open quick menu to access all features"
+      },
+      "captureScreen": {
+        "title": "Capture screen",
+        "description": "Open screenshot selection tool"
+      },
+      "upload": {
+        "title": "Upload",
+        "description": "Upload screenshot to website"
+      },
+      "copy": {
+        "title": "Copy",
+        "description": "Copy screenshot to clipboard"
+      },
+      "save": {
+        "title": "Save",
+        "description": "Save screenshot to file"
+      },
+      "selectRecordingArea": {
+        "title": "Select recording area",
+        "description": "Open screen area selection for recording"
+      },
+      "startStopRecording": {
+        "title": "Start/stop recording",
+        "description": "Toggle recording on or off"
+      },
+      "toggleMicrophone": {
+        "title": "Toggle microphone",
+        "description": "Mute or unmute microphone"
+      },
+      "toggleWebcam": {
+        "title": "Toggle webcam",
+        "description": "Enable or disable webcam"
+      }
+    },
+    "capture": {
+      "cropTools": {
+        "title": "Crop screen tools",
+        "description": "Enable additional capture tools",
+        "showMagnifier": "Show magnifier",
+        "showCrosshair": "Show crosshair",
+        "showCursor": "Show cursor"
+      },
+      "recording": {
+        "title": "Recording",
+        "description": "Enable additional recording tools",
+        "mirrorWebcam": "Mirror webcam",
+        "countdown": "3 second countdown"
+      }
+    }
+  },
+  "shortcuts": {
+    "input": {
+      "pressKeys": "Press keys...",
+      "clickToSet": "Click to set"
+    },
+    "validation": {
+      "updated": "Shortcut updated successfully",
+      "alreadyAssigned": "Already assigned to \"{description}\"",
+      "unsupported": "This shortcut combination is not supported",
+      "invalid": "Invalid shortcut combination",
+      "usedByAnotherApp": "This shortcut is being used by another application. Please choose a different one.",
+      "failedToRegister": "Failed to register shortcut. It may be in use by your system or another application.",
+      "tryDifferent": "Unable to register this shortcut. Please try a different combination."
+    },
+    "descriptions": {
+      "captureScreenArea": "Capture screen area",
+      "startScreenRecording": "Start screen recording",
+      "startStopRecording": "Start/stop recording",
+      "muteUnmuteMicrophone": "Mute/unmute microphone",
+      "enableDisableWebcam": "Enable/disable webcam",
+      "openQuickMenu": "Open quick menu",
+      "uploadToWebsite": "Upload to website",
+      "copyToClipboard": "Copy to clipboard",
+      "saveToFile": "Save to file"
+    }
+  },
+  "tray": {
+    "open": "Open Snaplark",
+    "quit": "Quit"
+  },
+  "update": {
+    "title": "Update available",
+    "description": "A new version of Snaplark is ready to install.",
+    "fallbackReleaseName": "New version"
+  },
+  "videoPreview": {
+    "processingTitle": "Processing video...",
+    "processingDescription": "Please wait..."
+  },
+  "webcam": {
+    "cameraUnavailable": "Camera unavailable",
+    "noWebcamFound": "No webcam found",
+    "selectedCameraNotFound": "Selected camera not found",
+    "permissionDenied": "Permission denied"
+  },
+  "welcome": {
+    "tagline": "screen capture software",
+    "getStarted": "Let's get started",
+    "steps": {
+      "clickWidget": "Click on the widget",
+      "clickAndDrag": "Click and drag to make a crop, then choose an action",
+      "rightClickWidget": "Right-click the widget for all menu options"
+    },
+    "alts": {
+      "background": "Welcome to Snaplark",
+      "logo": "Welcome to Snaplark",
+      "tourImage": "Welcome tour"
+    }
+  },
+  "windowTitles": {
+    "settings": "Snaplark - Settings",
+    "permissions": "Snaplark - Permissions",
+    "welcome": "Welcome to Snaplark",
+    "update": "Snaplark - Update Available",
+    "design": "Snaplark - Design",
+    "issueReport": "Snaplark - Report an Issue"
+  }
+}

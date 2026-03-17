@@ -97,7 +97,7 @@ onMounted(async () => {
             <div class="mx-auto w-3/4 space-y-3.5 pt-6">
                 <div class="text-center">
                     <h1 class="text-gray-black mb-2 text-2xl font-bold dark:text-white">
-                        Sign in to <span class="text-primary-blue">Snaplark</span>
+                        {{ $t('login.signIn', { appName: $t('common.appName') }) }}
                     </h1>
                 </div>
                 <!-- Sign In Buttons -->
@@ -105,28 +105,28 @@ onMounted(async () => {
                     <!-- Login Button -->
                     <button @click="handleLogin" :disabled="store.isLoading"
                         class="border-primary-blue cursor-pointer text-primary-blue dark:bg-dark-800 dark:hover:bg-dark-700 w-full rounded-full border-2 bg-white px-6 py-3 text-base font-semibold transition-all duration-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
-                        <span v-if="store.isLoading">Loading...</span>
-                        <span v-else>Login</span>
+                        <span v-if="store.isLoading">{{ $t('common.states.loading') }}</span>
+                        <span v-else>{{ $t('common.buttons.login') }}</span>
                     </button>
 
                     <!-- Register Button -->
                     <button @click="handleRegister" :disabled="store.isLoading"
                         class="bg-primary-blue cursor-pointer w-full rounded-full px-6 py-3 text-base font-semibold text-white transition-all duration-200 hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
-                        <span v-if="store.isLoading">Loading...</span>
-                        <span v-else>Register</span>
+                        <span v-if="store.isLoading">{{ $t('common.states.loading') }}</span>
+                        <span v-else>{{ $t('common.buttons.register') }}</span>
                     </button>
                 </div>
 
                 <p class="text-center text-xs leading-5 text-slate-500 dark:text-gray-400">
-                    By logging in or registering, you agree to our
+                    {{ $t('login.termsIntro') }}
                     <a href="https://snaplark.com/terms-and-conditions" target="_blank" rel="noopener noreferrer"
                         class="text-primary-blue font-medium hover:underline">
-                        Terms and Conditions
+                        {{ $t('login.termsAndConditions') }}
                     </a>
                     and
                     <a href="https://snaplark.com/privacy-policy" target="_blank" rel="noopener noreferrer"
                         class="text-primary-blue font-medium hover:underline">
-                        Privacy Policy
+                        {{ $t('login.privacyPolicy') }}
                     </a>
                     .
                 </p>
@@ -140,8 +140,8 @@ onMounted(async () => {
                         <div class="space-y-6 px-6 pt-5 text-white">
                             <!-- Header -->
                             <div class="mb-5 space-y-1">
-                                <h2 class="text-[28px] font-bold">What's new?</h2>
-                                <p class="text-xs">check out the latest updates on Snaplark blog</p>
+                                <h2 class="text-[28px] font-bold">{{ $t('login.whatsNewTitle') }}</h2>
+                                <p class="text-xs">{{ $t('login.whatsNewDescription') }}</p>
                             </div>
 
                             <!-- Latest Blog Post -->
@@ -155,11 +155,13 @@ onMounted(async () => {
                                         @error="(e) => (e.target.style.display = 'none')" />
                                     <div v-else
                                         class="flex h-[93px] w-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-cyan-400">
-                                        <span class="text-xs font-semibold text-white">Snaplark</span>
+                                        <span class="text-xs font-semibold text-white">
+                                            {{ $t('login.blogBadge', { appName: $t('common.appName') }) }}
+                                        </span>
                                     </div>
                                     <div class="flex-1">
                                         <p class="text-gray-black line-clamp-3 text-sm font-bold dark:text-white">
-                                            {{ latestPost.title || 'Latest Update' }}
+                                            {{ latestPost.title || $t('login.latestUpdate') }}
                                         </p>
                                         <p v-if="latestPost.excerpt"
                                             class="mt-1 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
@@ -173,10 +175,12 @@ onMounted(async () => {
                                     class="dark:bg-dark-900 flex cursor-pointer items-center gap-3 rounded-xl bg-white p-2">
                                     <div
                                         class="flex h-[93px] w-1/2 items-center justify-center rounded-lg bg-gradient-to-br from-blue-400 to-cyan-400">
-                                        <span class="text-xs font-semibold text-white">Snaplark</span>
+                                        <span class="text-xs font-semibold text-white">
+                                            {{ $t('login.blogBadge', { appName: $t('common.appName') }) }}
+                                        </span>
                                     </div>
                                     <p class="text-gray-black text-sm font-bold dark:text-white">
-                                        Welcome to Snaplark! Check out our blog for the latest updates and tutorials.
+                                        {{ $t('login.blogFallback') }}
                                     </p>
                                 </div>
                             </div>
@@ -188,15 +192,14 @@ onMounted(async () => {
                         <div class="space-y-6 px-6 pt-5 text-white">
                             <!-- Header -->
                             <div class="mb-5 space-y-1">
-                                <h2 class="text-[28px] font-bold">Lightweight mode</h2>
+                                <h2 class="text-[28px] font-bold">{{ $t('login.lightweightModeTitle') }}</h2>
                                 <p class="text-xs">
-                                    Are you overwhelmed by the number of available options? Use lightweight mode to
-                                    disable resource-intensive features and improve performance
+                                    {{ $t('login.lightweightModeDescription') }}
                                 </p>
                             </div>
 
                             <img class="mx-auto h-auto w-3/5" src="@/assets/images/lightweight-mode.png"
-                                alt="lightweight mode" />
+                                :alt="$t('login.alts.lightweightMode')" />
                         </div>
                     </Slide>
 
@@ -205,10 +208,10 @@ onMounted(async () => {
                         <div class="w-full space-y-6 px-6 pt-5 text-white">
                             <!-- Header -->
                             <div class="mb-5 space-y-1">
-                                <h2 class="text-[28px] font-bold">Did you know?</h2>
-                                <p class="text-xs">Having multi monitors? Snaplark covers them all!</p>
+                                <h2 class="text-[28px] font-bold">{{ $t('login.didYouKnowTitle') }}</h2>
+                                <p class="text-xs">{{ $t('login.didYouKnowDescription') }}</p>
                             </div>
-                            <img class="mx-auto w-46" src="@/assets/images/multi-monitors.png" alt="multi monitors" />
+                            <img class="mx-auto w-46" src="@/assets/images/multi-monitors.png" :alt="$t('login.alts.multiMonitors')" />
                         </div>
                     </Slide>
 
@@ -217,10 +220,10 @@ onMounted(async () => {
                         <div class="space-y-6 px-6 pt-5 text-white">
                             <!-- Header -->
                             <div class="mb-5 space-y-1">
-                                <h2 class="text-2xl font-bold">Premium member yet?</h2>
+                                <h2 class="text-2xl font-bold">{{ $t('login.premiumTitle') }}</h2>
                             </div>
 
-                            <img src="@/assets/images/premium-member.png" alt="premium member" />
+                            <img src="@/assets/images/premium-member.png" :alt="$t('login.alts.premiumMember')" />
                         </div>
                     </Slide>
                 </Carousel>
@@ -265,7 +268,7 @@ onMounted(async () => {
                                 </clipPath>
                             </defs>
                         </svg>
-                        <span class="text-xs">Website</span>
+                        <span class="text-xs">{{ $t('login.footer.website') }}</span>
                     </a>
 
                     <a href="https://snaplark.com/blog" target="_blank"
@@ -285,7 +288,7 @@ onMounted(async () => {
                                 </clipPath>
                             </defs>
                         </svg>
-                        <span class="text-xs">Blog Updates</span>
+                        <span class="text-xs">{{ $t('login.footer.blogUpdates') }}</span>
                     </a>
 
                     <a href="https://snaplark.com/contact" target="_blank"
@@ -305,7 +308,7 @@ onMounted(async () => {
                                 </clipPath>
                             </defs>
                         </svg>
-                        <span class="text-xs">Contact</span>
+                        <span class="text-xs">{{ $t('login.footer.contact') }}</span>
                     </a>
 
                     <a href="https://snaplark.com/help-center" target="_blank"
@@ -322,7 +325,7 @@ onMounted(async () => {
                                 </clipPath>
                             </defs>
                         </svg>
-                        <span class="text-xs">Tutorials</span>
+                        <span class="text-xs">{{ $t('login.footer.tutorials') }}</span>
                     </a>
                 </div>
             </div>

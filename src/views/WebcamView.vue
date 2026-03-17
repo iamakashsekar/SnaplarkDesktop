@@ -1,14 +1,16 @@
 <script setup>
     import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import { useStore } from '@/store'
 
     const store = useStore()
+    const { t } = useI18n()
 
     const videoElement = ref(null)
     const stream = ref(null)
     const isLoading = ref(true)
     const hasError = ref(false)
-    const errorMessage = ref('Camera unavailable')
+    const errorMessage = ref(t('webcam.cameraUnavailable'))
 
     const flipCamera = computed(() => store.settings.flipCamera)
     const selectedDeviceId = computed(() => store.settings.selectedWebcamDeviceId)
@@ -19,7 +21,7 @@
         try {
             isLoading.value = true
             hasError.value = false
-            errorMessage.value = 'Camera unavailable'
+            errorMessage.value = t('webcam.cameraUnavailable')
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 hasError.value = true
@@ -39,7 +41,7 @@
 
             if (videoDevices.length === 0) {
                 hasError.value = true
-                errorMessage.value = 'No webcam found'
+                errorMessage.value = t('webcam.noWebcamFound')
                 isLoading.value = false
                 return
             }
@@ -91,11 +93,11 @@
             console.error('Webcam start error:', error)
             hasError.value = true
             if (error.name === 'OverconstrainedError') {
-                errorMessage.value = 'Selected camera not found'
+                errorMessage.value = t('webcam.selectedCameraNotFound')
             } else if (error.name === 'NotAllowedError') {
-                errorMessage.value = 'Permission denied'
+                errorMessage.value = t('webcam.permissionDenied')
             } else if (error.name === 'NotFoundError') {
-                errorMessage.value = 'No webcam found'
+                errorMessage.value = t('webcam.noWebcamFound')
             }
             isLoading.value = false
         }

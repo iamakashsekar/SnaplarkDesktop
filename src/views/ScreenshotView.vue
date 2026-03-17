@@ -1,5 +1,6 @@
 <script setup>
     import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import KonvaEditor from '../components/KonvaEditor.vue'
     import SizeIndicatorPill from '../components/SizeIndicatorPill.vue'
     import Tooltip from '../components/Tooltip.vue'
@@ -8,8 +9,10 @@
     import { rendererLogService } from '@/services/renderer-log-service.js'
     import { useDesktopCapturePreview } from '@/composables/useDesktopCapturePreview'
     import { useSelectionOverlay } from '@/composables/useSelectionOverlay'
+    import { formatLocalizedFileSize } from '@/i18n/formatters'
 
     const store = useStore()
+    const { t } = useI18n()
 
     const loading = ref(false)
     const displayId = ref(null)
@@ -19,7 +22,7 @@
     // OCR Modal state
     const showOCRModal = ref(false)
     const ocrText = ref('')
-    const ocrCopyTooltip = ref('Copy Text')
+    const ocrCopyTooltip = ref(t('screenshot.ocr.copyText'))
 
     // Settings computed properties
     const shouldShowMagnifier = computed(() => {
@@ -358,7 +361,7 @@
                         fileInfo: {
                             dataUrl: dataUrl,
                             fileName: fileName,
-                            fileSize: formatFileSize(file.size),
+                            fileSize: formatLocalizedFileSize(file.size),
                             searchSimilar: searchSimilar
                         }
                     })
@@ -375,7 +378,7 @@
                     fileInfo: {
                         path: result.path,
                         fileName: result.filename,
-                        fileSize: formatFileSize(result.size),
+                        fileSize: formatLocalizedFileSize(result.size),
                         searchSimilar: searchSimilar
                     }
                 })
@@ -398,22 +401,6 @@
                 .map((c) => c.charCodeAt(0))
         )
         return new File([new Blob([bytes], { type: 'image/png' })], fileName, { type: 'image/png' })
-    }
-
-    const formatFileSize = (bytes) => {
-        if (bytes === 0) return '0 Bytes'
-        const k = 1024
-        const sizes = ['Bytes', 'KB', 'MB', 'GB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        const value = bytes / Math.pow(k, i)
-
-        if (sizes[i] === 'KB') {
-            return `${Math.round(value)} KB` // no decimals
-        } else if (sizes[i] === 'Bytes') {
-            return `${bytes} Bytes` // keep as is
-        } else {
-            return `${value.toFixed(1)} ${sizes[i]}` // 1 decimal for MB, GB
-        }
     }
 
     // Screenshot actions
@@ -526,9 +513,9 @@
     const copyOCRText = async () => {
         try {
             await navigator.clipboard.writeText(ocrText.value)
-            ocrCopyTooltip.value = 'Copied!'
+            ocrCopyTooltip.value = t('common.messages.copiedWithBang')
             setTimeout(() => {
-                ocrCopyTooltip.value = 'Copy Text'
+                ocrCopyTooltip.value = t('screenshot.ocr.copyText')
                 closeOCRModal()
             }, 200)
         } catch (error) {
@@ -538,7 +525,7 @@
 
     const closeOCRModal = () => {
         showOCRModal.value = false
-        ocrCopyTooltip.value = 'Copy Text'
+        ocrCopyTooltip.value = t('screenshot.ocr.copyText')
     }
 
     const searchSimilerImage = async () => {
@@ -815,7 +802,7 @@
         <div
             v-if="mode === 'idle' && isWindowActive"
             class="pointer-events-none fixed top-1/2 left-1/2 z-[100] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/80 px-4 py-2.5 text-center text-sm text-white">
-            <p>Single-click an app to select it, drag to select, or double-click for full screen</p>
+            <p>{{ $t('screenshot.instructions') }}</p>
         </div>
 
         <!-- Crosshair (only when not confirming and window is active) -->
@@ -860,7 +847,7 @@
             :style="toolbarStyle"
             @mousedown.stop>
             <!-- Drag Handle -->
-            <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('common.buttons.move') : ''">
                 <div
                     class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
                     @mousedown="handleToolbarDragStart">
@@ -886,7 +873,7 @@
             </Tooltip>
 
             <div class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
-                <Tooltip :text="store.settings.showTooltips ? `Upload (${store.settings.hotkeyUpload})` : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.upload', { hotkey: store.settings.hotkeyUpload }) : ''">
                     <button
                         @click="handleUpload"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -899,11 +886,11 @@
                                 d="M21.74 12.91C21.48 12.05 21.05 11.3 20.48 10.69C19.75 9.86 18.78 9.29 17.69 9.04C17.14 6.54 15.6 4.74 13.41 4.07C11.03 3.33 8.27 4.05 6.54 5.86C5.02 7.45 4.52 9.64 5.11 11.97C3.11 12.46 2.12 14.13 2.01 15.72C2 15.83 2 15.93 2 16.03C2 17.91 3.23 20.02 5.97 20.22H16.35C17.77 20.22 19.13 19.69 20.17 18.74C21.8 17.31 22.4 15.08 21.74 12.91Z"
                                 fill="currentColor" />
                         </svg>
-                        <span class="hidden group-hover:block group-hover:text-white"> Upload </span>
+                        <span class="hidden group-hover:block group-hover:text-white"> {{ $t('common.buttons.upload') }} </span>
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="store.settings.showTooltips ? `Copy (${store.settings.hotkeyCopy})` : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.copy', { hotkey: store.settings.hotkeyCopy }) : ''">
                     <button
                         @click="handleCopy"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -922,11 +909,11 @@
                                 d="M11.9796 7.14999C11.6696 6.83999 11.1396 7.04999 11.1396 7.47999V10.1C11.1396 11.2 12.0696 12.1 13.2096 12.1C13.9196 12.11 14.9096 12.11 15.7596 12.11C16.1896 12.11 16.4096 11.61 16.1096 11.31C15.0196 10.22 13.0796 8.26999 11.9796 7.14999Z"
                                 fill="currentColor" />
                         </svg>
-                        <span class="hidden group-hover:block group-hover:text-white"> Copy </span>
+                        <span class="hidden group-hover:block group-hover:text-white"> {{ $t('common.buttons.copy') }} </span>
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="store.settings.showTooltips ? `Save (${store.settings.hotkeySave})` : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.save', { hotkey: store.settings.hotkeySave }) : ''">
                     <button
                         @click="handleSave"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -939,11 +926,11 @@
                                 d="M8.78125 13.2002H15.4746C15.6843 13.2002 15.8564 13.3717 15.8564 13.585V19.5C15.8564 19.6933 15.6992 19.8496 15.5059 19.8496H8.75C8.55672 19.8496 8.40039 19.6933 8.40039 19.5V13.585C8.40039 13.3717 8.5716 13.2002 8.78125 13.2002ZM7.8252 3.15039C8.09431 3.1505 8.3125 3.36856 8.3125 3.6377V5.88672C8.3125 6.85441 9.09271 7.64062 10.0566 7.64062H14.2002C15.164 7.64049 15.9434 6.85433 15.9434 5.88672V4.21094C15.9434 4.14578 15.9785 4.09968 16.0195 4.0791C16.0582 4.05972 16.104 4.06116 16.1465 4.09961L18.5703 6.29492C19.3447 6.99621 19.787 7.99515 19.7871 9.04395V16.1514C19.7869 17.6994 18.8424 19.0247 17.502 19.5762C17.3737 19.6289 17.219 19.5336 17.2188 19.3623V13.585C17.2188 12.6173 16.4385 11.8311 15.4746 11.8311H8.78125C7.81734 11.8311 7.03711 12.6173 7.03711 13.585V19.4736C7.03709 19.6348 6.89786 19.7335 6.77051 19.6953C5.25543 19.2392 4.15058 17.8254 4.15039 16.1514V6.84863C4.15062 4.80501 5.79657 3.15039 7.8252 3.15039ZM10.0254 3.15039H14.2314C14.4246 3.15053 14.5811 3.30679 14.5811 3.5V5.88672C14.5811 6.09992 14.4098 6.27134 14.2002 6.27148H10.0566C9.84697 6.27148 9.6748 6.10001 9.6748 5.88672V3.5C9.6748 3.3067 9.83209 3.15039 10.0254 3.15039Z"
                                 fill="currentColor" />
                         </svg>
-                        <span class="hidden group-hover:block group-hover:text-white"> Save </span>
+                        <span class="hidden group-hover:block group-hover:text-white"> {{ $t('common.buttons.save') }} </span>
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="store.settings.showTooltips ? 'Read text from image' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.ocr') : ''">
                     <button
                         @click="handleOCR"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -971,11 +958,13 @@
                                 </clipPath>
                             </defs>
                         </svg>
-                        <span class="hidden group-hover:block group-hover:text-white"> OCR </span>
+                        <span class="hidden group-hover:block group-hover:text-white">
+                            {{ $t('screenshot.ocr.button') }}
+                        </span>
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="store.settings.showTooltips ? 'Search with Google Lens' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.search') : ''">
                     <button
                         @click="handleSearch"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1010,11 +999,11 @@
                                 stroke-linecap="round"
                                 stroke-linejoin="round" />
                         </svg>
-                        <span class="hidden group-hover:block group-hover:text-white"> Search </span>
+                        <span class="hidden group-hover:block group-hover:text-white"> {{ $t('common.buttons.search') }} </span>
                     </button>
                 </Tooltip>
 
-                <Tooltip :text="store.settings.showTooltips ? 'Open in editor' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.edit') : ''">
                     <button
                         @click="handleEdit"
                         class="group hover:bg-primary-blue dark:hover:border-dark-800 flex cursor-pointer gap-2.5 rounded-full border border-transparent px-3.5 py-3 transition-all hover:border-white hover:px-5 dark:text-gray-200">
@@ -1033,12 +1022,12 @@
                                 d="M15.6103 11.53C15.3203 11.39 15.0403 11.25 14.7703 11.09C14.5503 10.96 14.3403 10.82 14.1303 10.67C13.9603 10.56 13.7603 10.4 13.5703 10.24C13.5503 10.23 13.4803 10.17 13.4003 10.09C13.0703 9.81 12.7003 9.45 12.3703 9.05C12.3403 9.03 12.2903 8.96 12.2203 8.87C12.1203 8.75 11.9503 8.55 11.8003 8.32C11.6803 8.17 11.5403 7.95 11.4103 7.73C11.2503 7.46 11.1103 7.19 10.9703 6.91C10.9491 6.86461 10.9286 6.81944 10.9088 6.77454C10.7612 6.44122 10.3265 6.34378 10.0688 6.60153L4.34032 12.33C4.21032 12.46 4.09032 12.71 4.06032 12.88L3.52032 16.71C3.42032 17.39 3.61032 18.03 4.03032 18.46C4.39032 18.81 4.89032 19 5.43032 19C5.55032 19 5.67032 18.99 5.79032 18.97L9.63032 18.43C9.81032 18.4 10.0603 18.28 10.1803 18.15L15.9016 12.4287C16.1612 12.1691 16.0633 11.7237 15.7257 11.5796C15.6877 11.5634 15.6492 11.5469 15.6103 11.53Z"
                                 fill="currentColor" />
                         </svg>
-                        <span class="hidden group-hover:block group-hover:text-white"> Edit </span>
+                        <span class="hidden group-hover:block group-hover:text-white"> {{ $t('common.buttons.edit') }} </span>
                     </button>
                 </Tooltip>
             </div>
 
-            <Tooltip :text="store.settings.showTooltips ? 'Cancel (esc)' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('screenshot.tooltips.cancel') : ''">
                 <div class="dark:bg-dark-800/90 flex items-center rounded-full bg-white/90">
                     <button
                         @click="handleCancel"
@@ -1093,7 +1082,7 @@
 
                     <!-- Loading Text with Animated Dots -->
                     <div class="flex items-center justify-center gap-1 text-white">
-                        <span class="text-lg font-medium">Extracting text</span>
+                        <span class="text-lg font-medium">{{ $t('screenshot.ocr.loadingTitle') }}</span>
                         <div class="flex gap-1">
                             <div class="animation-delay-0 h-1 w-1 animate-pulse rounded-full bg-white"></div>
                             <div class="animation-delay-150 h-1 w-1 animate-pulse rounded-full bg-white"></div>
@@ -1102,13 +1091,13 @@
                     </div>
 
                     <!-- Progress Indicator -->
-                    <div class="mt-4 text-sm text-white/70">Processing with OCR technology</div>
+                    <div class="mt-4 text-sm text-white/70">{{ $t('screenshot.ocr.loadingDescription') }}</div>
 
                     <!-- Close Button -->
                     <button
                         @click.stop="cancelOCR"
                         class="z-10 mt-2 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-all duration-200 hover:rotate-90 hover:bg-red-500"
-                        title="Cancel OCR"
+                        :title="$t('screenshot.ocr.cancel')"
                         type="button">
                         <svg
                             class="h-5 w-5"
@@ -1154,7 +1143,7 @@
                         <div class="dark:bg-dark-900 rounded-2xl bg-white p-6 shadow-2xl">
                             <!-- Modal Header -->
                             <div class="mb-6 flex items-center justify-between">
-                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">OCR Text</h3>
+                                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ $t('screenshot.ocr.modalTitle') }}</h3>
                                 <button
                                     @click="closeOCRModal"
                                     class="text-gray-7 dark:hover:bg-dark-700 rounded-full p-1.5 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:text-white">
@@ -1180,7 +1169,7 @@
                                         :value="ocrText"
                                         readonly
                                         class="h-48 w-full resize-none border-none bg-transparent text-sm text-gray-700 outline-none dark:text-gray-200"
-                                        placeholder="OCR text will appear here...">
+                                        :placeholder="$t('screenshot.ocr.placeholder')">
                                     </textarea>
                                 </div>
                             </div>

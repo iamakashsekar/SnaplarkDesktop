@@ -905,7 +905,7 @@ onUnmounted(() => {
         class="toolbar-container fixed z-102 flex justify-center gap-4 transition-shadow"
         :class="{ 'shadow-2xl': isDraggingToolbar }">
         <!-- Drag Handle -->
-        <Tooltip :text="store.settings.showTooltips ? 'Move' : ''">
+        <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.move') : ''">
             <div class="dark:bg-dark-800/90 dark:hover:bg-dark-700 flex cursor-move items-center rounded-full bg-white/90 px-2 py-3 transition-colors hover:bg-gray-100"
                 @mousedown="handleToolbarDragStart">
                 <svg class="size-5 text-gray-600 transition-colors dark:text-gray-400" viewBox="0 0 24 24"
@@ -918,7 +918,7 @@ onUnmounted(() => {
         </Tooltip>
 
         <div class="dark:bg-dark-800 flex items-center gap-3 rounded-full bg-white px-4 py-2">
-            <Tooltip :text="store.settings.showTooltips ? 'Undo' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.undo') : ''">
                 <button class="flex transition-colors" :class="{
                     'cursor-not-allowed opacity-40': !canUndo,
                     'hover:text-primary-blue cursor-pointer dark:text-gray-400': canUndo
@@ -927,7 +927,7 @@ onUnmounted(() => {
                 </button>
             </Tooltip>
 
-            <Tooltip :text="store.settings.showTooltips ? 'Redo' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.redo') : ''">
                 <button class="flex transition-colors" :class="{
                     'cursor-not-allowed opacity-40': !canRedo,
                     'hover:text-primary-blue cursor-pointer dark:text-gray-400': canRedo
@@ -939,7 +939,7 @@ onUnmounted(() => {
 
         <div class="dark:bg-dark-800 flex items-center gap-1 rounded-full bg-white px-4 py-1.5">
             <!-- Line -->
-            <Tooltip :text="store.settings.showTooltips ? 'Line' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.line') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('line')" :class="{
                         'bg-primary-blue text-white': activeTool === 'line',
@@ -950,7 +950,7 @@ onUnmounted(() => {
             </Tooltip>
 
             <!-- Arrow -->
-            <Tooltip :text="store.settings.showTooltips ? 'Arrow' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.arrow') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('arrow')" :class="{
                         'bg-primary-blue text-white': activeTool === 'arrow',
@@ -961,7 +961,7 @@ onUnmounted(() => {
             </Tooltip>
 
             <!-- Circle -->
-            <Tooltip :text="store.settings.showTooltips ? 'Circle' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.circle') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('ellipse')" :class="{
                         'bg-primary-blue text-white': activeTool === 'ellipse',
@@ -972,7 +972,7 @@ onUnmounted(() => {
             </Tooltip>
 
             <!-- Rectangle -->
-            <Tooltip :text="store.settings.showTooltips ? 'Rectangle' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.rectangle') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('rect')" :class="{
                         'bg-primary-blue text-white': activeTool === 'rect',
@@ -983,7 +983,7 @@ onUnmounted(() => {
             </Tooltip>
 
             <!-- Pencil -->
-            <Tooltip :text="store.settings.showTooltips ? 'Pencil' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.pencil') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('pencil')" :class="{
                         'bg-primary-blue text-white': activeTool === 'pencil',
@@ -994,7 +994,7 @@ onUnmounted(() => {
             </Tooltip>
 
             <!-- Highlight -->
-            <Tooltip :text="store.settings.showTooltips ? 'Highlight' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.highlight') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('highlighter')" :class="{
                         'bg-primary-blue text-white': activeTool === 'highlighter',
@@ -1004,7 +1004,7 @@ onUnmounted(() => {
                 </button>
             </Tooltip>
 
-            <Tooltip :text="store.settings.showTooltips ? 'Eraser' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.eraser') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('eraser')" :class="{
                         'bg-primary-blue text-white': activeTool === 'eraser',
@@ -1014,7 +1014,7 @@ onUnmounted(() => {
                 </button>
             </Tooltip>
 
-            <Tooltip :text="store.settings.showTooltips ? 'Blur' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.blur') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('blur')" :class="{
                         'bg-primary-blue text-white': activeTool === 'blur',
@@ -1024,7 +1024,7 @@ onUnmounted(() => {
                 </button>
             </Tooltip>
 
-            <Tooltip :text="store.settings.showTooltips ? 'Text' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.text') : ''">
                 <button class="flex size-6 cursor-pointer items-center justify-center rounded transition-colors"
                     @click="selectTool('text')" :class="{
                         'bg-primary-blue text-white': activeTool === 'text',
@@ -1036,7 +1036,7 @@ onUnmounted(() => {
 
             <!-- Color Picker -->
             <div class="relative size-5">
-                <Tooltip :text="store.settings.showTooltips ? 'Color' : ''">
+                <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.color') : ''">
                     <button @click="showColorPicker = true"
                         class="relative size-5 cursor-pointer rounded-full border transition hover:scale-105"
                         :style="{ background: selectedColor }"></button>
@@ -1047,14 +1047,14 @@ onUnmounted(() => {
         </div>
 
         <div class="dark:bg-dark-800 flex items-center gap-2 rounded-full bg-white px-3 py-1.5">
-            <Tooltip :text="store.settings.showTooltips ? 'Delete' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.delete') : ''">
                 <button @click="$emit('cancel')"
                     class="flex cursor-pointer text-red-500 transition-colors hover:text-red-600">
                     <DeleteIcon />
                 </button>
             </Tooltip>
 
-            <Tooltip :text="store.settings.showTooltips ? 'Done' : ''">
+            <Tooltip :text="store.settings.showTooltips ? $t('editor.tooltips.done') : ''">
                 <button @click="$emit('save')"
                     class="flex cursor-pointer text-green-500 transition-colors hover:text-green-600">
                     <CheckIcon />

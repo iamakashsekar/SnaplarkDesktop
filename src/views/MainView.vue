@@ -160,7 +160,7 @@
                                 fill="#2178FF" />
                         </svg>
                         <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
-                            Take Screenshot
+                            {{ $t('main.takeScreenshot') }}
                         </p>
                     </button>
                 </Tooltip>
@@ -182,7 +182,7 @@
                         </svg>
 
                         <p class="text-gray-black dark:group-hover:text-primary-blue text-sm font-bold dark:text-white">
-                            Record Video
+                            {{ $t('main.recordVideo') }}
                         </p>
                     </button>
                 </Tooltip>
@@ -222,8 +222,8 @@
                     :text="
                         store.settings.showTooltips
                             ? store.lastCapture
-                                ? 'Open last uploaded capture'
-                                : 'No capture uploaded yet'
+                                ? $t('main.openLastUploadedCapture')
+                                : $t('main.noCaptureUploadedYet')
                             : ''
                     ">
                     <button
@@ -263,7 +263,7 @@
                         </svg>
 
                         <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
-                            Last Capture
+                            {{ $t('main.lastCapture') }}
                         </p>
                     </button>
                 </Tooltip>
@@ -296,7 +296,7 @@
                     </svg>
 
                     <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
-                        Upload Media(s)
+                        {{ $t('main.uploadMedia') }}
                     </p>
                 </button>
 
@@ -344,7 +344,7 @@
                     </svg>
 
                     <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
-                        Uploaded History
+                        {{ $t('main.uploadedHistory') }}
                     </p>
                 </button>
             </div>
@@ -356,7 +356,7 @@
                 <Tooltip
                     :text="
                         store.settings.showTooltips
-                            ? `${store.getOs() === 'darwin' ? 'Quit' : 'Close'} (${store.getOs() === 'darwin' ? 'Cmd' : 'Ctrl'} + Q)`
+                            ? `${store.getOs() === 'darwin' ? $t('main.quit') : $t('main.close')} (${store.getOs() === 'darwin' ? 'Cmd' : 'Ctrl'} + Q)`
                             : ''
                     ">
                     <button
@@ -375,7 +375,7 @@
                         </svg>
 
                         <p class="text-gray-black dark:group-hover:text-primary-blue text-sm dark:text-white">
-                            {{ store.getOs() === 'darwin' ? 'Quit' : 'Close' }}
+                            {{ store.getOs() === 'darwin' ? $t('main.quit') : $t('main.close') }}
                         </p>
                     </button>
                 </Tooltip>
@@ -387,16 +387,16 @@
                         class="ring-primary-blue h-10 w-10 cursor-pointer rounded-full object-cover shadow-lg ring-2"
                         @click="visitProfile"
                         :src="store.user?.profile_photo_url"
-                        alt="User avatar" />
+                        :alt="$t('main.userAvatarAlt')" />
 
                     <div
                         class="flex-1 cursor-pointer"
                         @click="visitProfile">
                         <p class="text-sm font-semibold text-gray-800 dark:text-white">
-                            {{ store.user?.name || 'Jade Warren' }}
+                            {{ store.user?.name || $t('main.defaultUserName') }}
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ store.user?.is_premium ? 'Premium' : 'Free' }}
+                            {{ store.user?.is_premium ? $t('main.premium') : $t('main.free') }}
                         </p>
                     </div>
 
@@ -446,7 +446,7 @@
                                     fill="#2178FF" />
                             </svg>
 
-                            <span>Help</span>
+                            <span>{{ $t('main.help') }}</span>
                         </a>
                         <button
                             @click="openSettings"
@@ -463,7 +463,7 @@
                                     fill="#2178FF" />
                             </svg>
 
-                            <span>Settings</span>
+                            <span>{{ $t('main.settings') }}</span>
                         </button>
 
                         <button
@@ -481,7 +481,7 @@
                                     fill="#2178FF" />
                             </svg>
 
-                            <span>Report Issue</span>
+                            <span>{{ $t('main.reportIssue') }}</span>
                         </button>
 
                         <hr class="dark:border-dark-700 my-2 border-gray-400" />
@@ -503,7 +503,7 @@
                                     fill="#E12626" />
                             </svg>
 
-                            <span>Logout</span>
+                            <span>{{ $t('main.logout') }}</span>
                         </a>
                     </div>
                 </div>

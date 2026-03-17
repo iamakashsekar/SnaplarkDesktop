@@ -50,8 +50,8 @@
                                 class="absolute inset-0 animate-spin rounded-full border-4 border-white/20 border-t-white"></div>
                         </div>
                         <div class="text-center">
-                            <p class="text-lg font-semibold text-white">Processing video...</p>
-                            <small class="mt-1 block text-sm text-white/70">Please wait...</small>
+                            <p class="text-lg font-semibold text-white">{{ $t('videoPreview.processingTitle') }}</p>
+                            <small class="mt-1 block text-sm text-white/70">{{ $t('videoPreview.processingDescription') }}</small>
                         </div>
                     </div>
                 </div>

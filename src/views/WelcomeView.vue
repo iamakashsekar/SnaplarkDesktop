@@ -1,5 +1,6 @@
 <script setup>
-    import { onMounted, ref } from 'vue'
+    import { computed, onMounted, ref } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import { useWindows } from '../composables/useWindows'
     import { useStore } from '../store'
     import GradientFrame from '../components/GradientFrame.vue'
@@ -8,6 +9,7 @@
     const store = useStore()
 
     const { closeWindow, centerWindow, resizeWindowTo } = useWindows()
+    const { t } = useI18n()
 
     onMounted(async () => {
         await resizeWindowTo('welcome', 450, 455)
@@ -18,20 +20,20 @@
 
     const currentStep = ref(0)
 
-    const steps = ref([
+    const steps = computed(() => [
         {
             id: 1,
-            title: 'Click on widget',
+            title: t('welcome.steps.clickWidget'),
             image: store.getOs() === 'darwin' ? '1-step-mac.png' : '1-step-win.png'
         },
         {
             id: 2,
-            title: 'Click and drag to make a crop and select from any options',
+            title: t('welcome.steps.clickAndDrag'),
             image: '2-step.png'
         },
         {
             id: 3,
-            title: 'Right click widget for all the menu options',
+            title: t('welcome.steps.rightClickWidget'),
             image: store.getOs() === 'darwin' ? '3-step-mac.png' : '3-step-win.png'
         }
     ])
@@ -90,12 +92,12 @@
                     <!-- Background shapes -->
                     <img
                         src="@/assets/images/welcome-shape.png"
-                        alt="Welcome to Snaplark"
+                        :alt="$t('welcome.alts.background')"
                         class="absolute top-0 left-0 z-0 h-full w-full" />
 
                     <img
                         src="@/assets/images/welcome-shape-2.png"
-                        alt="Welcome to Snaplark"
+                        :alt="$t('welcome.alts.background')"
                         class="absolute top-0 left-0 z-0 h-full w-full" />
 
                     <!-- Content -->
@@ -104,8 +106,8 @@
                             <img
                                 class="w-80"
                                 src="@/assets/images/welcome-logo.png"
-                                alt="Welcome to Snaplark" />
-                            <p class="text-center dark:text-white">screen capture software</p>
+                                :alt="$t('welcome.alts.logo')" />
+                            <p class="text-center dark:text-white">{{ $t('welcome.tagline') }}</p>
                         </div>
 
                         <svg
@@ -182,7 +184,7 @@
                         <button
                             @click="startTour"
                             class="no-drag mt-10 cursor-pointer rounded-full bg-blue-500 px-6 py-3 font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
-                            Let's get started
+                            {{ $t('welcome.getStarted') }}
                         </button>
                     </div>
                 </div>
@@ -209,7 +211,7 @@
                                 </h1>
                                 <img
                                     :src="getImageUrl(steps[currentStep].image)"
-                                    alt="Welcome to Snaplark"
+                                    :alt="$t('welcome.alts.tourImage')"
                                     class="mx-auto mt-6 h-auto w-[400px]" />
                             </div>
                         </transition>
@@ -218,13 +220,13 @@
                             <button
                                 @click="finishSetup"
                                 class="no-drag w-full cursor-pointer rounded-full py-2 text-lg font-medium text-gray-500 transition-all duration-300 ease-in-out hover:text-gray-700 dark:text-gray-100 dark:hover:text-white">
-                                Skip Tour
+                                {{ $t('common.buttons.skipTour') }}
                             </button>
 
                             <button
                                 @click="nextStep"
                                 class="no-drag w-full cursor-pointer rounded-full bg-blue-500 py-2 text-lg font-medium text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none">
-                                {{ currentStep === steps.length - 1 ? 'Finish' : 'Next' }}
+                                {{ currentStep === steps.length - 1 ? $t('common.buttons.finish') : $t('common.buttons.next') }}
                             </button>
                         </div>
                     </div>

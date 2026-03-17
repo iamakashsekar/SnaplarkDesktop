@@ -1,10 +1,14 @@
 <script setup>
     import { computed, onMounted, ref } from 'vue'
+    import { useI18n } from 'vue-i18n'
     import Switch from '@/components/Switch.vue'
     import TitleBar from '@/components/TitleBar.vue'
-    import { WINDOW_TITLES } from '@/config/window-config'
+    import { WINDOW_TITLE_KEYS } from '@/config/window-config'
     import { submitIssueReport, formatAttachmentSize } from '@/api/issue-report.js'
+    import { formatLocalizedDateTime } from '@/i18n/formatters'
     import { rendererLogService } from '@/services/renderer-log-service.js'
+
+    const { t } = useI18n()
 
     const message = ref('')
     const screenshotFile = ref(null)
@@ -20,7 +24,7 @@
 
     const screenshotSummary = computed(() => {
         if (!screenshotFile.value) {
-            return 'No screenshot attached'
+            return t('issueReport.noScreenshotAttached')
         }
 
         return `${screenshotFile.value.name} (${formatAttachmentSize(screenshotFile.value.size)})`
@@ -123,7 +127,7 @@
 
             feedback.value = {
                 type: 'success',
-                message: 'Issue report submitted successfully.'
+                message: t('issueReport.feedback.submitted')
             }
             resetForm()
         } catch (error) {
@@ -146,8 +150,8 @@
             feedback.value = {
                 type: 'error',
                 message: backendNotReady
-                    ? 'The report UI is ready, but the backend endpoint is not available yet.'
-                    : error?.message || 'Failed to submit issue report.'
+                    ? t('issueReport.feedback.backendNotReady')
+                    : error?.message || t('issueReport.feedback.submitFailed')
             }
         } finally {
             isSubmitting.value = false
@@ -165,13 +169,13 @@
 
 <template>
     <section class="dark:bg-dark-blue flex h-screen flex-col bg-white text-slate-900 dark:text-gray-200">
-        <TitleBar :title="WINDOW_TITLES.issueReport" />
+        <TitleBar :title="$t(WINDOW_TITLE_KEYS.issueReport)" />
 
         <div class="flex items-start justify-between px-5 pb-2">
             <div>
-                <h1 class="text-xl font-semibold text-slate-900 dark:text-white">Report an issue</h1>
+                <h1 class="text-xl font-semibold text-slate-900 dark:text-white">{{ $t('issueReport.title') }}</h1>
                 <p class="mt-0.5 text-sm text-slate-500 dark:text-gray-400">
-                    Send a message to engineering with optional screenshot and diagnostics.
+                    {{ $t('issueReport.description') }}
                 </p>
             </div>
         </div>
@@ -190,14 +194,14 @@
 
             <div class="dark:border-dark-700 dark:bg-dark-800 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
                 <label class="block">
-                    <span class="text-sm font-semibold text-slate-800 dark:text-gray-100">What happened?</span>
+                    <span class="text-sm font-semibold text-slate-800 dark:text-gray-100">{{ $t('issueReport.whatHappened') }}</span>
                     <span class="mt-1 block text-xs text-slate-500 dark:text-gray-400">
-                        Required. Describe what the user was doing and what went wrong.
+                        {{ $t('issueReport.whatHappenedHelp') }}
                     </span>
                     <textarea
                         v-model="message"
                         rows="4"
-                        placeholder="Example: The app froze after I started a screen recording and tried to enable my webcam."
+                        :placeholder="$t('issueReport.whatHappenedPlaceholder')"
                         class="dark:border-dark-700 dark:bg-dark-900 mt-2.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 transition outline-none focus:border-blue-400 dark:text-gray-100" />
                 </label>
             </div>
@@ -205,15 +209,15 @@
             <div class="dark:border-dark-700 dark:bg-dark-800 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-sm font-semibold text-slate-800 dark:text-gray-100">Screenshot attachment</h2>
+                        <h2 class="text-sm font-semibold text-slate-800 dark:text-gray-100">{{ $t('issueReport.screenshotAttachment') }}</h2>
                         <p class="mt-1 text-xs text-slate-500 dark:text-gray-400">
-                            Optional. Add a screenshot that shows the problem.
+                            {{ $t('issueReport.screenshotAttachmentHelp') }}
                         </p>
                     </div>
 
                     <label
                         class="cursor-pointer rounded-lg border border-blue-400/40 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-500/20 dark:text-blue-400">
-                        Choose image
+                        {{ $t('common.buttons.chooseImage') }}
                         <input
                             type="file"
                             accept="image/*"
@@ -230,7 +234,7 @@
                         type="button"
                         @click="removeScreenshot"
                         class="ml-3 rounded-lg px-2 py-1 text-xs text-red-500 transition hover:bg-red-500/10">
-                        Remove
+                        {{ $t('common.buttons.remove') }}
                     </button>
                 </div>
             </div>
@@ -238,10 +242,9 @@
             <div class="dark:border-dark-700 dark:bg-dark-800 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
-                        <h2 class="text-sm font-semibold text-slate-800 dark:text-gray-100">Diagnostic log</h2>
+                        <h2 class="text-sm font-semibold text-slate-800 dark:text-gray-100">{{ $t('issueReport.diagnosticLog') }}</h2>
                         <p class="mt-1 text-xs text-slate-500 dark:text-gray-400">
-                            Optional. Attach the live application log collected from startup through the current
-                            session.
+                            {{ $t('issueReport.diagnosticLogHelp') }}
                         </p>
                     </div>
 
@@ -259,10 +262,10 @@
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-medium text-slate-700 dark:text-gray-100">
-                                {{ logFileInfo?.filename || 'Diagnostic log unavailable' }}
+                                {{ logFileInfo?.filename || $t('issueReport.diagnosticLogUnavailable') }}
                             </p>
                             <p class="mt-0.5 truncate text-xs text-slate-500 dark:text-gray-400">
-                                {{ logFileInfo?.path || 'No log file has been initialized yet.' }}
+                                {{ logFileInfo?.path || $t('issueReport.diagnosticLogNotInitialized') }}
                             </p>
                         </div>
 
@@ -271,14 +274,14 @@
                             :disabled="!logFileInfo?.path"
                             @click="openDiagnosticLog"
                             class="dark:border-dark-700 dark:hover:bg-dark-800 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-300">
-                            Reveal log
+                            {{ $t('common.buttons.revealLog') }}
                         </button>
                     </div>
 
                     <p class="mt-2 text-xs text-slate-500 dark:text-gray-400">
-                        Size: {{ formatAttachmentSize(logFileInfo?.sizeBytes || 0) }}
+                        {{ $t('common.labels.size') }}: {{ formatAttachmentSize(logFileInfo?.sizeBytes || 0) }}
                         <span v-if="logFileInfo?.updatedAt"
-                            >• Updated {{ new Date(logFileInfo.updatedAt).toLocaleString() }}</span
+                            >• {{ $t('common.labels.updated') }} {{ formatLocalizedDateTime(logFileInfo.updatedAt) }}</span
                         >
                     </p>
                 </div>
@@ -287,7 +290,7 @@
 
         <div class="dark:border-dark-700 flex items-center justify-between border-t border-slate-200 px-5 py-3">
             <div class="text-xs text-slate-500 dark:text-gray-400">
-                {{ deviceName || 'Unknown device' }}<span v-if="appVersion"> • v{{ appVersion }}</span>
+                {{ deviceName || $t('common.labels.unknownDevice') }}<span v-if="appVersion"> • v{{ appVersion }}</span>
             </div>
 
             <button
@@ -295,7 +298,7 @@
                 :disabled="isSubmitDisabled"
                 @click="submit"
                 class="bg-primary-blue cursor-pointer rounded-full px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 transition-all duration-300 ease-in-out hover:bg-blue-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60">
-                {{ isSubmitting ? 'Submitting...' : 'Submit report' }}
+                {{ isSubmitting ? $t('common.states.submitting') : $t('issueReport.submitReport') }}
             </button>
         </div>
     </section>

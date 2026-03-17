@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { serializeError, serializeForLog } from '../services/log-shared.js'
+import { translate } from '../i18n'
 
 // Centralized URL Configuration
 export const BASE_URL = 'https://snaplark.com'
@@ -154,7 +155,7 @@ const responseErrorInterceptor = async (error) => {
         console.error('[Connection Aborted]', error.message)
         return Promise.reject({
             ...error,
-            message: 'Connection was interrupted. Please try again.',
+            message: translate('errors.connectionInterrupted'),
             isConnectionError: true
         })
     }
@@ -164,7 +165,7 @@ const responseErrorInterceptor = async (error) => {
         console.error('[Network Error]', error.message)
         return Promise.reject({
             ...error,
-            message: 'Network error. Please check your connection.',
+            message: translate('errors.network'),
             isNetworkError: true
         })
     }

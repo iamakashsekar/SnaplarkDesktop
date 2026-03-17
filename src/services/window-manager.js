@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'node:path'
-import { WINDOW_TITLES, WINDOW_DIMENSIONS } from '../config/window-config.js'
+import { WINDOW_DIMENSIONS } from '../config/window-config.js'
+import { getWindowTitle } from '../i18n/shared.js'
 import mainLogService from './main-log-service.js'
 import { inspectWindowAtScreenPoint } from './window-inspector-service.js'
 
@@ -13,6 +14,25 @@ class WindowManager {
         this.shortcutManager = shortcutManager
         this.windowConfigs = this.getWindowConfigs()
         this.setupHandlers()
+    }
+
+    refreshLocalizedWindowTitles() {
+        this.windowConfigs = this.getWindowConfigs()
+
+        const titleTypes = {
+            settings: 'settings',
+            'issue-report': 'issueReport',
+            welcome: 'welcome',
+            permissions: 'permissions',
+            update: 'update'
+        }
+
+        Object.entries(titleTypes).forEach(([windowType, titleKey]) => {
+            const window = this.windows.get(windowType)
+            if (window && !window.isDestroyed()) {
+                window.setTitle(getWindowTitle(this.store, titleKey))
+            }
+        })
     }
 
     // ==================== CONFIGURATION ====================
@@ -67,7 +87,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: false,
-                title: WINDOW_TITLES.settings,
+                title: getWindowTitle(this.store, 'settings'),
                 show: false,
                 modal: false,
                 frame: false,
@@ -92,7 +112,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: false,
                 skipTaskbar: false,
-                title: WINDOW_TITLES.issueReport,
+                title: getWindowTitle(this.store, 'issueReport'),
                 show: false,
                 modal: false,
                 frame: false,
@@ -119,7 +139,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: false,
-                title: WINDOW_TITLES.welcome,
+                title: getWindowTitle(this.store, 'welcome'),
                 show: false,
                 modal: false
             },
@@ -265,7 +285,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: false,
-                title: WINDOW_TITLES.permissions,
+                title: getWindowTitle(this.store, 'permissions'),
                 show: false,
                 modal: false,
                 frame: false,
@@ -292,7 +312,7 @@ class WindowManager {
                 resizable: false,
                 alwaysOnTop: true,
                 skipTaskbar: false,
-                title: WINDOW_TITLES.update,
+                title: getWindowTitle(this.store, 'update'),
                 show: false,
                 modal: false,
                 focusable: true,
